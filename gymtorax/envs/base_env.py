@@ -1,5 +1,5 @@
 from numpy._typing._array_like import NDArray
-from ..torax import ToraxApp, ConfigLoader
+from ..torax import ToraxApp, ConfigLoader, expand_sources
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -106,7 +106,7 @@ class BaseEnv(gym.Env):
             The action space of the environment.
         """
         Ip_bounds, Vloop_bounds, ES_k_bounds  = self.torax_app.get_action_space()
-        ES_k_bounds = self.torax_app.expand_sources(ES_k_bounds)
+        ES_k_bounds = expand_sources(ES_k_bounds)
 
         lower_bounds, upper_bounds = [], []
         for bounds in [Ip_bounds, Vloop_bounds] + ES_k_bounds:
