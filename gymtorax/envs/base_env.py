@@ -40,8 +40,8 @@ class BaseEnv(gym.Env):
         
         torax_state = self.torax_app.get_state()
         state = self._build_gym_state(torax_state)
-        
-        self.torax_app.update_config(action, self.current_time)
+
+        self.torax_app.update_config(action)
         success = self.torax_app.run()
 
         # if the simulation did not finish, a terminal state is reached

@@ -51,7 +51,6 @@ class ToraxApp:
         __init__(config, delta_t_a, ratio_ta_tsim, filename): Initializes the Torax application 
             with the provided configuration.
         start(): Initializes the Torax application with the provided configuration. 
-        update_config(action): Updates the configuration of the simulation based on the provided action.
         run(): Performs a "single" simulation "step" inside of TORAX (t_current -> t_current + delta_t_a).
         render(plot_configs, gif_name): Renders the simulation results using the provided plot configurations 
             and saves them to files.
@@ -74,13 +73,9 @@ class ToraxApp:
         else :
             config['numerics']['t_final'] = config['numerics']['t_initial'] + self.delta_t_a 
             self.t_current = config['numerics']['t_initial']
-            
-        config['numerics']['evolve_current'] = True
-        config['numerics']['evolve_density'] = True
-        config['time_step_calculator']['calculator_type'] = 'fixed'
         
-        self.config = config
-        self.config_dict = torax.ToraxConfig.from_dict(config)
+        self.config = ConfigLoader(config)
+        self.config.validate()
         
         self.is_start: bool = False     #Indicates if the application has been started
         
@@ -110,26 +105,26 @@ class ToraxApp:
             static runtime parameters slice, dynamic runtime parameters slice provider, step function,
             initial state, post-processed outputs, and a boolean indicating if the restart case is True.
         """
-        self.transport_model = self.config_dict.transport.build_transport_model()
-        self.pedestal_model = self.config_dict.pedestal.build_pedestal_model()
+        self.transport_model = self.config.config_torax.transport.build_transport_model()
+        self.pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
 
-        self.geometry_provider = self.config_dict.geometry.build_provider
+        self.geometry_provider = self.config.config_torax.geometry.build_provider
         self.source_models = source_models_lib.SourceModels(
-            self.config_dict.sources, neoclassical=self.config_dict.neoclassical
+            self.config.config_torax.sources, neoclassical=self.config.config_torax.neoclassical
         )
 
         self.static_runtime_params_slice = (
-        build_runtime_params.build_static_params_from_config(self.config_dict)
+        build_runtime_params.build_static_params_from_config(self.config.config_torax)
         )
 
-        self.solver = self.config_dict.solver.build_solver(
+        self.solver = self.config.config_torax.solver.build_solver(
         static_runtime_params_slice=self.static_runtime_params_slice,
         transport_model=self.transport_model,
         source_models=self.source_models,
         pedestal_model=self.pedestal_model,
         )
 
-        self.mhd_models = self.config_dict.mhd.build_mhd_models(
+        self.mhd_models = self.config.config_torax.mhd.build_mhd_models(
             static_runtime_params_slice=self.static_runtime_params_slice,
             transport_model=self.transport_model,
             source_models=self.source_models,
@@ -138,7 +133,7 @@ class ToraxApp:
 
         self.step_fn = step_function.SimulationStepFn(
             solver=self.solver,
-            time_step_calculator= self.config_dict.time_step_calculator.time_step_calculator,
+            time_step_calculator= self.config.config_torax.time_step_calculator.time_step_calculator,
             transport_model=self.transport_model,
             pedestal_model=self.pedestal_model,
             mhd_models=self.mhd_models,
@@ -146,15 +141,15 @@ class ToraxApp:
 
         self.dynamic_runtime_params_slice_provider = (
             build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.config_dict
+                self.config.config_torax
             )
         )
         # Manage the restart section in the config
-        if self.config_dict.restart and self.config_dict.restart.do_restart:
+        if self.config.config_torax.restart and self.config.config_torax.restart.do_restart:
             self.initial_state, self.post_processed_outputs = (
                 initial_state_lib.get_initial_state_and_post_processed_outputs_from_file(
-                    t_initial=self.config_dict.numerics.t_initial,
-                    file_restart=self.config_dict.restart,
+                    t_initial=self.config.config_torax.numerics.t_initial,
+                    file_restart=self.config.config_torax.restart,
                     static_runtime_params_slice=self.static_runtime_params_slice,
                     dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                     geometry_provider=self.geometry_provider,
@@ -165,7 +160,7 @@ class ToraxApp:
         else:
             self.initial_state, self.post_processed_outputs = (
                 initial_state_lib.get_initial_state_and_post_processed_outputs(
-                    t=self.config_dict.numerics.t_initial,
+                    t=self.config.config_torax.numerics.t_initial,
                     static_runtime_params_slice=self.static_runtime_params_slice,
                     dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                     geometry_provider=self.geometry_provider,
@@ -175,9 +170,9 @@ class ToraxApp:
             restart_case = False
             
         self.is_start = True
-        
 
-    def update_config(self, action: dict) -> dict:
+
+    def update_config(self, action) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
@@ -185,114 +180,19 @@ class ToraxApp:
             action: A dictionary containing the new configuration values for sources and profile conditions.
         Returns:
             The updated configuration dictionary.
-        Raises:
-            RuntimeError: If the application has not been started before updating the configuration.
         """
-        if not self.is_start:
-            raise RuntimeError("ToraxApp must be started before updating the config.")
-        
-        self.config['numerics']['t_initial'] = self.t_current
-        self.config['numerics']['t_final'] = self.t_current + self.delta_t_a
-        if self.config['numerics']['t_final'] > self.t_final:
-            self.config['numerics']['t_final'] = self.t_final
-            
-        if self.t_current >= self.t_final:
-            print("Simulation has reached the final time, no further steps will be executed.")
-            return self.config
-        
-        if not action:
-            print("No action provided, returning current config.")
-        else:
-            keys = action.keys()
-            # Unlike other variables, 'sources' and 'profile_conditions' require manual merging.
-            # TORAX does not update these profiles automatically; it keeps the last state for the entire simulation.
-            # This code merges the existing data (before the current time) with the new data.
-            if 'sources' in keys: 
-                for source_name, new_source_profile in action['sources'].items():
-                    old_source_profile = self.config['sources'].get(source_name, {})
-                    merged_source_profile = {}
-
-                    for param, new_val in new_source_profile.items():
-                        old_val = old_source_profile.get(param)
-
-                        # Si la valeur est un profil temporel (dict)
-                        if isinstance(new_val, dict):
-                            merged_val = {}
-
-                            # Conserver ancien < t_current
-                            if isinstance(old_val, dict):
-                                for t, val in old_val.items():
-                                    if float(t) < self.t_current:
-                                        merged_val[t] = val
-
-                            # Ajouter nouveau ≥ t_current
-                            for t, val in new_val.items():
-                                if float(t) >= self.t_current:
-                                    merged_val[t] = val
-
-                            merged_source_profile[param] = merged_val
-
-                        else:
-                            # Valeur scalaire → remplacer directement
-                            merged_source_profile[param] = new_val
-
-                    self.config['sources'][source_name] = merged_source_profile
-
-            if 'profile_conditions' in keys:
-                if 'Ip' in action['profile_conditions']:
-                    new_ip_profile = action['profile_conditions']['Ip']
-                    old_ip_profile = self.config['profile_conditions'].get('Ip', {})
-                    print(old_ip_profile)
-                    merged_ip_profile = {}
-
-                    for t, val in old_ip_profile.items():
-                        if float(t) < self.t_current:
-                            merged_ip_profile[t] = val
-                    for t, val in new_ip_profile.items():
-                        if float(t) >= self.t_current:
-                            merged_ip_profile[t] = val
-
-                    self.config['profile_conditions']['Ip'] = merged_ip_profile
-
-                if 'V_loop' in action['profile_conditions']:
-                    new_vloop_profile = action['profile_conditions']['V_loop']
-                    old_vloop_profile = self.config['profile_conditions'].get('V_loop', {})
-                    merged_vloop_profile = {}
-
-                    for t, val in old_vloop_profile.items():
-                        if float(t) < self.t_current:
-                            merged_vloop_profile[t] = val
-                    for t, val in new_vloop_profile.items():
-                        if float(t) >= self.t_current:
-                            merged_vloop_profile[t] = val
-
-                    self.config['profile_conditions']['V_loop'] = merged_vloop_profile
-                    
-        #Prepare the restart file
-        restart_path = f".\\outputs\\{self.filename}.nc"
-        if 'restart' not in self.config:
-            self.config['restart'] = {
-                'do_restart': os.path.isfile(restart_path),
-                'filename': restart_path,
-                'time': self.t_current,
-                'stitch': True,
-            }
-        else:
-            self.config['restart']['filename'] = restart_path
-            self.config['restart']['time'] = self.t_current
-            # Active le restart seulement si le fichier existe
-            self.config['restart']['do_restart'] = os.path.isfile(restart_path)
-            self.config['restart']['stitch'] = True
-
-        
-        self.config_dict = torax.ToraxConfig.from_dict(self.config)
+        self.config.update_config(action,
+                                  self.t_current,
+                                  self.t_final,
+                                  self.delta_t_a,
+                                  self.filename)
+                
         self.dynamic_runtime_params_slice_provider = (
             build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.config_dict
+                self.config.config_torax
             )
         )
-        
-        return self.config
+
 
     def run(self)-> tuple:
         """ Executes a single action step from `t_current` to `t_current + delta_t_a`.
@@ -331,10 +231,10 @@ class ToraxApp:
             state_history=state_history,
             post_processed_outputs_history=post_processed_outputs_history,
             sim_error=sim_error,
-            torax_config=self.config_dict,
+            torax_config=self.config.config_torax,
         )
         self.t_current += self.delta_t_a
-        self.state_xr = state_history.simulation_output_to_xr(self.config_dict.restart)
+        self.state_xr = state_history.simulation_output_to_xr(self.config.config_torax.restart)
         self.history = state_history
         
         # Create the outputs directory and the output file if they don't exist

@@ -9,7 +9,7 @@ management for Gymnasium environments.
 from typing import Any
 import torax
 from torax import ToraxConfig
-
+import os
 
 class ConfigLoader:
     """
@@ -44,6 +44,7 @@ class ConfigLoader:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(config)
         except Exception as e:
             raise ValueError(f"Invalid TORAX configuration: {e}")
+        
         
     def get_dict(self) -> dict[str, Any]:
         """
@@ -97,23 +98,123 @@ class ConfigLoader:
             return float(fixed_dt)
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
-    
-    def update_config(self, action) -> None:
-        """
-        Update the configuration based on the provided action.
-        
-        TODO
-        
+
+    def update_config(self, action: dict, current_time: float, final_time: float, delta_t_a: float, filename: str) -> dict:
+        """Update the configuration of the simulation based on the provided action.
+        This method updates the configuration dictionary with new values for sources and profile conditions.
+        It also prepares the restart file if necessary. 
         Args:
-            action: The action from the RL agent to apply to the configuration
-            
-        Note:
-            This method is currently not implemented and should be customized
-            based on the specific action space and configuration parameters
-            that need to be modified during training.
+            action: A dictionary containing the new configuration values for sources and profile conditions.
+        Returns:
+            The updated configuration dictionary.
         """
-        # TODO: Implement based on specific action-to-config mapping
-        # This will depend on:
-        # - Which TORAX parameters should be controlled by the RL agent
-        # - How to map action values to meaningful configuration changes
-        pass
+        
+        self.config_dict['numerics']['t_initial'] = current_time
+        self.config_dict['numerics']['t_final'] = current_time + delta_t_a
+        if self.config_dict['numerics']['t_final'] > final_time:
+            self.config_dict['numerics']['t_final'] = final_time
+
+        if not action:
+            print("No action provided, returning current config.")
+        else:
+            keys = action.keys()
+            # Unlike other variables, 'sources' and 'profile_conditions' require manual merging.
+            # TORAX does not update these profiles automatically; it keeps the last state for the entire simulation.
+            # This code merges the existing data (before the current time) with the new data.
+            if 'sources' in keys: 
+                for source_name, new_source_profile in action['sources'].items():
+                    old_source_profile = self.config_dict['sources'].get(source_name, {})
+                    merged_source_profile = {}
+
+                    for param, new_val in new_source_profile.items():
+                        old_val = old_source_profile.get(param)
+
+                        # Si la valeur est un profil temporel (dict)
+                        if isinstance(new_val, dict):
+                            merged_val = {}
+
+                            # Conserver ancien < t_current
+                            if isinstance(old_val, dict):
+                                for t, val in old_val.items():
+                                    if float(t) < current_time:
+                                        merged_val[t] = val
+
+                            # Ajouter nouveau ≥ t_current
+                            for t, val in new_val.items():
+                                if float(t) >= current_time:
+                                    merged_val[t] = val
+
+                            merged_source_profile[param] = merged_val
+
+                        else:
+                            # Valeur scalaire → remplacer directement
+                            merged_source_profile[param] = new_val
+
+                    self.config_dict['sources'][source_name] = merged_source_profile
+
+            if 'profile_conditions' in keys:
+                if 'Ip' in action['profile_conditions']:
+                    new_ip_profile = action['profile_conditions']['Ip']
+                    old_ip_profile = self.config_dict['profile_conditions'].get('Ip', {})
+                    print(old_ip_profile)
+                    merged_ip_profile = {}
+
+                    for t, val in old_ip_profile.items():
+                        if float(t) < current_time:
+                            merged_ip_profile[t] = val
+                    for t, val in new_ip_profile.items():
+                        if float(t) >= current_time:
+                            merged_ip_profile[t] = val
+
+                    self.config_dict['profile_conditions']['Ip'] = merged_ip_profile
+
+                if 'V_loop' in action['profile_conditions']:
+                    new_vloop_profile = action['profile_conditions']['V_loop']
+                    old_vloop_profile = self.config_dict['profile_conditions'].get('V_loop', {})
+                    merged_vloop_profile = {}
+
+                    for t, val in old_vloop_profile.items():
+                        if float(t) < current_time:
+                            merged_vloop_profile[t] = val
+                    for t, val in new_vloop_profile.items():
+                        if float(t) >= current_time:
+                            merged_vloop_profile[t] = val
+
+                    self.config_dict['profile_conditions']['V_loop'] = merged_vloop_profile
+                    
+        #Prepare the restart file
+        restart_path = os.path.join("outputs", f"{filename}.nc")
+        if 'restart' not in self.config_dict:
+            self.config_dict['restart'] = {
+                'do_restart': os.path.isfile(restart_path),
+                'filename': restart_path,
+                'time': current_time,
+                'stitch': True,
+            }
+        else:
+            self.config_dict['restart']['filename'] = restart_path
+            self.config_dict['restart']['time'] = current_time
+            # Active le restart seulement si le fichier existe
+            self.config_dict['restart']['do_restart'] = os.path.isfile(restart_path)
+            self.config_dict['restart']['stitch'] = True
+
+        # Finally, update the TORAX config accordingly
+        self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
+
+
+    def validate(self) -> None:
+        """
+        Validate the configuration dictionary.
+        
+        This method checks that the configuration contains all required keys
+        and that their values are of the expected types for a Gym-TORAX
+        environment.
+        
+        Raises:
+            ValueError: If the configuration is invalid
+        """
+        # TODO: Implement validation logic based on Gym-TORAX requirements
+
+        if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
+            raise ValueError(f"Invalid value: calculator_type should always be 'fixed' when using Gym-TORAX, got {self.config_dict['time_step_calculator']['calculator_type']}")
+
