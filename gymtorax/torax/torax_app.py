@@ -15,6 +15,30 @@ from torax.plotting.configs.sources_plot_config import PLOT_CONFIG as sources_pl
 from matplotlib import pyplot as plt
 import matplotlib
 import os
+from dataclasses import dataclass
+
+@dataclass
+class Bounds:
+    min: float
+    max: float
+
+@dataclass
+class SourceBounds:
+    total: Bounds
+    loc: Bounds
+    width: Bounds
+    
+def expand_sources(ES_k_bounds:list[SourceBounds]) -> list[Bounds]:
+    """Transform the list of SourceBounds (tuples of Bounds) into the corresponding
+    list of bounds (deleting the SourceBounds wrapper)
+
+    Returns
+    -------
+    list
+        The expanded action space for the sources.
+    """
+    return [bounds for source in ES_k_bounds for bounds in (source.total, source.loc, source.width)]
+    
 
 """To do
 
@@ -376,8 +400,34 @@ class ToraxApp:
                 frame_skip=2,
             )
         
+    def close(self):
+        """Close TORAX ? DELETE OUTPUT FILE(s)"""
+        pass
         
+    def get_action_space(self) -> tuple[Bounds, Bounds, list[SourceBounds]]:
+        """Get the action space for the simulation.
+        Format is (Ip_bounds, Vloop_bounds, ES_k_bounds), with Ip_bounds and
+        Vloops_bounds being a tuple of (min, max), and ES_k_bounds being a
+        list of sources with ([min,max], [min,max], [min,max]) bounds.
+        """
+        pass
+    
+    def get_state_space(self) -> list[Bounds]:
+        """Get the state space for the simulation.
         
+        """
+        pass
+    
+    def get_state(self):
+        """_summary_
+        """
+        pass
+    
+    def get_observation(self):
+        "Return the observation of the last simulated state"
+        pass
+
+
 if __name__ == "__main__":
     import config_file_test
     
