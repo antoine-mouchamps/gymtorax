@@ -14,14 +14,14 @@ class BaseEnv(gym.Env):
     def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None):
         # TODO I HAVE NO CLUE
         
-        self.config:ConfigLoader = ConfigLoader(config)
+        self.config: ConfigLoader = ConfigLoader(config)
         self.torax_app: ToraxApp = ToraxApp(config, self.delta_t_a)
 
-        self.T:float = self.config.get_total_simulation_time() # total time (seconds) of the simulation
-        self.delta_t_sim:float = self.config.get_simulation_timestep() # elapsed time between two simulation states
-        self.delta_t_a:float = ratio_a_sim * self.delta_t_sim # elapsed time between two actions
-        self.current_time:float = 0 # current time (seconds) of the simulation
-        self.timestep:int = 0 # current amount of timesteps
+        self.T: float = self.config.get_total_simulation_time() # total time (seconds) of the simulation
+        self.delta_t_sim: float = self.config.get_simulation_timestep() # elapsed time between two simulation states
+        self.delta_t_a: float = ratio_a_sim * self.delta_t_sim # elapsed time between two actions
+        self.current_time: float = 0 # current time (seconds) of the simulation
+        self.timestep: int = 0 # current amount of timesteps
 
         # Build the action and observation spaces
         self.action_space = self._build_action_space()

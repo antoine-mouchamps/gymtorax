@@ -12,8 +12,6 @@ from torax.plotting.configs.simple_plot_config import PLOT_CONFIG as simple_plot
 from torax.plotting.configs.global_params_plot_config import PLOT_CONFIG as global_params_plot_config
 from torax.plotting.configs.default_plot_config import PLOT_CONFIG as default_plot_config
 from torax.plotting.configs.sources_plot_config import PLOT_CONFIG as sources_plot_config
-from matplotlib import pyplot as plt
-import matplotlib
 import os
 from sources import Bounds, SourceBounds
 from config_loader import ConfigLoader
@@ -43,19 +41,18 @@ class ToraxApp:
     Attributes:
         config: The configuration dictionary for the Torax application.
         delta_t_a: The time step for the actions.
-        ratio_ta_tsim: The ratio of delta_t_a to tsim.
         filename: The name of the file where the simulation state will be saved. The format is 
             'outputs/{filename}.nc'.
     
     Methods:
-        __init__(config, delta_t_a, ratio_ta_tsim, filename): Initializes the Torax application 
+        __init__(config, delta_t_a, filename): Initializes the Torax application 
             with the provided configuration.
         start(): Initializes the Torax application with the provided configuration. 
         run(): Performs a "single" simulation "step" inside of TORAX (t_current -> t_current + delta_t_a).
         render(plot_configs, gif_name): Renders the simulation results using the provided plot configurations 
             and saves them to files.
     """
-    def __init__(self, config: dict, delta_t_a: float, ratio_ta_tsim: int, filename: str):
+    def __init__(self, config: dict, delta_t_a: float, filename: str):
         # Difficulty: Default values are possible but they are not provided in config.
         #It is hard to check without raising an error. It is possible to check inside
         #config_dict but it is more annoying to modify inside it.
@@ -63,14 +60,12 @@ class ToraxApp:
         self.filename = filename
         
         self.delta_t_a = delta_t_a
-        self.ratio_ta_tsim = ratio_ta_tsim
-        config['numerics']['fixed_dt'] = delta_t_a / ratio_ta_tsim
         self.t_final = config['numerics']['t_final']
         
         if 't_initial' not in config['numerics']:
             config['numerics']['t_final'] = self.delta_t_a   
             self.t_current = 0.0
-        else :
+        else:
             config['numerics']['t_final'] = config['numerics']['t_initial'] + self.delta_t_a 
             self.t_current = config['numerics']['t_initial']
         
@@ -215,7 +210,7 @@ class ToraxApp:
                 self.state_xr,
                 self.history,
             )
-        
+
         state_history, post_processed_outputs_history, sim_error = run_loop.run_loop(
             static_runtime_params_slice=self.static_runtime_params_slice,
             dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
@@ -253,6 +248,7 @@ class ToraxApp:
                 self.state_xr,
                 self.history,
         )
+
         
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
         """Renders the simulation results using the provided plot configurations and saves them in a gif file.
@@ -275,7 +271,7 @@ class ToraxApp:
                 plot_config=plot_configs[plot_config],
                 outfile=f"outputs/{self.filename}.nc",
                 gif_filename=f"plots/{gif_name}_{plot_config}.gif", 
-                frame_skip=2,
+                frame_skip=5,
             )
         
     def close(self):
@@ -311,7 +307,7 @@ if __name__ == "__main__":
     
     config_test = config_file_test.CONFIG
     
-    torax_env = ToraxApp(config_test, delta_t_a=50, ratio_ta_tsim=50, filename='torax_iter_long')
+    torax_env = ToraxApp(config_test, delta_t_a=50, filename='torax_iter_long')
     
     if False:
         torax_env.start()
