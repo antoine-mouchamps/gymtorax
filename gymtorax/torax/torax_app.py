@@ -18,7 +18,7 @@ import os
 
 """To do
 
-    - Update pedestal model
+    - HANDLE pedestal model
     - Test sources
     - Create raise error if the application is not started/other issues
     
@@ -174,19 +174,6 @@ class ToraxApp:
             
         self.is_start = True
         
-        return (
-            self.transport_model,
-            self.pedestal_model,
-            self.geometry_provider,
-            self.source_models,
-            self.static_runtime_params_slice,
-            self.dynamic_runtime_params_slice_provider,
-            self.step_fn,
-            self.initial_state,
-            self.post_processed_outputs,
-            self.restart_case,
-            
-        )
 
     def update_config(self, action: dict) -> dict:
         """Update the configuration of the simulation based on the provided action.
