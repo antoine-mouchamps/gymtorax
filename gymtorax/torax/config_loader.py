@@ -99,7 +99,7 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
-    def update_config(self, action: dict, current_time: float, final_time: float, delta_t_a: float, filename: str) -> dict:
+    def update_config(self, action: dict, current_time: float, final_time: float, delta_t_a: float) -> dict:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
@@ -181,22 +181,6 @@ class ConfigLoader:
                             merged_vloop_profile[t] = val
 
                     self.config_dict['profile_conditions']['V_loop'] = merged_vloop_profile
-                    
-        #Prepare the restart file
-        restart_path = os.path.join("outputs", f"{filename}.nc")
-        if 'restart' not in self.config_dict:
-            self.config_dict['restart'] = {
-                'do_restart': os.path.isfile(restart_path),
-                'filename': restart_path,
-                'time': current_time,
-                'stitch': True,
-            }
-        else:
-            self.config_dict['restart']['filename'] = restart_path
-            self.config_dict['restart']['time'] = current_time
-            # Active le restart seulement si le fichier existe
-            self.config_dict['restart']['do_restart'] = os.path.isfile(restart_path)
-            self.config_dict['restart']['stitch'] = True
 
         # Finally, update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
