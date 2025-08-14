@@ -30,7 +30,7 @@ CONFIG = {
         'Z_eff': {0.0: {0.0: 2.0, 1.0: 2.0}},  # sets impurity densities
     },
     'profile_conditions': {
-        'Ip': {0: 3e6, 100: 12.5e6},  # total plasma current in MA
+        'Ip': {0: 3e6, 100: 12.5e6}, # total plasma current in MA  ({0: 3e6, 100: 12.5e6}, 'STEP')
         'T_i': {0.0: {0.0: 6.0, 1.0: 0.2}}, # T_i initial condition
         'T_i_right_bc': 0.2, # T_i boundary condition
         'T_e': {0.0: {0.0: 6.0, 1.0: 0.2}},  # T_e initial condition
@@ -64,11 +64,13 @@ CONFIG = {
     },
     'sources': {
         # Current sources (for psi equation)
-        'ecrh': { # ECRH/ECCD (with Lin-Liu)
-           'gaussian_width': 0.05,
-           'gaussian_location': 0.35,
-           'P_total': eccd_power,
-           },
+        'ecrh': 
+        {
+            'gaussian_width': 0.05,      # largeur gaussienne (ρ)
+            'gaussian_location': 0.35,   # centre gaussien (ρ)
+            'P_total': eccd_power
+        },
+
         'generic_heat': { # Proxy for NBI heat source
             'gaussian_location': r_nbi, # Gaussian location in normalized coordinates
             'gaussian_width': w_nbi, # Gaussian width in normalized coordinates
@@ -80,7 +82,7 @@ CONFIG = {
             'use_absolute_current': True, # I_generic is total external current
             'gaussian_width': w_nbi,
             'gaussian_location': r_nbi,
-            'I_generic': (nbi_times, nbi_cd),
+            'I_generic': (nbi_times, nbi_cd)
         },
         'fusion': {}, # fusion power
         'ei_exchange': {}, # equipartition

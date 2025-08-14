@@ -39,7 +39,6 @@ class ConfigLoader:
             raise TypeError("Configuration must be a dictionary or None")
             
         self.config_dict: dict[str, Any] = config
-        
         try:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(config)
         except Exception as e:
@@ -115,7 +114,7 @@ class ConfigLoader:
             self.config_dict['numerics']['t_final'] = final_time
 
         if not action:
-            print("No action provided, returning current config.")
+            raise ValueError("Action must not be empty")
         else:
             keys = action.keys()
             # Unlike other variables, 'sources' and 'profile_conditions' require manual merging.
@@ -156,7 +155,6 @@ class ConfigLoader:
                 if 'Ip' in action['profile_conditions']:
                     new_ip_profile = action['profile_conditions']['Ip']
                     old_ip_profile = self.config_dict['profile_conditions'].get('Ip', {})
-                    print(old_ip_profile)
                     merged_ip_profile = {}
 
                     for t, val in old_ip_profile.items():
@@ -184,8 +182,7 @@ class ConfigLoader:
 
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
-
-
+        
     def validate(self) -> None:
         """
         Validate the configuration dictionary.

@@ -64,7 +64,7 @@ class ToraxApp:
         self.t_current = 0.0
         self.delta_t_a = delta_t_a
         self.t_final = config['numerics']['t_final']
-        config['numerics']['t_final'] = self.delta_t_a 
+        config['numerics']['t_final'] = self.delta_t_a #End for the first action step
         
         self.config = ConfigLoader(config)
         self.config.validate()
@@ -173,10 +173,14 @@ class ToraxApp:
         Returns:
             The updated configuration dictionary.
         """
-        self.config.update_config(action,
-                                  self.t_current,
-                                  self.t_final,
-                                  self.delta_t_a)
+        try:
+            self.config.update_config(action,
+                                    self.t_current,
+                                    self.t_final,
+                                    self.delta_t_a)
+        except ValueError as e:
+            torax_env.close()
+            raise ValueError(f"Error updating configuration: {e}")
                 
         self.dynamic_runtime_params_slice_provider = (
             build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
@@ -200,12 +204,7 @@ class ToraxApp:
         
         if self.t_current >= self.t_final:
             print("Simulation has reached the final time, no further steps will be executed.")
-            print("By default, the simulation saves the current state to 'outputs/{self.filename}.nc'.")
-            self.state.to_netcdf(f'outputs/{self.filename}.nc', engine="h5netcdf", mode="w")
-            return (
-                self.state,
-                self.history,
-            )
+            return True
 
         state_history, post_processed_outputs_history, sim_error = run_loop.run_loop(
             static_runtime_params_slice=self.static_runtime_params_slice,
@@ -232,12 +231,6 @@ class ToraxApp:
         self.t_current += self.delta_t_a
         self.state = state_history.simulation_output_to_xr(self.config.config_torax.restart)
         self.history = state_history
-        
-        # If the simulation has reached the final time, save the full history
-        if self.t_current >= self.t_final:
-            self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
-            print(f"Simulation state updated in {self.tmp_file_path}.")
-
         return True
 
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
@@ -253,7 +246,6 @@ class ToraxApp:
         os.makedirs('plots', exist_ok=True)
         if self.state is None:
             raise RuntimeError("State is None. Please run the simulation first.")
-        #self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         
         for plot_config in plot_configs:
             print(f"Plotting with configuration: {plot_config}")
@@ -320,12 +312,12 @@ if __name__ == "__main__":
     if True:
         torax_env.start()
         torax_env.run()
-        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh1')
+        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh1')
         torax_env.update_config({'sources': {'ecrh': {'gaussian_location': 0.4, 'gaussian_width': 0.15, 
-                                                            'P_total': {torax_env.t_current: 10e6, torax_env.t_current + torax_env.delta_t_a/2: 10e6}}}})
+                                                            'P_total': {torax_env.t_current: 10e6}}}})
         torax_env.run()
-        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh2')
-        torax_env.update_config(None)
+        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh2')
+        torax_env.update_config({'profile_conditions': {'Ip': {120: 10.0e6}}})
         torax_env.run()
         torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh3')
         torax_env.close()
