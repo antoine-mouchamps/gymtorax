@@ -75,11 +75,10 @@ class ToraxApp:
         self.static_runtime_params_slice = None
         self.dynamic_runtime_params_slice_provider = None
         self.step_fn = None
-        self.initial_state = None
-        self.post_processed_outputs = None
-
-        self.state_xr = None
-        self.history = None  
+        self.initial_state: ToraxSimState|None = None
+        self.post_processed_outputs = None        
+        self.state: DataTree|None = None
+        self.history = None
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -160,9 +159,8 @@ class ToraxApp:
             torax_config=self.config.config_torax
         )
         
-        self.state_xr = state_history.simulation_output_to_xr(file_restart=None)
-
-        self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+        self.state = state_history.simulation_output_to_xr(file_restart=None)
+        self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
 
         self.is_start = True
 
@@ -205,7 +203,7 @@ class ToraxApp:
             print("By default, the simulation saves the current state to 'outputs/{self.filename}.nc'.")
             self.state.to_netcdf(f'outputs/{self.filename}.nc', engine="h5netcdf", mode="w")
             return (
-                self.state_xr,
+                self.state,
                 self.history,
             )
 
@@ -220,6 +218,11 @@ class ToraxApp:
             log_timestep_info=False,
             progress_bar=False,
         )
+        
+        if(sim_error != state.SimError.NO_ERROR):
+            # TODO: Stop the simulation if an error has been encountered
+            return False
+
         state_history = output.StateHistory(
             state_history=state_history,
             post_processed_outputs_history=post_processed_outputs_history,
@@ -227,12 +230,12 @@ class ToraxApp:
             torax_config=self.config.config_torax,
         )
         self.t_current += self.delta_t_a
-        self.state_xr = state_history.simulation_output_to_xr(self.config.config_torax.restart)
+        self.state = state_history.simulation_output_to_xr(self.config.config_torax.restart)
         self.history = state_history
         
         # If the simulation has reached the final time, save the full history
         if self.t_current >= self.t_final:
-            self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+            self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
             print(f"Simulation state updated in {self.tmp_file_path}.")
 
         return True
@@ -248,9 +251,9 @@ class ToraxApp:
             RuntimeError: If the state is None or if the application has not been started before rendering.
         """
         os.makedirs('plots', exist_ok=True)
-        if self.state_xr is None:
+        if self.state is None:
             raise RuntimeError("State is None. Please run the simulation first.")
-        #self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+        #self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         
         for plot_config in plot_configs:
             print(f"Plotting with configuration: {plot_config}")
@@ -264,9 +267,9 @@ class ToraxApp:
     def close(self):
         """Close TORAX ? DELETE OUTPUT FILE(s)"""
         # Clean up everything
-        if self.temp_file_path and os.path.exists(self.temp_file_path):
-            os.remove(self.temp_file_path)
-        self.temp_file_path = None
+        if self.tmp_file_path and os.path.exists(self.tmp_file_path):
+            os.remove(self.tmp_file_path)
+        self.tmp_file_path = None
 
 
     def get_action_space(self) -> tuple[Bounds, Bounds, list[SourceBounds]]:
