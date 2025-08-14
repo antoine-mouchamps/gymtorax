@@ -79,6 +79,7 @@ class ToraxApp:
         self.post_processed_outputs = None        
         self.state: DataTree|None = None
         self.history = None
+        
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -90,7 +91,7 @@ class ToraxApp:
             static runtime parameters slice, dynamic runtime parameters slice provider, step function,
             initial state, post-processed outputs, and a boolean indicating if the restart case is True.
         """
-        
+
         # Create an empty output.nc file for compatibility with torax
         # restart mechanics
         fd, self.tmp_file_path = tempfile.mkstemp(suffix=".nc", prefix="gymtorax_", dir=None)
@@ -115,10 +116,10 @@ class ToraxApp:
         )
 
         solver = self.config.config_torax.solver.build_solver(
-        static_runtime_params_slice=self.static_runtime_params_slice,
-        transport_model=transport_model,
-        source_models=source_models,
-        pedestal_model=pedestal_model,
+            static_runtime_params_slice=self.static_runtime_params_slice,
+            transport_model=transport_model,
+            source_models=source_models,
+            pedestal_model=pedestal_model,
         )
 
         mhd_models = self.config.config_torax.mhd.build_mhd_models(
@@ -189,7 +190,7 @@ class ToraxApp:
         )
 
 
-    def run(self)-> tuple:
+    def run(self)-> bool:
         """ Executes a single action step from `t_current` to `t_current + delta_t_a`.
         This action step may cover multiple simulation timesteps.
         This method runs the simulation loop for a single step, updating the simulation state and saving it
@@ -228,6 +229,7 @@ class ToraxApp:
             sim_error=sim_error,
             torax_config=self.config.config_torax,
         )
+        
         self.t_current += self.delta_t_a
         self.state = state_history.simulation_output_to_xr(self.config.config_torax.restart)
         self.history = state_history
