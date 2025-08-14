@@ -3,22 +3,24 @@ from torax._src.config import build_runtime_params
 from torax._src.orchestration import initial_state as initial_state_lib
 from torax._src.orchestration import run_loop
 from torax._src.orchestration import step_function
+from torax._src.orchestration.sim_state import ToraxSimState
 from torax._src.output_tools import output
 from torax._src.sources import source_models as source_models_lib
 from torax._src.torax_pydantic import model_config
 from torax._src.state import SimError
-import xarray as xr
+from torax._src import state
+from xarray import DataTree
+import os
+import tempfile
+
 import torax_plot_extensions
 from torax.plotting.configs.simple_plot_config import PLOT_CONFIG as simple_plot_config
 from torax.plotting.configs.global_params_plot_config import PLOT_CONFIG as global_params_plot_config
 from torax.plotting.configs.default_plot_config import PLOT_CONFIG as default_plot_config
 from torax.plotting.configs.sources_plot_config import PLOT_CONFIG as sources_plot_config
-import os
+
 from sources import Bounds, SourceBounds
 from config_loader import ConfigLoader
-
-REP = 'outputs'
-FILENAME = '/state'
 
 """To do
 
@@ -57,27 +59,8 @@ class ToraxApp:
             and saves them to files.
     """
     def __init__(self, config: dict, delta_t_a: float):
-        # Difficulty: Default values are possible but they are not provided in config.
-        #It is hard to check without raising an error. It is possible to check inside
-        #config_dict but it is more annoying to modify inside it.
-        
-        # Generate a file to allow the restart of the simulation
-        if 'restart' not in config:
-            raise ValueError("The 'restart' section must be present in the configuration dictionary.")
-        
-        else:
-            config['restart']['filename'] = REP + FILENAME + '.nc'
-            config['restart']['stitch'] = True
-            config['restart']['time'] = delta_t_a
-            config['restart']['do_restart'] = True
-            os.makedirs(REP, exist_ok=True)
-            with open(config['restart']['filename'] , 'w') as f:
-                pass
-            
-        if 't_initial' in config['numerics'] and config['numerics']['t_initial'] !=0.0:
-            #The default value of t_initial is 0.0 if no value is provided.
-            raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
-        
+        self.tmp_dir = None
+        self.tmp_file_path = None
         self.t_current = 0.0
         self.delta_t_a = delta_t_a
         self.t_final = config['numerics']['t_final']
@@ -94,7 +77,7 @@ class ToraxApp:
         self.step_fn = None
         self.initial_state = None
         self.post_processed_outputs = None
-        
+
         self.state_xr = None
         self.history = None  
 
@@ -108,6 +91,18 @@ class ToraxApp:
             static runtime parameters slice, dynamic runtime parameters slice provider, step function,
             initial state, post-processed outputs, and a boolean indicating if the restart case is True.
         """
+        
+        # Create an empty output.nc file for compatibility with torax
+        # restart mechanics
+        fd, self.tmp_file_path = tempfile.mkstemp(suffix=".nc", prefix="gymtorax_", dir=None)
+        os.close(fd)
+        
+        # Check if the file can be accessed
+        if self.tmp_file_path is None or not os.path.exists(self.tmp_file_path):
+            raise FileNotFoundError("Output file not found.")
+        
+        self.config.setup_for_simulation(self.tmp_file_path)
+
         transport_model = self.config.config_torax.transport.build_transport_model()
         pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
 
@@ -166,9 +161,9 @@ class ToraxApp:
         )
         
         self.state_xr = state_history.simulation_output_to_xr(file_restart=None)
-        os.makedirs(REP, exist_ok=True)
-        self.state_xr.to_netcdf(REP + FILENAME + '.nc',engine="h5netcdf", mode="w")
-            
+
+        self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+
         self.is_start = True
 
     def update_config(self, action) -> None:
@@ -237,13 +232,10 @@ class ToraxApp:
         
         # If the simulation has reached the final time, save the full history
         if self.t_current >= self.t_final:
-            self.state_xr.to_netcdf(REP + FILENAME + '.nc', engine="h5netcdf", mode="w")
-            print(f"Simulation state updated in {REP + FILENAME + '.nc'}.")
-            
-        return (
-                self.state_xr,
-                self.history,
-        )
+            self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+            print(f"Simulation state updated in {self.tmp_file_path}.")
+
+        return True
 
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
         """Renders the simulation results using the provided plot configurations and saves them in a gif file.
@@ -258,25 +250,25 @@ class ToraxApp:
         os.makedirs('plots', exist_ok=True)
         if self.state_xr is None:
             raise RuntimeError("State is None. Please run the simulation first.")
-        #self.state_xr.to_netcdf(REP + FILENAME + '.nc', engine="h5netcdf", mode="w")
+        #self.state_xr.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         
         for plot_config in plot_configs:
             print(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
-                outfile=REP + FILENAME + '.nc',
+                outfile=self.tmp_file_path,
                 gif_filename=f"plots/{gif_name}_{plot_config}.gif", 
                 frame_skip=5,
             )
         
     def close(self):
         """Close TORAX ? DELETE OUTPUT FILE(s)"""
-        if os.path.exists(REP + FILENAME + '.nc'):
-            os.remove(REP + FILENAME + '.nc')
-        if os.path.exists(REP):
-            os.rmdir(REP)
-        print("Closing ToraxApp.")
-        
+        # Clean up everything
+        if self.temp_file_path and os.path.exists(self.temp_file_path):
+            os.remove(self.temp_file_path)
+        self.temp_file_path = None
+
+
     def get_action_space(self) -> tuple[Bounds, Bounds, list[SourceBounds]]:
         """Get the action space for the simulation.
         Format is (Ip_bounds, Vloop_bounds, ES_k_bounds), with Ip_bounds and
@@ -284,18 +276,21 @@ class ToraxApp:
         list of sources with ([min,max], [min,max], [min,max]) bounds.
         """
         pass
-    
+
+
     def get_state_space(self) -> list[Bounds]:
         """Get the state space for the simulation.
         
         """
         pass
-    
+
+
     def get_state(self):
         """_summary_
         """
         pass
-    
+
+
     def get_observation(self):
         "Return the observation of the last simulated state"
         pass
@@ -322,12 +317,12 @@ if __name__ == "__main__":
     if True:
         torax_env.start()
         torax_env.run()
-        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh1')
+        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh1')
         torax_env.update_config({'sources': {'ecrh': {'gaussian_location': 0.4, 'gaussian_width': 0.15, 
                                                             'P_total': {torax_env.t_current: 10e6, torax_env.t_current + torax_env.delta_t_a/2: 10e6}}}})
         torax_env.run()
-        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh2')
+        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh2')
         torax_env.update_config(None)
         torax_env.run()
-        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh3')
+        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh3')
         torax_env.close()

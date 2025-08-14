@@ -148,10 +148,4 @@ CONFIG = {
     'time_step_calculator': {
         'calculator_type': 'fixed',
     },
-    'restart': {
-        'filename': 'torax_state_file.nc',
-        'time': 10,
-        'do_restart': False, 
-        'stitch': True,
-    }
 }

@@ -182,7 +182,7 @@ class ConfigLoader:
 
                     self.config_dict['profile_conditions']['V_loop'] = merged_vloop_profile
 
-        # Finally, update the TORAX config accordingly
+        # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
 
 
@@ -202,3 +202,21 @@ class ConfigLoader:
         if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
             raise ValueError(f"Invalid value: calculator_type should always be 'fixed' when using Gym-TORAX, got {self.config_dict['time_step_calculator']['calculator_type']}")
 
+        if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
+            raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
+        
+    def setup_for_simulation(self, file_path: str) -> None:
+        """
+        Prepare the configuration for a simulation run.
+        
+        This method sets up the configuration for a simulation, ensuring that
+        all necessary parameters are correctly initialized and ready for use.
+
+        """
+        
+        self.config_dict["restart"] = {
+            'filename': file_path,
+            'time': 0,
+            'do_restart': False, 
+            'stitch': True,
+        }
