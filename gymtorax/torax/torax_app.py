@@ -11,8 +11,8 @@ from torax._src.state import SimError
 from torax._src import state
 from xarray import DataTree
 
-from .sources import Bounds, SourceBounds
 from .config_loader import ConfigLoader
+from ..action_handler import ActionHandler, Action
 from . import torax_plot_extensions
 
 import os
@@ -54,7 +54,7 @@ class ToraxApp:
         render(plot_configs, gif_name): Renders the simulation results using the provided plot configurations 
             and saves them to files.
     """
-    def __init__(self, config: dict, delta_t_a: float):
+    def __init__(self, config: dict, delta_t_a: float, actions: list[Action]):
         self.tmp_dir = None
         self.tmp_file_path = None
         self.t_current = 0.0
@@ -64,6 +64,7 @@ class ToraxApp:
         
         self.config = ConfigLoader(config)
         self.config.validate()
+        self.action_handler = ActionHandler(actions)
         
         self.is_start: bool = False     #Indicates if the application has been started
         
@@ -262,16 +263,18 @@ class ToraxApp:
         self.tmp_file_path = None
 
 
-    def get_action_space(self) -> tuple[Bounds, Bounds, list[SourceBounds]]:
+    def get_action_space(self) -> tuple[list[float], list[float]]:
         """Get the action space for the simulation.
-        Format is (Ip_bounds, Vloop_bounds, ES_k_bounds), with Ip_bounds and
-        Vloops_bounds being a tuple of (min, max), and ES_k_bounds being a
-        list of sources with ([min,max], [min,max], [min,max]) bounds.
         """
-        pass
+        lower_bounds, upper_bounds = [], []
+        for action in self.action_handler.actions:
+            for low, up in zip(action.min, action.max):
+                lower_bounds.append(low)
+                upper_bounds.append(up)
 
+        return (lower_bounds, upper_bounds)
 
-    def get_state_space(self) -> list[Bounds]:
+    def get_state_space(self) -> tuple[list[float], list[float]]:
         """Get the state space for the simulation.
         
         """

@@ -105,15 +105,9 @@ class BaseEnv(gym.Env):
         gym.spaces.Box
             The action space of the environment.
         """
-        Ip_bounds, Vloop_bounds, ES_k_bounds  = self.torax_app.get_action_space()
-        ES_k_bounds = expand_sources(ES_k_bounds)
+        lower, upper  = self.torax_app.get_action_space()
 
-        lower_bounds, upper_bounds = [], []
-        for bounds in [Ip_bounds, Vloop_bounds] + ES_k_bounds:
-            lower_bounds.append(bounds.min)
-            upper_bounds.append(bounds.max)
-
-        space = spaces.Box(low=np.array(lower_bounds), high=np.array(upper_bounds), dtype=np.float64)
+        space = spaces.Box(low=np.array(lower), high=np.array(upper), dtype=np.float64)
 
         return space
 
