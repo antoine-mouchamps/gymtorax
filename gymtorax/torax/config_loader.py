@@ -9,6 +9,7 @@ management for Gymnasium environments.
 from typing import Any
 import torax
 from torax import ToraxConfig
+import action_handler as act
 import os
 
 class ConfigLoader:
@@ -98,7 +99,7 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
-    def update_config(self, action: dict, current_time: float, final_time: float, delta_t_a: float) -> dict:
+    def update_config(self, action: list[act.Action], current_time: float, final_time: float, delta_t_a: float) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
@@ -116,73 +117,33 @@ class ConfigLoader:
         if not action:
             raise ValueError("Action must not be empty")
         else:
-            keys = action.keys()
-            # Unlike other variables, 'sources' and 'profile_conditions' require manual merging.
-            # TORAX does not update these profiles automatically; it keeps the last state for the entire simulation.
-            # This code merges the existing data (before the current time) with the new data.
-            if 'sources' in keys: 
-                for source_name, new_source_profile in action['sources'].items():
-                    old_source_profile = self.config_dict['sources'].get(source_name, {})
-                    merged_source_profile = {}
-
-                    for param, new_val in new_source_profile.items():
-                        old_val = old_source_profile.get(param)
-
-                        # Si la valeur est un profil temporel (dict)
-                        if isinstance(new_val, dict):
-                            merged_val = {}
-
-                            # Conserver ancien < t_current
-                            if isinstance(old_val, dict):
-                                for t, val in old_val.items():
-                                    if float(t) < current_time:
-                                        merged_val[t] = val
-
-                            # Ajouter nouveau ≥ t_current
-                            for t, val in new_val.items():
-                                if float(t) >= current_time:
-                                    merged_val[t] = val
-
-                            merged_source_profile[param] = merged_val
-
-                        else:
-                            # Valeur scalaire → remplacer directement
-                            merged_source_profile[param] = new_val
-
-                    self.config_dict['sources'][source_name] = merged_source_profile
-
-            if 'profile_conditions' in keys:
-                if 'Ip' in action['profile_conditions']:
-                    new_ip_profile = action['profile_conditions']['Ip']
-                    old_ip_profile = self.config_dict['profile_conditions'].get('Ip', {}) #get a tuple
-                    merged_ip_profile = {}
-
-                    for t, val in old_ip_profile[0].items():
-                        if float(t) < current_time:
-                            merged_ip_profile[t] = val
-                    for t, val in new_ip_profile.items():
-                        if float(t) >= current_time:
-                            merged_ip_profile[current_time] = val
-
-                    self.config_dict['profile_conditions']['Ip'] = (merged_ip_profile, 'STEP')
-
-                if 'V_loop' in action['profile_conditions']:
-                    new_vloop_profile = action['profile_conditions']['V_loop']
-                    old_vloop_profile = self.config_dict['profile_conditions'].get('V_loop', {})
-                    merged_vloop_profile = {}
-
-                    for t, val in old_vloop_profile.items():
-                        if float(t) < current_time:
-                            merged_vloop_profile[t] = val
-                    for t, val in new_vloop_profile.items():
-                        if float(t) >= current_time:
-                            merged_vloop_profile[t] = val
-
-                    self.config_dict['profile_conditions']['V_loop'] = merged_vloop_profile
-
+            for a in action:
+                if isinstance(a, act.IpAction):
+                    #Ip is a tuple whose first element is a dict and the second is the time interpolation
+                    self.config_dict['profile_conditions']['Ip'][0].update(a.get_dict(current_time))
+                
+                if isinstance(a, act.VloopAction):
+                    #Ip is a tuple whose first element is a dict and the second is the time interpolation
+                    self.config_dict['profile_conditions']['v_loop_lcfs'][0].update(a.get_dict(current_time))
+                
+                elif isinstance(a, act.EcrhAction):
+                    list_dict = a.get_dict(current_time)
+                    self.config_dict['sources']['ecrh']['P_total'][0].update(list_dict[0])
+                    self.config_dict['sources']['ecrh']['gaussian_location'][0].update(list_dict[1])
+                    self.config_dict['sources']['ecrh']['gaussian_width'][0].update(list_dict[2])
+                
+                elif isinstance(a, act.NbiAction):
+                    list_dict = a.get_dict(current_time)
+                    self.config_dict['sources']['generic_heat']['P_total'][0].update(list_dict[0])
+                    self.config_dict['sources']['generic_heat']['gaussian_location'][0].update(list_dict[2])
+                    self.config_dict['sources']['generic_heat']['gaussian_width'][0].update(list_dict[3])
+                    self.config_dict['sources']['generic_current']['I_generic'][0].update(list_dict[1])
+                    self.config_dict['sources']['generic_current']['gaussian_location'][0].update(list_dict[2])
+                    self.config_dict['sources']['generic_current']['gaussian_width'][0].update(list_dict[3])
+                    
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
-        
+    
     def validate(self) -> None:
         """
         Validate the configuration dictionary.

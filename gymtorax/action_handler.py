@@ -42,8 +42,12 @@ class Action(ABC):
 
 
     @abstractmethod
-    def get_dict(self) -> dict:
+    def get_dict(self, time: float) -> dict:
         """Return the action as a dict for the simulator config."""
+        pass
+    
+    def set_val(self, values: float | list[float]) -> None:
+        """Update values stored in this action"""
         pass
     
     def __repr__(self):
@@ -64,8 +68,11 @@ class IpAction(Action):
         super().__init__(min_vals, max_vals)
         self.value = value or 0.0
 
-    def get_dict(self) -> dict:
-        pass
+    def get_dict(self, time: float) -> dict:
+        return {time: self.value}
+    
+    def set_val(self, value: float) -> None:
+        self.value = value
 
 
 class VloopAction(Action):
@@ -77,12 +84,15 @@ class VloopAction(Action):
         super().__init__(min_vals, max_vals)
         self.value = value or 0.0
 
-    def get_dict(self) -> dict:
-        pass
+    def get_dict(self, time: float) -> dict:
+        return {time: self.value}
+
+    def set_val(self, value: float) -> None:
+        self.value = value
 
 
 class EcrhAction(Action):
-    dimension = 3
+    dimension = 3 # power, loc, width
     default_min = [0.0, 0.0, 0.0]
     default_max = [np.inf, np.inf, np.inf]  
 
@@ -90,8 +100,13 @@ class EcrhAction(Action):
         super().__init__(min_vals, max_vals)
         self.values = values or [0.0] * self.dimension
 
-    def get_dict(self) -> dict:
-        pass
+    def get_dict(self, time: float) -> list[dict]:
+        return [{time: self.values[0]}, {time: self.values[1]}, {time: self.values[2]}]
+    
+    def set_val(self, values: list[float]) -> None:
+        if len(values) != self.dimension:
+            raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.")
+        self.values = values
 
 
 class NbiAction(Action):
@@ -103,6 +118,10 @@ class NbiAction(Action):
         super().__init__(min_vals, max_vals)
         self.values = values or [0.0] * self.dimension
 
-    def get_dict(self) -> dict:
-        pass
+    def get_dict(self, time: float) -> list[dict]:
+        return [{time: self.values[0]},{time: self.values[1]},{time: self.values[2]},{time: self.values[3]}]
 
+    def set_val(self, values: list[float]) -> None:
+        if len(values) != self.dimension:
+            raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.")
+        self.values = values
