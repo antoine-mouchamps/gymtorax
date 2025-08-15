@@ -154,17 +154,17 @@ class ConfigLoader:
             if 'profile_conditions' in keys:
                 if 'Ip' in action['profile_conditions']:
                     new_ip_profile = action['profile_conditions']['Ip']
-                    old_ip_profile = self.config_dict['profile_conditions'].get('Ip', {})
+                    old_ip_profile = self.config_dict['profile_conditions'].get('Ip', {}) #get a tuple
                     merged_ip_profile = {}
 
-                    for t, val in old_ip_profile.items():
+                    for t, val in old_ip_profile[0].items():
                         if float(t) < current_time:
                             merged_ip_profile[t] = val
                     for t, val in new_ip_profile.items():
                         if float(t) >= current_time:
-                            merged_ip_profile[t] = val
+                            merged_ip_profile[current_time] = val
 
-                    self.config_dict['profile_conditions']['Ip'] = merged_ip_profile
+                    self.config_dict['profile_conditions']['Ip'] = (merged_ip_profile, 'STEP')
 
                 if 'V_loop' in action['profile_conditions']:
                     new_vloop_profile = action['profile_conditions']['V_loop']
@@ -202,6 +202,26 @@ class ConfigLoader:
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
+        #Example of how to normalize interpolation for actions
+        #We have to repeat this for other actions but let wait util the Action class
+        if 'Ip' in self.config_dict['profile_conditions'] and not isinstance(self.config_dict['profile_conditions'].get('Ip'), tuple):
+            self.config_dict['profile_conditions']['Ip'] = (self.config_dict['profile_conditions'].get('Ip'), 'STEP')
+            print("Warning: we set the time interpolation to 'STEP'.")
+            
+        elif 'Ip' in self.config_dict['profile_conditions'] and isinstance(self.config_dict['profile_conditions'].get('Ip'), tuple):
+            tuple_study = self.config_dict['profile_conditions'].get('Ip')
+            if not ('STEP' in tuple_study or 'PIECEWISE_LINEAR' in tuple_study):
+                self.config_dict['profile_conditions']['Ip'] = (tuple_study, 'STEP')
+                print("Warning: we set the time interpolation to 'STEP'.")
+            
+            elif 'PIECEWISE_LINEAR' in tuple_study:
+                list_temp = list(tuple_study)
+                index_ = list_temp.index('PIECEWISE_LINEAR')
+                list_temp[index_] = 'STEP'
+                
+                self.config_dict['profile_conditions']['Ip'] = tuple(list_temp)
+                print("Warning: we set the time interpolation to 'STEP'.")
+                
     def setup_for_simulation(self, file_path: str) -> None:
         """
         Prepare the configuration for a simulation run.

@@ -18,24 +18,6 @@ from . import torax_plot_extensions
 import os
 import tempfile
 
-"""To do
-
-    - HANDLE pedestal model
-    - Test sources
-    - Create raise error if the application is not started/other issues
-    
-    - Prepare the bridge with gymnasium
-    - Define the config file for users
-    
-    Suggestions: 
-    - Create a source NBI
-    - Try to create the nc file in the start function 
-    
-    Bugs:
-    - Gérer la situation du 2ème exemples (De 0 à 50, cst à 0 mais de 0 à 100, 
-        l'intervalle 0 à 50 augmente à cause de l'interpolation) 
-"""
-
 class ToraxApp:
     """Represents the Torax application. It initializes the application with a given configuration
     and provides methods to start the application, update the configuration, and run the simulation.
@@ -186,7 +168,6 @@ class ToraxApp:
             )
         )
 
-
     def run(self)-> bool:
         """ Executes a single action step from `t_current` to `t_current + delta_t_a`.
         This action step may cover multiple simulation timesteps.
@@ -218,6 +199,7 @@ class ToraxApp:
         
         if(sim_error != state.SimError.NO_ERROR):
             # TODO: Stop the simulation if an error has been encountered
+            self.close()
             return False
 
         state_history = output.StateHistory(
@@ -230,6 +212,8 @@ class ToraxApp:
         self.t_current += self.delta_t_a
         self.state = state_history.simulation_output_to_xr(self.config.config_torax.restart)
         self.history = state_history
+        if self.t_current>= self.t_final:
+            self.save_in_file()
         return True
 
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
@@ -237,7 +221,7 @@ class ToraxApp:
         Args:
             plot_configs: A dictionary containing the plot configurations.
                 Possible keys are 'default', 'simple', 'sources', 'global_params'.
-                corresponding values are simple_plot_config, sources_plot_config, global_params_plot_config.
+                corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
             gif_name: The name of the GIF file to save the plots.
         Raises:
             RuntimeError: If the state is None or if the application has not been started before rendering.
@@ -245,15 +229,22 @@ class ToraxApp:
         os.makedirs('plots', exist_ok=True)
         if self.state is None:
             raise RuntimeError("State is None. Please run the simulation first.")
-        
+        self.save_in_file()
         for plot_config in plot_configs:
             print(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,
-                gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
+                gif_filename=f"plots/{gif_name}_{plot_config}.gif", 
                 frame_skip=5,
             )
+    
+    def save_in_file(self):
+        """ Save in a .nc file the state """
+        try:
+            self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+        except Exception as e:
+            raise ValueError(f"An error occurred while saving: {e}")
         
     def close(self):
         """Close TORAX ? DELETE OUTPUT FILE(s)"""
