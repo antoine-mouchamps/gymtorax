@@ -176,7 +176,7 @@ class ToraxApp:
                                     self.t_final,
                                     self.delta_t_a)
         except ValueError as e:
-            torax_env.close()
+            self.close()
             raise ValueError(f"Error updating configuration: {e}")
                 
         self.dynamic_runtime_params_slice_provider = (
