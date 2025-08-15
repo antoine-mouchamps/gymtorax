@@ -9,7 +9,7 @@ management for Gymnasium environments.
 from typing import Any
 import torax
 from torax import ToraxConfig
-import action_handler as act
+import gymtorax.action_handler as act
 import os
 
 class ConfigLoader:
@@ -21,7 +21,7 @@ class ConfigLoader:
     parameters commonly needed in Gymnasium environments.
     """
     
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, actions: act.ActionHandler, config: dict[str, Any] | None = None):
         """
         Initialize the configuration loader.
         
@@ -38,10 +38,12 @@ class ConfigLoader:
         
         if not isinstance(config, dict):
             raise TypeError("Configuration must be a dictionary or None")
-            
+        print(config)
         self.config_dict: dict[str, Any] = config
+        self.validate(actions)
+        print(self.config_dict)
         try:
-            self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(config)
+            self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
         except Exception as e:
             raise ValueError(f"Invalid TORAX configuration: {e}")
         
@@ -164,26 +166,33 @@ class ConfigLoader:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
         #NEED TO VERIFY IF KEYS EXIST
-        action_list = act.actions.get()
-        for a in self.action_list:
+        action_list = actions.get()
+        for a in action_list:
+            #Already create the key if it does not exist
             if isinstance(a, act.IpAction):
-                self.config_dict['profile_conditions']['Ip'] = ({}, 'STEP')
+                self.config_dict['profile_conditions']['Ip'] = (a.get_dict(0), 'STEP')
             
             elif isinstance(a, act.VloopAction):
-                self.config_dict['profile_conditions']['v_loop_lcfs '] = ({}, 'STEP')
+                self.config_dict['profile_conditions']['v_loop_lcfs '] = (a.get_dict(0), 'STEP')
             
             elif isinstance(a, act.EcrhAction):
-                self.config_dict['sources']['ecrh']['P_total'] = ({}, 'STEP')
-                self.config_dict['sources']['ecrh']['gaussian_location'] = ({}, 'STEP')
-                self.config_dict['sources']['ecrh']['gaussian_width'] = ({}, 'STEP')
+                if 'ecrh' not in self.config_dict['sources']:
+                    raise KeyError("The source name needs to be in the configuration file")
+                list_dic = a.get_dict(0)
+                self.config_dict['sources']['ecrh']['P_total'] = (list_dic[0], 'STEP')
+                self.config_dict['sources']['ecrh']['gaussian_location'] = (list_dic[1], 'STEP')
+                self.config_dict['sources']['ecrh']['gaussian_width'] = (list_dic[2], 'STEP')
             
-            elif isinstance(a, act.NbiAction):              
-                self.config_dict['sources']['generic_heat']['P_total'] = ({}, 'STEP')
-                self.config_dict['sources']['generic_heat']['gaussian_location'] = ({}, 'STEP')
-                self.config_dict['sources']['generic_heat']['gaussian_width'] = ({}, 'STEP')
-                self.config_dict['sources']['generic_current']['I_generic'] = ({}, 'STEP')
-                self.config_dict['sources']['generic_current']['gaussian_location'] = ({}, 'STEP')
-                self.config_dict['sources']['generic_current']['gaussian_width'] = ({}, 'STEP')           
+            elif isinstance(a, act.NbiAction):
+                if 'generic_heat' not in self.config_dict['sources'] or  'generic_current' not in self.config_dict['sources']:
+                    raise KeyError("The source name needs to be in the configuration file")
+                list_dic = a.get_dict(0)   
+                self.config_dict['sources']['generic_heat']['P_total'] = (list_dic[0], 'STEP')
+                self.config_dict['sources']['generic_heat']['gaussian_location'] = (list_dic[2], 'STEP')
+                self.config_dict['sources']['generic_heat']['gaussian_width'] = (list_dic[3], 'STEP')
+                self.config_dict['sources']['generic_current']['I_generic'] = (list_dic[1], 'STEP')
+                self.config_dict['sources']['generic_current']['gaussian_location'] = (list_dic[2], 'STEP')
+                self.config_dict['sources']['generic_current']['gaussian_width'] = (list_dic[3], 'STEP')           
             
     def setup_for_simulation(self, file_path: str) -> None:
         """

@@ -44,9 +44,9 @@ class ToraxApp:
         self.t_final = config['numerics']['t_final']
         config['numerics']['t_final'] = self.delta_t_a #End for the first action step
         
-        self.config = ConfigLoader(config)
         self.action_handler = ActionHandler(actions)
-        self.config.validate(self.action_handler)
+        self.config = ConfigLoader(self.action_handler, config)
+        #self.config.validate(self.action_handler)
         
         self.is_start: bool = False     #Indicates if the application has been started
         

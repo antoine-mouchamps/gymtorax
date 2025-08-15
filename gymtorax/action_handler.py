@@ -58,7 +58,7 @@ class ActionHandler:
     def __init__(self, actions: list[Action]):
         self.actions = actions
 
-    def get(self):
+    def get(self) -> list[Action]:
         return self.actions
 
 class IpAction(Action):
