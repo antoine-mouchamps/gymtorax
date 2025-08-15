@@ -14,6 +14,7 @@ from xarray import DataTree
 from .config_loader import ConfigLoader
 from ..action_handler import ActionHandler, Action
 from . import torax_plot_extensions
+from ..state import State
 
 import os
 import tempfile
@@ -54,10 +55,10 @@ class ToraxApp:
         self.static_runtime_params_slice = None
         self.dynamic_runtime_params_slice_provider = None
         self.step_fn = None
+        self.post_processed_outputs = None  
         self.initial_state: ToraxSimState|None = None
-        self.post_processed_outputs = None        
-        self.state: DataTree|None = None
-        self.history = None
+        self.state: output.StateHistory|None = None # history made up of a single state
+        self.history: DataTree|None = None
         
 
     def start(self):
@@ -139,8 +140,8 @@ class ToraxApp:
             torax_config=self.config.config_torax
         )
         
-        self.state = state_history.simulation_output_to_xr(file_restart=None)
-        self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+        self.history = state_history.simulation_output_to_xr(file_restart=None)
+        self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
 
         self.is_start = True
 
@@ -185,7 +186,7 @@ class ToraxApp:
             print("Simulation has reached the final time, no further steps will be executed.")
             return True
 
-        state_history, post_processed_outputs_history, sim_error = run_loop.run_loop(
+        sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
             static_runtime_params_slice=self.static_runtime_params_slice,
             dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
             geometry_provider=self.geometry_provider,
@@ -196,24 +197,34 @@ class ToraxApp:
             log_timestep_info=False,
             progress_bar=False,
         )
+        # print(sim_states_list, post_processed_outputs_list)
+        current_sim_state = sim_states_list[-1]
+        current_sim_output = post_processed_outputs_list[-1]
+
+        self.state = output.StateHistory(
+            state_history=[current_sim_state],
+            post_processed_outputs_history=[current_sim_output],
+            sim_error=sim_error,
+            torax_config=self.config.config_torax,
+        )
         
         if(sim_error != state.SimError.NO_ERROR):
             # TODO: Stop the simulation if an error has been encountered
             self.close()
             return False
-
-        state_history = output.StateHistory(
-            state_history=state_history,
-            post_processed_outputs_history=post_processed_outputs_history,
+        
+        history = output.StateHistory(
+            state_history=sim_states_list,
+            post_processed_outputs_history=post_processed_outputs_list,
             sim_error=sim_error,
             torax_config=self.config.config_torax,
         )
         
         self.t_current += self.delta_t_a
-        self.state = state_history.simulation_output_to_xr(self.config.config_torax.restart)
-        self.history = state_history
-        if self.t_current>= self.t_final:
-            self.save_in_file()
+
+        self.history = history.simulation_output_to_xr(self.config.config_torax.restart)
+        self.save_in_file()
+            
         return True
 
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
@@ -223,26 +234,21 @@ class ToraxApp:
                 Possible keys are 'default', 'simple', 'sources', 'global_params'.
                 corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
             gif_name: The name of the GIF file to save the plots.
-        Raises:
-            RuntimeError: If the state is None or if the application has not been started before rendering.
         """
-        os.makedirs('plots', exist_ok=True)
-        if self.state is None:
-            raise RuntimeError("State is None. Please run the simulation first.")
-        self.save_in_file()
+
         for plot_config in plot_configs:
             print(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,
-                gif_filename=f"plots/{gif_name}_{plot_config}.gif", 
                 frame_skip=5,
+                gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
             )
     
     def save_in_file(self):
         """ Save in a .nc file the state """
         try:
-            self.state.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+            self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         except Exception as e:
             raise ValueError(f"An error occurred while saving: {e}")
         
@@ -275,7 +281,10 @@ class ToraxApp:
     def get_state(self):
         """_summary_
         """
-        pass
+        data = self.state.simulation_output_to_xr()
+        state = State(data)
+        
+        return state
 
 
     def get_observation(self):
