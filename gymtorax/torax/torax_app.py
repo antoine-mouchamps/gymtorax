@@ -10,17 +10,13 @@ from torax._src.torax_pydantic import model_config
 from torax._src.state import SimError
 from torax._src import state
 from xarray import DataTree
+
+from .sources import Bounds, SourceBounds
+from .config_loader import ConfigLoader
+from . import torax_plot_extensions
+
 import os
 import tempfile
-
-import torax_plot_extensions
-from torax.plotting.configs.simple_plot_config import PLOT_CONFIG as simple_plot_config
-from torax.plotting.configs.global_params_plot_config import PLOT_CONFIG as global_params_plot_config
-from torax.plotting.configs.default_plot_config import PLOT_CONFIG as default_plot_config
-from torax.plotting.configs.sources_plot_config import PLOT_CONFIG as sources_plot_config
-
-from sources import Bounds, SourceBounds
-from config_loader import ConfigLoader
 
 """To do
 
@@ -254,7 +250,7 @@ class ToraxApp:
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,
-                gif_filename=f"plots/{gif_name}_{plot_config}.gif", 
+                gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
                 frame_skip=5,
             )
         
@@ -291,35 +287,3 @@ class ToraxApp:
     def get_observation(self):
         "Return the observation of the last simulated state"
         pass
-
-
-if __name__ == "__main__":
-    import config_file_test
-    
-    config_test = config_file_test.CONFIG
-    
-    torax_env = ToraxApp(config_test, delta_t_a=50)
-    
-    if False:
-        torax_env.start()
-        torax_env.run()
-        torax_env.render(plot_configs={'default': default_plot_config}, name='torax_iter_long1')
-        torax_env.update_config({'profile_conditions': {'Ip': {60: 6.0e6}}})
-        torax_env.run()
-        torax_env.render(plot_configs={'default': default_plot_config}, name='torax_iter_long2')
-        torax_env.update_config({'profile_conditions': {'Ip': {120: 10.0e6}}})
-        torax_env.run()
-        torax_env.render(plot_configs={'default': default_plot_config}, name='torax_iter_long3')
-        
-    if True:
-        torax_env.start()
-        torax_env.run()
-        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh1')
-        torax_env.update_config({'sources': {'ecrh': {'gaussian_location': 0.4, 'gaussian_width': 0.15, 
-                                                            'P_total': {torax_env.t_current: 10e6}}}})
-        torax_env.run()
-        #torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh2')
-        torax_env.update_config({'profile_conditions': {'Ip': {120: 10.0e6}}})
-        torax_env.run()
-        torax_env.render_gif(plot_configs={'sources': sources_plot_config}, gif_name='torax_iter_long_ecrh3')
-        torax_env.close()
