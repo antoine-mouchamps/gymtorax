@@ -144,7 +144,7 @@ class ConfigLoader:
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
     
-    def validate(self) -> None:
+    def validate(self, actions: act.ActionHandler) -> None:
         """
         Validate the configuration dictionary.
         
@@ -163,26 +163,28 @@ class ConfigLoader:
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
-        #Example of how to normalize interpolation for actions
-        #We have to repeat this for other actions but let wait util the Action class
-        if 'Ip' in self.config_dict['profile_conditions'] and not isinstance(self.config_dict['profile_conditions'].get('Ip'), tuple):
-            self.config_dict['profile_conditions']['Ip'] = (self.config_dict['profile_conditions'].get('Ip'), 'STEP')
-            print("Warning: we set the time interpolation to 'STEP'.")
+        #NEED TO VERIFY IF KEYS EXIST
+        action_list = act.actions.get()
+        for a in self.action_list:
+            if isinstance(a, act.IpAction):
+                self.config_dict['profile_conditions']['Ip'] = ({}, 'STEP')
             
-        elif 'Ip' in self.config_dict['profile_conditions'] and isinstance(self.config_dict['profile_conditions'].get('Ip'), tuple):
-            tuple_study = self.config_dict['profile_conditions'].get('Ip')
-            if not ('STEP' in tuple_study or 'PIECEWISE_LINEAR' in tuple_study):
-                self.config_dict['profile_conditions']['Ip'] = (tuple_study, 'STEP')
-                print("Warning: we set the time interpolation to 'STEP'.")
+            elif isinstance(a, act.VloopAction):
+                self.config_dict['profile_conditions']['v_loop_lcfs '] = ({}, 'STEP')
             
-            elif 'PIECEWISE_LINEAR' in tuple_study:
-                list_temp = list(tuple_study)
-                index_ = list_temp.index('PIECEWISE_LINEAR')
-                list_temp[index_] = 'STEP'
-                
-                self.config_dict['profile_conditions']['Ip'] = tuple(list_temp)
-                print("Warning: we set the time interpolation to 'STEP'.")
-                
+            elif isinstance(a, act.EcrhAction):
+                self.config_dict['sources']['ecrh']['P_total'] = ({}, 'STEP')
+                self.config_dict['sources']['ecrh']['gaussian_location'] = ({}, 'STEP')
+                self.config_dict['sources']['ecrh']['gaussian_width'] = ({}, 'STEP')
+            
+            elif isinstance(a, act.NbiAction):              
+                self.config_dict['sources']['generic_heat']['P_total'] = ({}, 'STEP')
+                self.config_dict['sources']['generic_heat']['gaussian_location'] = ({}, 'STEP')
+                self.config_dict['sources']['generic_heat']['gaussian_width'] = ({}, 'STEP')
+                self.config_dict['sources']['generic_current']['I_generic'] = ({}, 'STEP')
+                self.config_dict['sources']['generic_current']['gaussian_location'] = ({}, 'STEP')
+                self.config_dict['sources']['generic_current']['gaussian_width'] = ({}, 'STEP')           
+            
     def setup_for_simulation(self, file_path: str) -> None:
         """
         Prepare the configuration for a simulation run.

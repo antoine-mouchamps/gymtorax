@@ -58,6 +58,8 @@ class ActionHandler:
     def __init__(self, actions: list[Action]):
         self.actions = actions
 
+    def get(self):
+        return self.actions
 
 class IpAction(Action):
     dimension = 1
