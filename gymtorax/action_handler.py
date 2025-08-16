@@ -46,10 +46,6 @@ class Action(ABC):
         """Maximum bounds for this action."""
         return self._max
     
-    @abstractmethod
-    def get_dict(self, time: float) -> dict:
-        pass
-    
     def set_val(self, values: float | list[float]) -> None:
         """Update values stored in this action"""
         if len(values) != self.dimension:
@@ -57,7 +53,7 @@ class Action(ABC):
         self.values = values
     
     #Only used in action classes
-    def _apply_mapping(self, config_dict, list_dict, mode: str) -> None:
+    def _apply_mapping(self, config_dict, time: float) -> None:
         """
         list_dict is the list of values stored by an action
         mode = 'init'   -> assign tuple (value, 'STEP')
@@ -70,18 +66,15 @@ class Action(ABC):
                 d = d[key]
 
             key = dict_path[-1]
-            if mode == "init":
-                d[key] = (list_dict[idx], "STEP")
-            elif mode == "update":
-                d[key][0].update(list_dict[idx])
+            if time == 0:
+                d[key] = ({0: self.values[idx]}, "STEP")
             else:
-                raise ValueError(f"Unknown mode: {mode}")
+                d[key][0].update({time: self.values[idx]})
     
     def init_dict(self, config_dict: dict) -> None:
         """Verify if config_dict is convenient for this action"""
         try:
-            list_dict = self.get_dict(0)
-            self._apply_mapping(config_dict, list_dict, mode="init")
+            self._apply_mapping(config_dict, time = 0)
         except Exception as e:
             raise KeyError(
                 f"An error occurred while initializing the action in the dictionary: {e}"
@@ -89,8 +82,7 @@ class Action(ABC):
     
     def update_to_config(self, config_dict: dict, time: float) -> None:
         """Update the config_dict with the values stored in this action"""
-        list_dict = self.get_dict(time)
-        self._apply_mapping(config_dict, list_dict, mode="update")
+        self._apply_mapping(config_dict, time = time)
     
     def __repr__(self):
         return f"{self.__class__.__name__}(min={self.min}, max={self.max})"
@@ -109,18 +101,11 @@ class IpAction(Action):
     default_max = [np.inf]
     map = {('profile_conditions', 'Ip'): 0}
 
-    def get_dict(self, time: float) -> dict:
-        return [{time: self.values[0]}]
-
-
 class VloopAction(Action):
     dimension = 1
     default_min = [0.0]
     default_max = [np.inf]
     map = {('profile_conditions', 'v_loop_lcfs'): 0}
-    
-    def get_dict(self, time: float) -> dict:
-        return [{time: self.values[0]}]
 
 class EcrhAction(Action):
     dimension = 3 # power, loc, width
@@ -131,9 +116,6 @@ class EcrhAction(Action):
         ('sources','ecrh','gaussian_location'): 1,
         ('sources','ecrh','gaussian_width'): 2
     }
-
-    def get_dict(self, time: float) -> list[dict]:
-        return [{time: self.values[0]}, {time: self.values[1]}, {time: self.values[2]}]
     
 class NbiAction(Action):
     dimension = 4 # power heating, power current, loc, width
@@ -147,6 +129,4 @@ class NbiAction(Action):
         ('sources','generic_current','gaussian_location'): 2,
         ('sources','generic_current','gaussian_width'): 3,
     }
-
-    def get_dict(self, time: float) -> list[dict]:
-        return [{time: self.values[0]},{time: self.values[1]},{time: self.values[2]},{time: self.values[3]}]
+    
