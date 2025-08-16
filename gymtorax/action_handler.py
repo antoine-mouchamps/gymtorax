@@ -8,8 +8,9 @@ class Action(ABC):
     dimension: int = None
     default_min: list = None  
     default_max: list = None
+    map: dict = None #Will store the path in the config file for the action
     
-    def __init__(self, min_vals: list = None, max_vals: list = None):
+    def __init__(self, min_vals: list = None, max_vals: list = None, values: list = None):
         # Validate dimension is defined
         if self.dimension is None:
             raise ValueError(f"{self.__class__.__name__} must define dimension class attribute")
@@ -29,6 +30,11 @@ class Action(ABC):
             self._min = [0.0] * self.dimension
         if self._max is None:
             self._max = [np.inf] * self.dimension
+        
+        if len(values) != self.dimension:
+            raise ValueError(f"Invalid dimension {len(self.values)}, must be {self.dimension}")
+        self.values = values or [0.0] * self.dimension
+        
 
     @property
     def min(self) -> list:
@@ -39,27 +45,52 @@ class Action(ABC):
     def max(self) -> list:
         """Maximum bounds for this action."""
         return self._max
-
-
+    
     @abstractmethod
     def get_dict(self, time: float) -> dict:
-        """Return the action as a dict for the simulator config."""
         pass
     
-    @abstractmethod
     def set_val(self, values: float | list[float]) -> None:
         """Update values stored in this action"""
-        pass
+        if len(values) != self.dimension:
+            raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.") 
+        self.values = values
     
-    @abstractmethod
+    #Only used in action classes
+    def _apply_mapping(self, config_dict, list_dict, mode: str) -> None:
+        """
+        list_dict is the list of values stored by an action
+        mode = 'init'   -> assign tuple (value, 'STEP')
+        mode = 'update' -> call update() on the first element
+        """
+        for dict_path, idx in self.map.items():
+            # drill down into config_dict
+            d = config_dict
+            for key in dict_path[:-1]:
+                d = d[key]
+
+            key = dict_path[-1]
+            if mode == "init":
+                d[key] = (list_dict[idx], "STEP")
+            elif mode == "update":
+                d[key][0].update(list_dict[idx])
+            else:
+                raise ValueError(f"Unknown mode: {mode}")
+    
     def init_dict(self, config_dict: dict) -> None:
         """Verify if config_dict is convenient for this action"""
-        pass
+        try:
+            list_dict = self.get_dict(0)
+            self._apply_mapping(config_dict, list_dict, mode="init")
+        except Exception as e:
+            raise KeyError(
+                f"An error occurred while initializing the action in the dictionary: {e}"
+            )
     
-    @abstractmethod
     def update_to_config(self, config_dict: dict, time: float) -> None:
         """Update the config_dict with the values stored in this action"""
-        pass
+        list_dict = self.get_dict(time)
+        self._apply_mapping(config_dict, list_dict, mode="update")
     
     def __repr__(self):
         return f"{self.__class__.__name__}(min={self.min}, max={self.max})"
@@ -76,119 +107,46 @@ class IpAction(Action):
     dimension = 1
     default_min = [0.0]
     default_max = [np.inf]
-    
-    def __init__(self, min_vals: list = None, max_vals: list = None, value: float = None):
-        super().__init__(min_vals, max_vals)
-        self.value = value or 0.0
+    map = {('profile_conditions', 'Ip'): 0}
 
     def get_dict(self, time: float) -> dict:
-        return {time: self.value}
-    
-    def init_dict(self, config_dict) -> None:
-        try:
-            config_dict['profile_conditions']['Ip'] = (self.get_dict(0), 'STEP')
-        except Exception as e:
-            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")       
-    
-    def update_to_config(self, config_dict: dict, time: float) -> None:
-        config_dict['profile_conditions']['Ip'][0].update(self.get_dict(time))
-    
-    def set_val(self, value: float) -> None:
-        self.value = value
+        return [{time: self.values[0]}]
 
 
 class VloopAction(Action):
     dimension = 1
     default_min = [0.0]
     default_max = [np.inf]
+    map = {('profile_conditions', 'v_loop_lcfs'): 0}
     
-    def __init__(self, min_vals: list = None, max_vals: list = None, value: float = None):
-        super().__init__(min_vals, max_vals)
-        self.value = value or 0.0
-
     def get_dict(self, time: float) -> dict:
-        return {time: self.value}
-    
-    def init_dict(self, config_dict) -> None:
-        try:
-            config_dict['profile_conditions']['v_loop_lcfs'] = (self.get_dict(0), 'STEP')
-        except Exception as e:
-            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
-    
-    def update_to_config(self, config_dict: dict, time: float) -> None:
-        config_dict['profile_conditions']['v_loop_lcfs'][0].update(self.get_dict(time))
-
-    def set_val(self, value: float) -> None:
-        self.value = value
-
+        return [{time: self.values[0]}]
 
 class EcrhAction(Action):
     dimension = 3 # power, loc, width
     default_min = [0.0, 0.0, 0.0]
     default_max = [np.inf, np.inf, np.inf]  
-
-    def __init__(self, min_vals: list = None, max_vals: list = None, values: list = None):
-        super().__init__(min_vals, max_vals)
-        self.values = values or [0.0] * self.dimension
+    map = {
+        ('sources','ecrh','P_total'): 0,
+        ('sources','ecrh','gaussian_location'): 1,
+        ('sources','ecrh','gaussian_width'): 2
+    }
 
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]}, {time: self.values[1]}, {time: self.values[2]}]
     
-    def init_dict(self, config_dict) -> None:
-        try:
-            list_dic = self.get_dict(0)
-            config_dict['sources']['ecrh']['P_total'] = (list_dic[0], 'STEP')
-            config_dict['sources']['ecrh']['gaussian_location'] = (list_dic[1], 'STEP')
-            config_dict['sources']['ecrh']['gaussian_width'] = (list_dic[2], 'STEP')
-        except Exception as e:
-            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
-    
-    def update_to_config(self, config_dict: dict, time: float) -> None:
-        list_dict = self.get_dict(time)
-        config_dict['sources']['ecrh']['P_total'][0].update(list_dict[0])
-        config_dict['sources']['ecrh']['gaussian_location'][0].update(list_dict[1])
-        config_dict['sources']['ecrh']['gaussian_width'][0].update(list_dict[2])  
-
-    def set_val(self, values: list[float]) -> None:
-        if len(values) != self.dimension:
-            raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.")
-        self.values = values
-
-
 class NbiAction(Action):
     dimension = 4 # power heating, power current, loc, width
     default_min = [0.0, 0.0, 0.0, 0.0]
     default_max = [np.inf, np.inf, np.inf, np.inf]
-
-    def __init__(self, min_vals: list = None, max_vals: list = None, values: list = None):
-        super().__init__(min_vals, max_vals)
-        self.values = values or [0.0] * self.dimension
+    map = {
+        ('sources','generic_heat','P_total'): 0,
+        ('sources','generic_current','I_generic'): 1,
+        ('sources','generic_heat','gaussian_location'): 2,
+        ('sources','generic_heat','gaussian_width'): 3,
+        ('sources','generic_current','gaussian_location'): 2,
+        ('sources','generic_current','gaussian_width'): 3,
+    }
 
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]},{time: self.values[1]},{time: self.values[2]},{time: self.values[3]}]
-
-    def init_dict(self, config_dict) -> None:
-        try:
-            list_dic = self.get_dict(0)   
-            config_dict['sources']['generic_heat']['P_total'] = (list_dic[0], 'STEP')
-            config_dict['sources']['generic_heat']['gaussian_location'] = (list_dic[2], 'STEP')
-            config_dict['sources']['generic_heat']['gaussian_width'] = (list_dic[3], 'STEP')
-            config_dict['sources']['generic_current']['I_generic'] = (list_dic[1], 'STEP')
-            config_dict['sources']['generic_current']['gaussian_location'] = (list_dic[2], 'STEP')
-            config_dict['sources']['generic_current']['gaussian_width'] = (list_dic[3], 'STEP')
-        except Exception as e:
-            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
-    
-    def update_to_config(self, config_dict: dict, time: float) -> None:
-        list_dict = self.get_dict(time)
-        config_dict['sources']['generic_heat']['P_total'][0].update(list_dict[0])
-        config_dict['sources']['generic_heat']['gaussian_location'][0].update(list_dict[2])
-        config_dict['sources']['generic_heat']['gaussian_width'][0].update(list_dict[3])
-        config_dict['sources']['generic_current']['I_generic'][0].update(list_dict[1])
-        config_dict['sources']['generic_current']['gaussian_location'][0].update(list_dict[2])
-        config_dict['sources']['generic_current']['gaussian_width'][0].update(list_dict[3])  
-
-    def set_val(self, values: list[float]) -> None:
-        if len(values) != self.dimension:
-            raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.")
-        self.values = values
