@@ -40,10 +40,9 @@ class ConfigLoader:
             raise TypeError("Configuration must be a dictionary")
         self.action_handler = action_handler
 
-        print(config)
         self.config_dict: dict[str, Any] = config
         self.validate()
-        print(self.config_dict)
+        
         try:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
         except Exception as e:
@@ -173,31 +172,7 @@ class ConfigLoader:
         #NEED TO VERIFY IF KEYS EXIST
         action_list = self.action_handler.get()
         for a in action_list:
-            #Already create the key if it does not exist
-            if isinstance(a, act.IpAction):
-                self.config_dict['profile_conditions']['Ip'] = (a.get_dict(0), 'STEP')
-            
-            elif isinstance(a, act.VloopAction):
-                self.config_dict['profile_conditions']['v_loop_lcfs '] = (a.get_dict(0), 'STEP')
-            
-            elif isinstance(a, act.EcrhAction):
-                if 'ecrh' not in self.config_dict['sources']:
-                    raise KeyError("The source name needs to be in the configuration file")
-                list_dic = a.get_dict(0)
-                self.config_dict['sources']['ecrh']['P_total'] = (list_dic[0], 'STEP')
-                self.config_dict['sources']['ecrh']['gaussian_location'] = (list_dic[1], 'STEP')
-                self.config_dict['sources']['ecrh']['gaussian_width'] = (list_dic[2], 'STEP')
-            
-            elif isinstance(a, act.NbiAction):
-                if 'generic_heat' not in self.config_dict['sources'] or  'generic_current' not in self.config_dict['sources']:
-                    raise KeyError("The source name needs to be in the configuration file")
-                list_dic = a.get_dict(0)   
-                self.config_dict['sources']['generic_heat']['P_total'] = (list_dic[0], 'STEP')
-                self.config_dict['sources']['generic_heat']['gaussian_location'] = (list_dic[2], 'STEP')
-                self.config_dict['sources']['generic_heat']['gaussian_width'] = (list_dic[3], 'STEP')
-                self.config_dict['sources']['generic_current']['I_generic'] = (list_dic[1], 'STEP')
-                self.config_dict['sources']['generic_current']['gaussian_location'] = (list_dic[2], 'STEP')
-                self.config_dict['sources']['generic_current']['gaussian_width'] = (list_dic[3], 'STEP')           
+            a.init_dict(self.config_dict)           
             
     def setup_for_simulation(self, file_path: str) -> None:
         """

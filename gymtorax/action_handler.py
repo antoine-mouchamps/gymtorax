@@ -52,6 +52,11 @@ class Action(ABC):
         pass
     
     @abstractmethod
+    def init_dict(self, config_dict: dict) -> None:
+        """Verify if config_dict is convenient for this action"""
+        pass
+    
+    @abstractmethod
     def update_to_config(self, config_dict: dict, time: float) -> None:
         """Update the config_dict with the values stored in this action"""
         pass
@@ -79,6 +84,12 @@ class IpAction(Action):
     def get_dict(self, time: float) -> dict:
         return {time: self.value}
     
+    def init_dict(self, config_dict) -> None:
+        try:
+            config_dict['profile_conditions']['Ip'] = (self.get_dict(0), 'STEP')
+        except Exception as e:
+            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")       
+    
     def update_to_config(self, config_dict: dict, time: float) -> None:
         config_dict['profile_conditions']['Ip'][0].update(self.get_dict(time))
     
@@ -98,6 +109,12 @@ class VloopAction(Action):
     def get_dict(self, time: float) -> dict:
         return {time: self.value}
     
+    def init_dict(self, config_dict) -> None:
+        try:
+            config_dict['profile_conditions']['v_loop_lcfs'] = (self.get_dict(0), 'STEP')
+        except Exception as e:
+            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
+    
     def update_to_config(self, config_dict: dict, time: float) -> None:
         config_dict['profile_conditions']['v_loop_lcfs'][0].update(self.get_dict(time))
 
@@ -116,6 +133,15 @@ class EcrhAction(Action):
 
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]}, {time: self.values[1]}, {time: self.values[2]}]
+    
+    def init_dict(self, config_dict) -> None:
+        try:
+            list_dic = self.get_dict(0)
+            config_dict['sources']['ecrh']['P_total'] = (list_dic[0], 'STEP')
+            config_dict['sources']['ecrh']['gaussian_location'] = (list_dic[1], 'STEP')
+            config_dict['sources']['ecrh']['gaussian_width'] = (list_dic[2], 'STEP')
+        except Exception as e:
+            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
     
     def update_to_config(self, config_dict: dict, time: float) -> None:
         list_dict = self.get_dict(time)
@@ -141,6 +167,18 @@ class NbiAction(Action):
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]},{time: self.values[1]},{time: self.values[2]},{time: self.values[3]}]
 
+    def init_dict(self, config_dict) -> None:
+        try:
+            list_dic = self.get_dict(0)   
+            config_dict['sources']['generic_heat']['P_total'] = (list_dic[0], 'STEP')
+            config_dict['sources']['generic_heat']['gaussian_location'] = (list_dic[2], 'STEP')
+            config_dict['sources']['generic_heat']['gaussian_width'] = (list_dic[3], 'STEP')
+            config_dict['sources']['generic_current']['I_generic'] = (list_dic[1], 'STEP')
+            config_dict['sources']['generic_current']['gaussian_location'] = (list_dic[2], 'STEP')
+            config_dict['sources']['generic_current']['gaussian_width'] = (list_dic[3], 'STEP')
+        except Exception as e:
+            raise KeyError(f"An error occurred while initializing the action in the dictionary: {e}")
+    
     def update_to_config(self, config_dict: dict, time: float) -> None:
         list_dict = self.get_dict(time)
         config_dict['sources']['generic_heat']['P_total'][0].update(list_dict[0])
