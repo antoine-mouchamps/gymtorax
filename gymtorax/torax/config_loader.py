@@ -21,26 +21,28 @@ class ConfigLoader:
     parameters commonly needed in Gymnasium environments.
     """
     
-    def __init__(self, actions: act.ActionHandler, config: dict[str, Any] | None = None):
+    def __init__(self, config: dict[str, Any],
+                 action_handler: act.ActionHandler | None = None,
+    ):
         """
         Initialize the configuration loader.
         
         Args:
             config: Dictionary containing TORAX configuration parameters.
-                   If None, an empty configuration will be created.
-                   
+            action_handler: An optional ActionHandler instance for managing actions.
+
         Raises:
             ValueError: If the configuration dictionary is invalid
-            TypeError: If config is not a dictionary or None
+            TypeError: If config is not a dictionary
         """
-        if config is None:
-            config = {}
-        
+
         if not isinstance(config, dict):
-            raise TypeError("Configuration must be a dictionary or None")
+            raise TypeError("Configuration must be a dictionary")
+        self.action_handler = action_handler
+
         print(config)
         self.config_dict: dict[str, Any] = config
-        self.validate(actions)
+        self.validate()
         print(self.config_dict)
         try:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
@@ -78,6 +80,30 @@ class ConfigLoader:
             return float(t_final)
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
+
+    def set_total_simulation_time(self, time: float) -> None:
+        """
+        Set the total simulation time in seconds.
+
+        This updates the :code:`t_final` parameter in the numerics section,
+        which defines how long the plasma simulation should run.
+        
+        Args:
+            time: Total simulation time in seconds
+
+        Raises:
+            KeyError: If the configuration doesn't contain the required keys
+            TypeError: If the value is not a number
+        """
+        if not isinstance(time, (int, float)):
+                raise TypeError("t_final must be a number")
+        try:
+            self.config_dict["numerics"]["t_final"] = float(time)
+            self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
+            
+        except KeyError as e:
+            raise KeyError(f"Missing required configuration key: {e}")
+
 
     def get_simulation_timestep(self) -> float:
         """
@@ -146,7 +172,7 @@ class ConfigLoader:
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
     
-    def validate(self, actions: act.ActionHandler) -> None:
+    def validate(self) -> None:
         """
         Validate the configuration dictionary.
         
@@ -166,7 +192,7 @@ class ConfigLoader:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
         #NEED TO VERIFY IF KEYS EXIST
-        action_list = actions.get()
+        action_list = self.action_handler.get()
         for a in action_list:
             #Already create the key if it does not exist
             if isinstance(a, act.IpAction):

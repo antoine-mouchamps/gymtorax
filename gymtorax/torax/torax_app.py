@@ -12,9 +12,7 @@ from torax._src import state
 from xarray import DataTree
 
 from .config_loader import ConfigLoader
-from ..action_handler import ActionHandler, Action
 from . import torax_plot_extensions
-from ..state import State
 
 import os
 import tempfile
@@ -37,17 +35,15 @@ class ToraxApp:
         render(plot_configs, gif_name): Renders the simulation results using the provided plot configurations 
             and saves them to files.
     """
-    def __init__(self, config: dict, delta_t_a: float, actions: list[Action]):
+    def __init__(self, config_loader: ConfigLoader, delta_t_a: float):
+        self.config: ConfigLoader = config_loader
+
         self.tmp_dir = None
         self.tmp_file_path = None
         self.t_current = 0.0
         self.delta_t_a = delta_t_a
-        self.t_final = config['numerics']['t_final']
-        config['numerics']['t_final'] = self.delta_t_a #End for the first action step
-        
-        self.action_handler = ActionHandler(actions)
-        self.config = ConfigLoader(self.action_handler, config)
-        #self.config.validate(self.action_handler)
+        self.t_final = self.config.get_total_simulation_time()
+        self.config.set_total_simulation_time(self.delta_t_a) # End for the first action step
         
         self.is_start: bool = False     #Indicates if the application has been started
         
@@ -260,33 +256,9 @@ class ToraxApp:
         self.tmp_file_path = None
 
 
-    def get_action_space(self) -> tuple[list[float], list[float]]:
-        """Get the action space for the simulation.
-        """
-        lower_bounds, upper_bounds = [], []
-        for action in self.action_handler.actions:
-            for low, up in zip(action.min, action.max):
-                lower_bounds.append(low)
-                upper_bounds.append(up)
-
-        return (lower_bounds, upper_bounds)
-
-    def get_state_space(self) -> tuple[list[float], list[float]]:
-        """Get the state space for the simulation.
-        
-        """
-        pass
-
-
-    def get_state(self):
+    def get_state_data(self):
         """_summary_
         """
         data = self.state.simulation_output_to_xr()
-        state = State(data)
         
-        return state
-
-
-    def get_observation(self):
-        "Return the observation of the last simulated state"
-        pass
+        return data
