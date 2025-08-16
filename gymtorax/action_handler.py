@@ -31,7 +31,7 @@ class Action(ABC):
         if self._max is None:
             self._max = [np.inf] * self.dimension
         
-        if len(values) != self.dimension:
+        if values and len(values) != self.dimension:
             raise ValueError(f"Invalid dimension {len(self.values)}, must be {self.dimension}")
         self.values = values or [0.0] * self.dimension
         
