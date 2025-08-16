@@ -146,28 +146,7 @@ class ConfigLoader:
             raise ValueError("Action must not be empty")
         else:
             for a in action:
-                if isinstance(a, act.IpAction):
-                    #Ip is a tuple whose first element is a dict and the second is the time interpolation
-                    self.config_dict['profile_conditions']['Ip'][0].update(a.get_dict(current_time))
-                
-                if isinstance(a, act.VloopAction):
-                    #Ip is a tuple whose first element is a dict and the second is the time interpolation
-                    self.config_dict['profile_conditions']['v_loop_lcfs'][0].update(a.get_dict(current_time))
-                
-                elif isinstance(a, act.EcrhAction):
-                    list_dict = a.get_dict(current_time)
-                    self.config_dict['sources']['ecrh']['P_total'][0].update(list_dict[0])
-                    self.config_dict['sources']['ecrh']['gaussian_location'][0].update(list_dict[1])
-                    self.config_dict['sources']['ecrh']['gaussian_width'][0].update(list_dict[2])
-                
-                elif isinstance(a, act.NbiAction):
-                    list_dict = a.get_dict(current_time)
-                    self.config_dict['sources']['generic_heat']['P_total'][0].update(list_dict[0])
-                    self.config_dict['sources']['generic_heat']['gaussian_location'][0].update(list_dict[2])
-                    self.config_dict['sources']['generic_heat']['gaussian_width'][0].update(list_dict[3])
-                    self.config_dict['sources']['generic_current']['I_generic'][0].update(list_dict[1])
-                    self.config_dict['sources']['generic_current']['gaussian_location'][0].update(list_dict[2])
-                    self.config_dict['sources']['generic_current']['gaussian_width'][0].update(list_dict[3])
+                a.update_to_config(self.config_dict, current_time)
                     
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)

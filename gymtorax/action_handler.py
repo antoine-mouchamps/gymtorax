@@ -46,8 +46,14 @@ class Action(ABC):
         """Return the action as a dict for the simulator config."""
         pass
     
+    @abstractmethod
     def set_val(self, values: float | list[float]) -> None:
         """Update values stored in this action"""
+        pass
+    
+    @abstractmethod
+    def update_to_config(self, config_dict: dict, time: float) -> None:
+        """Update the config_dict with the values stored in this action"""
         pass
     
     def __repr__(self):
@@ -73,6 +79,9 @@ class IpAction(Action):
     def get_dict(self, time: float) -> dict:
         return {time: self.value}
     
+    def update_to_config(self, config_dict: dict, time: float) -> None:
+        config_dict['profile_conditions']['Ip'][0].update(self.get_dict(time))
+    
     def set_val(self, value: float) -> None:
         self.value = value
 
@@ -88,6 +97,9 @@ class VloopAction(Action):
 
     def get_dict(self, time: float) -> dict:
         return {time: self.value}
+    
+    def update_to_config(self, config_dict: dict, time: float) -> None:
+        config_dict['profile_conditions']['v_loop_lcfs'][0].update(self.get_dict(time))
 
     def set_val(self, value: float) -> None:
         self.value = value
@@ -105,6 +117,12 @@ class EcrhAction(Action):
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]}, {time: self.values[1]}, {time: self.values[2]}]
     
+    def update_to_config(self, config_dict: dict, time: float) -> None:
+        list_dict = self.get_dict(time)
+        config_dict['sources']['ecrh']['P_total'][0].update(list_dict[0])
+        config_dict['sources']['ecrh']['gaussian_location'][0].update(list_dict[1])
+        config_dict['sources']['ecrh']['gaussian_width'][0].update(list_dict[2])  
+
     def set_val(self, values: list[float]) -> None:
         if len(values) != self.dimension:
             raise ValueError(f"The length of the list is not appropriate. '{self.dimension}' was expected.")
@@ -122,6 +140,15 @@ class NbiAction(Action):
 
     def get_dict(self, time: float) -> list[dict]:
         return [{time: self.values[0]},{time: self.values[1]},{time: self.values[2]},{time: self.values[3]}]
+
+    def update_to_config(self, config_dict: dict, time: float) -> None:
+        list_dict = self.get_dict(time)
+        config_dict['sources']['generic_heat']['P_total'][0].update(list_dict[0])
+        config_dict['sources']['generic_heat']['gaussian_location'][0].update(list_dict[2])
+        config_dict['sources']['generic_heat']['gaussian_width'][0].update(list_dict[3])
+        config_dict['sources']['generic_current']['I_generic'][0].update(list_dict[1])
+        config_dict['sources']['generic_current']['gaussian_location'][0].update(list_dict[2])
+        config_dict['sources']['generic_current']['gaussian_width'][0].update(list_dict[3])  
 
     def set_val(self, values: list[float]) -> None:
         if len(values) != self.dimension:
