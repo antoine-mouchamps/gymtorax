@@ -1,5 +1,5 @@
 from numpy._typing._array_like import NDArray
-from ..torax import ToraxApp, ConfigLoader, expand_sources
+from ..torax_wrapper import ToraxApp, ConfigLoader, expand_sources
 
 import gymnasium as gym
 from gymnasium import spaces

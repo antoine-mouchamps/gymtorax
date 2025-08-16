@@ -8,7 +8,7 @@ covering normal operation, edge cases, and error conditions.
 import pytest
 from typing import Any
 
-from gymtorax.torax.config_loader import ConfigLoader
+from gymtorax.torax_wrapper.config_loader import ConfigLoader
 
 
 class TestConfigLoader:
