@@ -91,6 +91,28 @@ class Action(ABC):
 class ActionHandler:
     def __init__(self, actions: list[Action]):
         self.actions = actions
+    def get_actions(self) -> list[Action]:
+        """
+        Get the list of managed actions.
+        """
+        return self._actions
+
+
+    def update_actions(self, action_array: NDArray) -> None:
+        """
+        Update the current values of all managed actions.
+        """
+        total_params = sum(action.dimension for action in self._actions)
+        if len(action_array) != total_params:
+            raise ValueError(
+                f"Expected {total_params} action parameters, got {len(action_array)}"
+            )
+        
+        idx = 0
+        for action in self._actions:
+            action.set_values(action_array[idx:idx + action.dimension])
+            idx += action.dimension
+
 
     def get(self) -> list[Action]:
         return self.actions

@@ -10,6 +10,7 @@ from torax._src.torax_pydantic import model_config
 from torax._src.state import SimError
 from torax._src import state
 from xarray import DataTree
+from numpy.typing import NDArray
 
 from .config_loader import ConfigLoader
 from . import torax_plot_extensions
@@ -146,12 +147,12 @@ class ToraxApp:
 
         self.is_start = True
 
-    def update_config(self, action) -> None:
+    def update_config(self, action: NDArray) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
         Args:
-            action: A dictionary containing the new configuration values for sources and profile conditions.
+            action: A list of values
         Returns:
             The updated configuration dictionary.
         """
@@ -251,6 +252,7 @@ class ToraxApp:
         try:
             self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         except Exception as e:
+            self.close()
             raise ValueError(f"An error occurred while saving: {e}")
         
     def close(self):

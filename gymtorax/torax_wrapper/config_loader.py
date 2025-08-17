@@ -6,11 +6,13 @@ offering convenient access to common simulation parameters and configuration
 management for Gymnasium environments.
 """
 
-from typing import Any
 import torax
+
 from torax import ToraxConfig
+from numpy.typing import NDArray
+from typing import Any
+
 import gymtorax.action_handler as act
-import os
 
 class ConfigLoader:
     """
@@ -126,7 +128,7 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
-    def update_config(self, action: list[act.Action], current_time: float, final_time: float, delta_t_a: float) -> None:
+    def update_config(self, action_array: NDArray, current_time: float, final_time: float, delta_t_a: float) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
@@ -141,12 +143,12 @@ class ConfigLoader:
         if self.config_dict['numerics']['t_final'] > final_time:
             self.config_dict['numerics']['t_final'] = final_time
 
-        if not action:
-            raise ValueError("Action must not be empty")
-        else:
-            for a in action:
-                a.update_to_config(self.config_dict, current_time)
-                    
+        self.action_handler.update_actions(action_array)
+        actions = self.action_handler.get_actions()
+
+        for action in actions:
+            action.update_to_config(self.config_dict, current_time)
+
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
     
@@ -170,7 +172,7 @@ class ConfigLoader:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
         #NEED TO VERIFY IF KEYS EXIST
-        action_list = self.action_handler.get()
+        action_list = self.action_handler.get_actions()
         for a in action_list:
             a.init_dict(self.config_dict)           
             
