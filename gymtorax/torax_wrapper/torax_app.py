@@ -17,6 +17,10 @@ from . import torax_plot_extensions
 import os
 import tempfile
 
+#Suppress TORAX prints
+import logging
+logging.getLogger().setLevel(logging.WARNING)
+
 class ToraxApp:
     """Represents the Torax application. It initializes the application with a given configuration
     and provides methods to start the application, update the configuration, and run the simulation.
@@ -79,6 +83,7 @@ class ToraxApp:
         
         self.config.setup_for_simulation(self.tmp_file_path)
 
+    
         transport_model = self.config.config_torax.transport.build_transport_model()
         pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
 
@@ -128,7 +133,7 @@ class ToraxApp:
                 step_fn=self.step_fn,
             )
         )
-              
+            
         state_history = output.StateHistory(
             state_history=[self.initial_state],
             post_processed_outputs_history=[self.post_processed_outputs],
@@ -193,7 +198,7 @@ class ToraxApp:
             log_timestep_info=False,
             progress_bar=False,
         )
-        # print(sim_states_list, post_processed_outputs_list)
+    
         current_sim_state = sim_states_list[-1]
         current_sim_output = post_processed_outputs_list[-1]
 
@@ -220,7 +225,7 @@ class ToraxApp:
 
         self.history = history.simulation_output_to_xr(self.config.config_torax.restart)
         self.save_in_file()
-            
+        
         return True
 
     def render_gif(self, plot_configs: dict, gif_name: str)-> None:
