@@ -145,7 +145,7 @@ class Action(ABC):
             )
         
         # Initialize the current parameter values
-        self.values = None
+        self.values = [0] * self.dimension
 
     @property
     def min(self) -> list[float]:

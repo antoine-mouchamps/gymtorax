@@ -171,11 +171,12 @@ class ConfigLoader:
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
-        #NEED TO VERIFY IF KEYS EXIST
-        action_list = self.action_handler.get_actions()
-        for a in action_list:
-            a.init_dict(self.config_dict)           
-            
+        if(self.action_handler is not None):
+            action_list = self.action_handler.get_actions()
+            for a in action_list:
+                a.init_dict(self.config_dict)
+
+
     def setup_for_simulation(self, file_path: str) -> None:
         """
         Prepare the configuration for a simulation run.
