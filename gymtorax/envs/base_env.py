@@ -1,27 +1,38 @@
+from abc import ABC, abstractmethod
 from numpy._typing._array_like import NDArray
-from ..torax_wrapper import ToraxApp, ConfigLoader, expand_sources
+from ..torax_wrapper import ToraxApp, ConfigLoader
+from ..utils import get_dataset
 
 import gymnasium as gym
 from gymnasium import spaces
+import xarray as xr
+from xarray import DataTree, Dataset
 
 import numpy as np
 
+from ..action_handler import Action, ActionHandler
+from ..observation_handler import Observation, ObservationHandler
 
-class BaseEnv(gym.Env):
+
+class BaseEnv(gym.Env, ABC):
     """Gymnasium environment"""
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None):
-        # TODO I HAVE NO CLUE
-        
-        self.config: ConfigLoader = ConfigLoader(config)
-        self.torax_app: ToraxApp = ToraxApp(config, self.delta_t_a)
+        self.observation_handler = ObservationHandler(self.build_observation_variables())
+        self.action_handler = ActionHandler(self.build_action_list())
+        self.state: Dataset|None = None # States are saved as a Dataset directly
 
+        self.config: ConfigLoader = ConfigLoader(config)
+        
         self.T: float = self.config.get_total_simulation_time() # total time (seconds) of the simulation
         self.delta_t_sim: float = self.config.get_simulation_timestep() # elapsed time between two simulation states
         self.delta_t_a: float = ratio_a_sim * self.delta_t_sim # elapsed time between two actions
         self.current_time: float = 0 # current time (seconds) of the simulation
         self.timestep: int = 0 # current amount of timesteps
+
+        config_loader = ConfigLoader(config, self.action_handler)
+        self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
         # Build the action and observation spaces
         self.action_space = self._build_action_space()
@@ -38,8 +49,7 @@ class BaseEnv(gym.Env):
         truncated = False
         info = {}
         
-        torax_state = self.torax_app.get_state()
-        state = self._build_gym_state(torax_state)
+        state = self.torax_app.get_state_data()
 
         self.torax_app.update_config(action)
         success = self.torax_app.run()
@@ -47,12 +57,11 @@ class BaseEnv(gym.Env):
         # if the simulation did not finish, a terminal state is reached
         if not success:
             self.terminated = True
-        
-        next_torax_state = self.torax_app.get_state()
-        next_state = self._build_gym_state(next_torax_state)
-        self.state = next_state
-        observation = self.torax_app.get_observation()
-        
+
+        next_state = self.torax_app.get_state_data()
+        self.state = get_dataset(next_state)
+        observation = self.observation_handler.get_observation_values(self.state)
+
         reward = self.reward(state, action, next_state)
         
         self.current_time += self.delta_t_a
@@ -73,9 +82,9 @@ class BaseEnv(gym.Env):
         self.truncated = False
         self.timestep = 0
         self.torax_app.start() # initialise the simulator
-        torax_state = self.torax_app.get_state() # get initial state
-        self.state = self._build_gym_state(torax_state) # get the corresponding Gym state
-        observation = self.torax_app.get_observation() # get the initial observation
+        state = self.torax_app.get_state_data() # get the initial state
+        self.state = get_dataset(state) 
+        observation = self.observation_handler.get_observation_values(self.state) # get the initial observation
         
         if self.render_mode == "human":
             self._render_frame()
@@ -105,26 +114,25 @@ class BaseEnv(gym.Env):
         gym.spaces.Box
             The action space of the environment.
         """
-        lower, upper  = self.torax_app.get_action_space()
+        lower_bounds, upper_bounds = [], []
+        for action in self.action_handler.get_actions():
+            lower_bounds.extend(action.min)
+            upper_bounds.extend(action.max)
 
-        space = spaces.Box(low=np.array(lower), high=np.array(upper), dtype=np.float64)
+        space = spaces.Box(low=np.array(lower_bounds), high=np.array(upper_bounds), dtype=np.float64)
 
         return space
 
     def _build_observation_space(self):
         lower_bounds, upper_bounds = [], []
+        for observation in self.observation_handler.get_observations():
+            lower_bounds.extend(observation.min)
+            upper_bounds.extend(observation.max)
 
-        # TODO define the observation space
-        # self.torax_app.get_state_space()
-        # use spaces.Dict() but idk how yet
         space = spaces.Box(low=np.array(lower_bounds), high=np.array(upper_bounds), dtype=np.float64)
 
         return space
-    
-    def _build_gym_state(self, torax_state):
-        """"""
-        # TODO: Implement this method to convert the torax_state to a gym state representation.
-        return np.array([])
+
 
     def _terminal_state(self):
         pass
@@ -139,4 +147,13 @@ class BaseEnv(gym.Env):
         #     )
         # if self.clock is None and self.render_mode == "human":
         #     self.clock = pygame.time.Clock()
+        pass
+
+
+    @abstractmethod
+    def build_observation_variables(self)->list[Observation]:
+        pass
+    
+    @abstractmethod
+    def build_action_list(self)->list[Action]:
         pass

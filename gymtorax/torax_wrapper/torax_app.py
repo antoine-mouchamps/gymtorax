@@ -142,6 +142,8 @@ class ToraxApp:
             torax_config=self.config.config_torax
         )
         
+        self.state = state_history
+        
         self.history = state_history.simulation_output_to_xr(file_restart=None)
         self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
 
