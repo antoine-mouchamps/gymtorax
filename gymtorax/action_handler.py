@@ -44,6 +44,8 @@ from numpy.typing import NDArray
 
 import numpy as np
 
+from torax._src.config.profile_conditions import _MIN_IP_AMPS
+
 
 class Action(ABC):
     """
@@ -145,7 +147,7 @@ class Action(ABC):
             )
         
         # Initialize the current parameter values
-        self.values = [0] * self.dimension
+        self.values = self._min
 
     @property
     def min(self) -> list[float]:
@@ -350,7 +352,7 @@ class IpAction(Action):
         [1500000.0]
     """
     dimension = 1
-    default_min = [0.0]
+    default_min = [_MIN_IP_AMPS] # TORAX requirements
     default_max = [np.inf]
     config_mapping = {('profile_conditions', 'Ip'): 0}
 
@@ -403,8 +405,8 @@ class EcrhAction(Action):
         [5000000.0, 0.3, 0.1]
     """
     dimension = 3  # power, location, width
-    default_min = [0.0, 0.0, 0.0]
-    default_max = [np.inf, np.inf, np.inf]  
+    default_min = [0.0, 0.0, 0.01]
+    default_max = [np.inf, 1.0, np.inf]  
     config_mapping = {
         ('sources', 'ecrh', 'P_total'): 0,
         ('sources', 'ecrh', 'gaussian_location'): 1,
@@ -439,8 +441,8 @@ class NbiAction(Action):
         [10000000.0, 2000000.0, 0.4, 0.2]
     """
     dimension = 4  # heating power, current power, location, width
-    default_min = [0.0, 0.0, 0.0, 0.0]
-    default_max = [np.inf, np.inf, np.inf, np.inf]
+    default_min = [0.0, 0.0, 0.0, 0.01]
+    default_max = [np.inf, np.inf, 1.0, np.inf]
     config_mapping = {
         ('sources', 'generic_heat', 'P_total'): 0,
         ('sources', 'generic_current', 'I_generic'): 1,
