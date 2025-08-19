@@ -255,6 +255,15 @@ class Action(ABC):
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
+                
+    def get_mapping(self) -> dict[tuple[str, ...], int]:
+        """
+        Get the mapping of configuration dictionary paths to action parameter indices.
+
+        Returns:
+            dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
+        """
+        return self.config_mapping
 
     def __repr__(self) -> str:
         """
@@ -288,7 +297,8 @@ class ActionHandler:
             actions: List of Action instances to manage.
         """
         self._actions = actions
-
+        self._validate_action_handler()
+        
 
     def get_actions(self) -> list[Action]:
         """
@@ -323,6 +333,34 @@ class ActionHandler:
             action.set_values(action_array[idx:idx + action.dimension])
             idx += action.dimension
 
+    def _validate_action_handler(self) -> None:
+        """
+        Validates the action handler to ensure action parameters are unique
+        and mutually exclusive.
+
+        This function performs two main checks:
+        1. It verifies that no duplicate parameters exist across all actions.
+        2. It ensures that 'Ip' and 'Vloop' actions are not present simultaneously,
+        as TORAX can only use one for computation.
+
+        Raises:
+            ValueError: If duplicate parameters are found or if both 'Ip'
+                        and 'Vloop' actions are present.
+        """
+        seen_keys = set()
+        for action in self._actions:
+            for key in action.get_mapping().keys():
+                if key in seen_keys:
+                    raise ValueError(f"Duplicate action parameter detected: {key}")
+                seen_keys.add(key)
+
+        # Check for exclusive presence of Ip or Vloop actions (through their keys)
+        if ('profile_conditions', 'v_loop_lcfs') in seen_keys and \
+           ('profile_conditions', 'Ip') in seen_keys:
+            raise ValueError(
+                "Cannot have both Ip and Vloop actions at the same time."
+                " TORAX uses only one for computation."
+            )
 
 # =============================================================================
 # Pre-configured Action Examples
