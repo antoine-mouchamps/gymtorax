@@ -36,14 +36,11 @@ Example:
     [1500000.0]
 """
 
-from __future__ import annotations
-
 from abc import ABC
 from typing import Any
 from numpy.typing import NDArray
 
 import numpy as np
-
 from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
 
@@ -249,6 +246,7 @@ class Action(ABC):
         for dict_path, idx in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
+
             for key in dict_path[:-1]:
                 d = d[key]
 
