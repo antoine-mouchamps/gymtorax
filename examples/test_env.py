@@ -169,9 +169,7 @@ class TestEnv(BaseEnv):
 
 
     def build_observation_variables(self):
-        observations = [] # Empty list => totally observable (s_t=o_t)
-        
-        return observations
+        return oh.AllObservation()
     
 if __name__ == "__main__":
     env = TestEnv()

@@ -1,17 +1,14 @@
 from abc import ABC, abstractmethod
 from numpy._typing._array_like import NDArray
 from ..torax_wrapper import ToraxApp, ConfigLoader
-from ..utils import get_dataset
 
 import gymnasium as gym
 from gymnasium import spaces
-import xarray as xr
-from xarray import DataTree, Dataset
 
 import numpy as np
 
 from ..action_handler import Action, ActionHandler
-from ..observation_handler import Observation, ObservationHandler
+from ..observation_handler import Observation
 
 
 class BaseEnv(gym.Env, ABC):
@@ -19,9 +16,9 @@ class BaseEnv(gym.Env, ABC):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None):
-        self.observation_handler = ObservationHandler(self.build_observation_variables())
+        self.observation_handler = self.build_observation_variables()
         self.action_handler = ActionHandler(self.build_action_list())
-        self.state: Dataset|None = None # States are saved as a Dataset directly
+        self.state: dict|None = None
 
         self.config: ConfigLoader = ConfigLoader(config)
         
@@ -36,14 +33,30 @@ class BaseEnv(gym.Env, ABC):
 
         # Build the action and observation spaces
         self.action_space = self._build_action_space()
-        self.observation_space = self._build_observation_space()
-        
+        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
+        self.observation_space = self.observation_handler.build_observation_space()
+
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
         self.window = None
         self.clock = None
 
+    def reset(self, *, seed:int|None = None, options:dict|None = None):
+        """Reset the environment to its initial state."""
+        super().reset(seed=seed, options=options)
+        
+        self.terminated = False
+        self.truncated = False
+        self.timestep = 0
+        self.torax_app.start() # initialise the simulator
+        torax_state = self.torax_app.get_state_data() # get the initial state
+        self.state, self.observation = self.observation_handler.extract_state_observation(torax_state) # get the initial observation
+
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return self.observation, {}
 
     def step(self, action):
         truncated = False
@@ -58,11 +71,11 @@ class BaseEnv(gym.Env, ABC):
         if not success:
             self.terminated = True
 
-        next_state = self.torax_app.get_state_data()
-        self.state = get_dataset(next_state)
-        observation = self.observation_handler.get_observation_values(self.state)
+        next_torax_state = self.torax_app.get_state_data()
+        next_state, observation = self.observation_handler.extract_state_observation(next_torax_state)
+        self.state, self.observation = next_state, observation
 
-        reward = self.reward(state, action, next_state)
+        reward = self.reward(state, next_state, action)
         
         self.current_time += self.delta_t_a
         
@@ -74,24 +87,7 @@ class BaseEnv(gym.Env, ABC):
         
         return observation, reward, self.terminated, truncated, info 
 
-    def reset(self, *, seed:int|None = None, options:dict|None = None):
-        """Reset the environment to its initial state."""
-        super().reset(seed=seed, options=options)
-        
-        self.terminated = False
-        self.truncated = False
-        self.timestep = 0
-        self.torax_app.start() # initialise the simulator
-        state = self.torax_app.get_state_data() # get the initial state
-        self.state = get_dataset(state) 
-        observation = self.observation_handler.get_observation_values(self.state) # get the initial observation
-        
-        if self.render_mode == "human":
-            self._render_frame()
-        
-        return observation, {}
-    
-    def reward(self, state, action, next_state)->float:
+    def reward(self, state, next_state, action) -> float:
         pass
 
     def close(self):
@@ -123,16 +119,6 @@ class BaseEnv(gym.Env, ABC):
 
         return space
 
-    def _build_observation_space(self):
-        lower_bounds, upper_bounds = [], []
-        for observation in self.observation_handler.get_observations():
-            lower_bounds.extend(observation.min)
-            upper_bounds.extend(observation.max)
-
-        space = spaces.Box(low=np.array(lower_bounds), high=np.array(upper_bounds), dtype=np.float64)
-
-        return space
-
 
     def _terminal_state(self):
         pass
@@ -151,7 +137,7 @@ class BaseEnv(gym.Env, ABC):
 
 
     @abstractmethod
-    def build_observation_variables(self)->list[Observation]:
+    def build_observation_variables(self)->Observation:
         pass
     
     @abstractmethod
