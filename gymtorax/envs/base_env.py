@@ -1,156 +1,476 @@
+"""
+TORAX Base Environment Module.
+
+This module provides the abstract base class for TORAX plasma simulation environments
+compatible with the Gymnasium reinforcement learning framework. It integrates TORAX
+physics simulations with RL interfaces, handling time discretization, action/observation
+spaces, and the simulation lifecycle.
+
+The BaseEnv class serves as a foundation for creating specific plasma control tasks by:
+- Managing TORAX configuration and simulation execution
+- Defining action and observation space structures  
+- Handling time discretization and episode management
+- Providing hooks for custom reward functions and terminal conditions
+
+Classes:
+    BaseEnv: Abstract base class for TORAX Gymnasium environments
+
+Example:
+    Create a custom environment by extending BaseEnv:
+    
+    >>> class PlasmaControlEnv(BaseEnv):
+    ...     def build_observation_variables(self):
+    ...         return AllObservation(exclude=["n_impurity"])
+    ...     
+    ...     def build_action_list(self):
+    ...         return [IpAction(), EcrhAction()]
+    ...     
+    ...     def reward(self, state, next_state, action):
+    ...         # Custom reward logic
+    ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
+"""
+
 from abc import ABC, abstractmethod
-from numpy._typing._array_like import NDArray
-from ..torax_wrapper import ToraxApp, ConfigLoader
+from typing import Any
 
 import gymnasium as gym
 from gymnasium import spaces
-
 import numpy as np
+from numpy._typing._array_like import NDArray
 
 from ..action_handler import Action, ActionHandler
 from ..observation_handler import Observation
+from ..torax_wrapper import ToraxApp, ConfigLoader
 
 
 class BaseEnv(gym.Env, ABC):
-    """Gymnasium environment"""
+    """
+    Abstract base class for TORAX plasma simulation environments.
+    
+    This class integrates TORAX physics simulations with the Gymnasium reinforcement
+    learning framework, providing a standardized interface for plasma control tasks.
+    It handles the complexities of time discretization, simulation management, and
+    action/observation space construction.
+    
+    The environment operates by:
+    1. Initializing TORAX configuration and simulation state
+    2. Managing discrete time steps with configurable time intervals
+    3. Applying actions by updating TORAX configuration parameters
+    4. Executing simulation steps and extracting observations
+    5. Computing rewards and determining episode termination
+    
+    Attributes:
+        observation_handler (Observation): Handles observation space and data extraction
+        action_handler (ActionHandler): Manages action space and parameter updates
+        config (ConfigLoader): TORAX configuration manager
+        torax_app (ToraxApp): TORAX simulation wrapper
+        state (dict): Current complete plasma state
+        observation (dict): Current filtered observation
+        T (float): Total simulation time [s]
+        delta_t_a (float): Time interval between actions [s]
+        current_time (float): Current simulation time [s]
+        timestep (int): Current timestep counter
+        terminated (bool): Episode termination flag
+        truncated (bool): Episode truncation flag
+    
+    Abstract Methods:
+        build_observation_variables(): Define observation space variables
+        build_action_list(): Define available control actions
+        reward(): Compute reward signal (optional override)
+    """
+    
+    # Gymnasium metadata for rendering configuration
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, config:dict|None=None, discretization_torax: str="auto", ratio_a_sim: int=None, delta_t_a: int=None):
+    def __init__(
+        self, 
+        config: dict[str, Any],
+        render_mode: str|None = None, 
+        discretization_torax: str = "auto", 
+        ratio_a_sim: int|None = None, 
+        delta_t_a: float|None = None
+    ) -> None:
+        """
+        Initialize the TORAX gymnasium environment.
+        
+        Args:
+            render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
+            config: TORAX configuration dictionary.
+            discretization_torax: Time discretization method. Options:
+                - "auto": Use explicit delta_t_a timing
+                - "fixed": Use ratio of simulation timesteps
+            ratio_a_sim: Ratio of action timesteps to simulation timesteps. 
+                Required when discretization_torax="fixed".
+            delta_t_a: Time interval between actions in seconds.
+                Required when discretization_torax="auto".
+                
+        Raises:
+            ValueError: If required parameters are missing for chosen discretization method.
+            TypeError: If discretization_torax is not "auto" or "fixed".
+            
+        Note:
+            The environment must implement build_observation_variables() and 
+            build_action_list() abstract methods to define the observation and action spaces.
+        """
+        # Initialize observation and action handlers using abstract methods
+        # These must be implemented by concrete subclasses
         self.observation_handler = self.build_observation_variables()
         self.action_handler = ActionHandler(self.build_action_list())
-        self.state: dict|None = None
+        
+        # Initialize state tracking
+        self.state: dict[str, Any]|None = None  # Plasma state
+        self.observation: dict[str, Any]|None = None  # Observation
 
+        # Load and validate TORAX configuration
         self.config: ConfigLoader = ConfigLoader(config)
         self.config.validate_discretization(discretization_torax)
         
-        self.T: float = self.config.get_total_simulation_time() # total time (seconds) of the simulation
+        # Get total simulation time from configuration
+        self.T: float = self.config.get_total_simulation_time()  # [seconds]
+        
+        # Configure time discretization based on chosen method
         if discretization_torax == "auto":
+            # Use explicit action timestep timing
             if delta_t_a is None:
                 raise ValueError("delta_t_a must be provided for auto discretization")
-            self.delta_t_a: float = delta_t_a # elapsed time between two actions
+            self.delta_t_a: float = delta_t_a  # Time between actions [s]
         elif discretization_torax == "fixed":
+            # Use ratio-based timing relative to simulation timesteps
             if ratio_a_sim is None:
                 raise ValueError("ratio_a_sim must be provided for fixed discretization")
-            delta_t_sim: float = self.config.get_simulation_timestep() # elapsed time between two simulation states
-            self.delta_t_a: float = ratio_a_sim * delta_t_sim # elapsed time between two actions
+            delta_t_sim: float = self.config.get_simulation_timestep()  # TORAX internal timestep [s]
+            self.delta_t_a: float = ratio_a_sim * delta_t_sim  # Action interval [s]
         else:
-            raise TypeError("Invalid type for ratio_a_sim")
+            raise TypeError(f"Invalid discretization method: {discretization_torax}. Use 'auto' or 'fixed'.")
 
-        self.current_time: float = 0 # current time (seconds) of the simulation
-        self.timestep: int = 0 # current amount of timesteps
+        # Initialize time tracking
+        self.current_time: float = 0.0  # Current simulation time [s]
+        self.timestep: int = 0  # Current action timestep counter
 
+        # Initialize TORAX simulation wrapper
         config_loader = ConfigLoader(config, self.action_handler)
         self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
-        # Build the action and observation spaces
+        # Build Gymnasium spaces
         self.action_space = self._build_action_space()
         self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
         self.observation_space = self.observation_handler.build_observation_space()
 
+        # Validate and set rendering mode
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
+        # Initialize rendering components (will be set up when needed)
         self.window = None
         self.clock = None
 
-    def reset(self, *, seed:int|None = None, options:dict|None = None):
-        """Reset the environment to its initial state."""
+    def reset(
+        self, 
+        *, 
+        seed: int|None = None, 
+        options: dict[str, Any]|None = None
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Reset the environment to its initial state for a new episode.
+        
+        This method initializes a new simulation episode by:
+        1. Resetting internal counters and flags
+        2. Starting the TORAX simulation from initial conditions
+        3. Extracting the initial observation state
+        4. Optionally rendering the initial state
+            
+        Returns:
+            Tuple containing:
+            - observation (dict): Initial observation of plasma state
+            - info (dict): Additional information (empty dict)
+        """
         super().reset(seed=seed, options=options)
         
+        # Reset episode flags
         self.terminated = False
         self.truncated = False
         self.timestep = 0
-        self.torax_app.start() # initialise the simulator
-        torax_state = self.torax_app.get_state_data() # get the initial state
-        self.state, self.observation = self.observation_handler.extract_state_observation(torax_state) # get the initial observation
+        self.current_time = 0.0
+        
+        # Initialize TORAX simulation
+        self.torax_app.start()  # Set up initial simulation state
+        torax_state = self.torax_app.get_state_data()  # Get initial plasma state
+        
+        # Extract initial observation
+        self.state, self.observation = self.observation_handler.extract_state_observation(torax_state)
 
+        # Render initial state if in human mode
         if self.render_mode == "human":
             self._render_frame()
 
         return self.observation, {}
 
-    def step(self, action):
+    def step(
+        self, 
+        action: NDArray[np.floating]
+    ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+        """
+        Execute one environment step with the given action.
+        
+        This method implements the core RL interaction by:
+        1. Capturing the current state before action
+        2. Applying the action to update TORAX configuration
+        3. Running the simulation for one time interval
+        4. Extracting the new observation state
+        5. Computing the reward signal
+        6. Checking for episode termination
+        7. Updating time counters
+        
+        Args:
+            action: Action array containing parameter values for all configured actions.
+                
+        Returns:
+            Tuple containing:
+            - observation (dict): New plasma state observation
+            - reward (float): Reward signal for this step
+            - terminated (bool): True if episode ended due to terminal condition
+            - truncated (bool): True if episode ended due to time/step limits
+            - info (dict): Additional step information
+        """
         truncated = False
         info = {}
         
+        # Capture current state before applying action
         state = self.torax_app.get_state_data()
 
+        # Apply action by updating TORAX configuration parameters
         self.torax_app.update_config(action)
+        
+        # Execute simulation step
         success = self.torax_app.run()
 
-        # if the simulation did not finish, a terminal state is reached
+        # Check if simulation completed successfully
         if not success:
+            # Simulation failed - mark episode as terminated
             self.terminated = True
 
+        # Extract new state and observation after simulation step
         next_torax_state = self.torax_app.get_state_data()
         next_state, observation = self.observation_handler.extract_state_observation(next_torax_state)
         self.state, self.observation = next_state, observation
 
+        # Compute reward based on state transition
         reward = self.reward(state, next_state, action)
         
+        # Update time tracking
         self.current_time += self.delta_t_a
-        
-        # Update timestep
         self.timestep += 1
         
+        # Render frame if in human mode
         if self.render_mode == "human":
             self._render_frame()
         
         return observation, reward, self.terminated, truncated, info 
 
-    def reward(self, state, next_state, action) -> float:
-        pass
+    def reward(
+        self, 
+        state: dict[str, Any], 
+        next_state: dict[str, Any], 
+        action: NDArray[np.floating]
+    ) -> float:
+        """
+        Compute the reward signal for a state transition.
+        
+        This method should be overridden by concrete subclasses to implement
+        task-specific reward functions. The default implementation returns 0.0.
+        
+        Args:
+            state: Previous plasma state before action was applied.
+                Contains complete state with "profiles" and "scalars" dictionaries.
+            next_state: New plasma state after action and simulation step.
+                Same structure as state parameter.
+            action: Action array that was applied to cause this transition.
+                
+        Returns:
+            float: Reward value for this state transition.
+            
+        Example:
+            >>> def reward(self, state, next_state, action):
+            ...     # Reward based on proximity to target beta_N
+            ...     target_beta = 2.0
+            ...     current_beta = next_state["scalars"]["beta_N"]
+            ...     return -abs(current_beta - target_beta)
+        """
+        return 0.0
 
-    def close(self):
-        self.torax_app.close() # finish the simulation
+    def close(self) -> None:
+        """
+        Clean up environment resources.
+        
+        This method properly closes the TORAX simulation and releases any
+        rendering resources. Should be called when the environment is no
+        longer needed.
+        """
+        # Close TORAX simulation
+        self.torax_app.close()
+        
+        # Clean up rendering resources
         if self.window is not None:
+            # TODO: Add pygame cleanup when rendering is implemented
             # pygame.display.quit()
             # pygame.quit()
             pass
     
     def render(self):
+        """
+        Render the current environment state.
+        
+        Returns:
+            NDArray or None: RGB array if render_mode is "rgb_array", else None.
+            
+        Note:
+            Currently not fully implemented. Returns None for all modes.
+        """
         if self.render_mode == "rgb_array":
             return self._render_frame()  
+        return None  
   
-    def _build_action_space(self):
+    def _build_action_space(self) -> spaces.Box:
         """
-        Build the action space :math:`\mathcal A`.
+        Build the Gymnasium action space from configured actions.
 
-        Returns
-        -------
-        gym.spaces.Box
-            The action space of the environment.
+        Returns:
+            spaces.Box: Continuous action space with bounds [lower, upper] where:
+                - lower: Concatenated minimum bounds from all actions
+                - upper: Concatenated maximum bounds from all actions
+                - dtype: np.float64 for high precision control
         """
         lower_bounds, upper_bounds = [], []
+        
+        # Concatenate bounds from all configured actions
         for action in self.action_handler.get_actions():
             lower_bounds.extend(action.min)
             upper_bounds.extend(action.max)
 
-        space = spaces.Box(low=np.array(lower_bounds), high=np.array(upper_bounds), dtype=np.float64)
+        # Create continuous Box space with collected bounds
+        space = spaces.Box(
+            low=np.array(lower_bounds), 
+            high=np.array(upper_bounds), 
+            dtype=np.float64
+        )
 
         return space
 
 
-    def _terminal_state(self):
-        pass
+    def _terminal_state(self) -> bool:
+        """
+        Check if the environment has reached a terminal state.
+        
+        This method can be overridden by subclasses to implement custom
+        termination conditions based on plasma state, time limits, or
+        other criteria.
+        
+        Returns:
+            bool: True if episode should terminate, False otherwise.
+            
+        Note:
+            Currently not implemented. Termination is handled by simulation
+            failure detection in the step() method.
+        """
+        # TODO: Implement custom termination logic
+        return False
 
-    def _render_frame(self):
-        # TODO
-        # if self.window is None and self.render_mode == "human":
-        #     pygame.init()
-        #     pygame.display.init()
-        #     self.window = pygame.display.set_mode(
-        #         (self.window_size, self.window_size)
-        #     )
-        # if self.clock is None and self.render_mode == "human":
-        #     self.clock = pygame.time.Clock()
-        pass
+    def _render_frame(self) -> Optional[NDArray[np.uint8]]:
+        """
+        Render a single frame of the environment state.
+        
+        This method handles the actual rendering logic for both human and
+        rgb_array modes. Currently not fully implemented.
+        
+        Returns:
+            NDArray or None: RGB array for rgb_array mode, None for human mode.
+            
+        TODO:
+            Implement visualization using matplotlib or pygame:
+            - Plasma profiles (temperature, density, current)
+            - Time evolution plots
+            - Control parameter displays
+            - Performance metrics
+        """
+        # TODO: Implement rendering logic
+        # Ideas for visualization:
+        # - Plot temperature and density profiles
+        # - Show time evolution of key parameters (beta_N, H-factor, etc.)
+        # - Display current control actions
+        # - Show reward history
+        
+        if self.render_mode == "human":
+            # if self.window is None:
+            #     pygame.init()
+            #     pygame.display.init()
+            #     self.window = pygame.display.set_mode((800, 600))
+            # if self.clock is None:
+            #     self.clock = pygame.time.Clock()
+            #
+            # # Draw plasma state visualization
+            # # ... rendering code ...
+            #
+            # pygame.event.pump()
+            # self.clock.tick(self.metadata["render_fps"])
+            # pygame.display.flip()
+            pass
+        elif self.render_mode == "rgb_array":
+            # Generate RGB array for the current state
+            # return np.zeros((600, 800, 3), dtype=np.uint8)  # Placeholder
+            pass
+            
+        return None
 
+
+    # =============================================================================
+    # Abstract Methods - Must be implemented by concrete subclasses
+    # =============================================================================
 
     @abstractmethod
-    def build_observation_variables(self)->Observation:
+    def build_observation_variables(self) -> Observation:
+        """
+        Define the observation space variables for this environment.
+        
+        This method must be implemented by concrete subclasses to specify
+        which TORAX variables should be included in the observation space.
+        
+        Returns:
+            Observation: Configured observation handler that defines which
+                plasma state variables are visible to the RL agent.
+                
+        Example:
+            >>> def build_observation_variables(self):
+            ...     return AllObservation(
+            ...         exclude=["n_impurity", "Z_impurity"],
+            ...         custom_bounds={
+            ...             "T_e": (0.0, 50.0),  # Temperature range in keV
+            ...             "T_i": (0.0, 50.0)
+            ...         }
+            ...     )
+        """
         pass
     
     @abstractmethod
-    def build_action_list(self)->list[Action]:
+    def build_action_list(self) -> list[Action]:
+        """
+        Define the available control actions for this environment.
+        
+        This method must be implemented by concrete subclasses to specify
+        which plasma parameters can be controlled by the RL agent.
+        
+        Returns:
+            List[Action]: List of Action instances representing controllable
+                parameters with their bounds and TORAX configuration mappings.
+                
+        Example:
+            >>> def build_action_list(self):
+            ...     return [
+            ...         IpAction(min=[0.5e6], max=[2.0e6]),      # Plasma current
+            ...         EcrhAction(                               # ECRH heating
+            ...             min=[0.0, 0.0, 0.0],                # [power, loc, width]
+            ...             max=[10e6, 1.0, 0.5]
+            ...         ),
+            ...         NbiAction()                               # NBI with defaults
+            ...     ]
+        """
         pass
