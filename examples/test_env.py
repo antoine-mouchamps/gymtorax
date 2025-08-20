@@ -151,14 +151,14 @@ CONFIG = {
 #        'log_iterations': False,
     },
     'time_step_calculator': {
-        'calculator_type': 'fixed',
+        'calculator_type': 'chi',
     },
 }
 
 
 class TestEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None, config=CONFIG, ratio_a_sim=1)
+        super().__init__(render_mode=None, config=CONFIG, discretization_torax="auto", delta_t_a=1)
     
     def build_action_list(self):
         actions = [

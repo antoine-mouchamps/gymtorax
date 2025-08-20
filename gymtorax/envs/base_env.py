@@ -15,16 +15,27 @@ class BaseEnv(gym.Env, ABC):
     """Gymnasium environment"""
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None):
+    def __init__(self, render_mode=None, config:dict|None=None, discretization_torax: str="auto", ratio_a_sim: int=None, delta_t_a: int=None):
         self.observation_handler = self.build_observation_variables()
         self.action_handler = ActionHandler(self.build_action_list())
         self.state: dict|None = None
 
         self.config: ConfigLoader = ConfigLoader(config)
+        self.config.validate_discretization(discretization_torax)
         
         self.T: float = self.config.get_total_simulation_time() # total time (seconds) of the simulation
-        self.delta_t_sim: float = self.config.get_simulation_timestep() # elapsed time between two simulation states
-        self.delta_t_a: float = ratio_a_sim * self.delta_t_sim # elapsed time between two actions
+        if discretization_torax == "auto":
+            if delta_t_a is None:
+                raise ValueError("delta_t_a must be provided for auto discretization")
+            self.delta_t_a: float = delta_t_a # elapsed time between two actions
+        elif discretization_torax == "fixed":
+            if ratio_a_sim is None:
+                raise ValueError("ratio_a_sim must be provided for fixed discretization")
+            delta_t_sim: float = self.config.get_simulation_timestep() # elapsed time between two simulation states
+            self.delta_t_a: float = ratio_a_sim * delta_t_sim # elapsed time between two actions
+        else:
+            raise TypeError("Invalid type for ratio_a_sim")
+
         self.current_time: float = 0 # current time (seconds) of the simulation
         self.timestep: int = 0 # current amount of timesteps
 

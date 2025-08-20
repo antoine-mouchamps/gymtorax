@@ -187,11 +187,6 @@ class ConfigLoader:
         Raises:
             ValueError: If the configuration is invalid
         """
-        # TODO: Implement validation logic based on Gym-TORAX requirements
-
-        if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
-            raise ValueError(f"Invalid value: calculator_type should always be 'fixed' when using Gym-TORAX, got {self.config_dict['time_step_calculator']['calculator_type']}")
-
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
@@ -200,6 +195,26 @@ class ConfigLoader:
             for a in action_list:
                 a.init_dict(self.config_dict)
 
+    def validate_discretization(self, discretization_torax: str) -> None:
+        """
+        Validate the discretization settings.
+
+        This method checks that the discretization settings are consistent
+        and valid for the simulation.
+
+        Raises:
+            ValueError: If the discretization settings are invalid
+        """
+        if discretization_torax == "fixed":
+            if 'calculator_type' in self.config_dict['time_step_calculator']:
+                if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
+                    raise ValueError("calculator_type must be set to 'fixed' for fixed discretization.")
+        elif discretization_torax == "auto":
+            if 'calculator_type' in self.config_dict['time_step_calculator']:
+                if self.config_dict['time_step_calculator']['calculator_type'] == 'fixed':
+                    raise ValueError("calculator_type must not be set to 'fixed' for auto discretization.")
+        else:
+            raise ValueError("Invalid discretization_torax setting.")
 
     def setup_for_simulation(self, file_path: str) -> None:
         """
