@@ -81,7 +81,6 @@ class ToraxApp:
         # Check if the file can be accessed
         if self.tmp_file_path is None or not os.path.exists(self.tmp_file_path):
             raise FileNotFoundError("Output file not found.")
-        
         self.config.setup_for_simulation(self.tmp_file_path)
 
     
@@ -89,6 +88,7 @@ class ToraxApp:
         pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
 
         self.geometry_provider = self.config.config_torax.geometry.build_provider
+        
         source_models = source_models_lib.SourceModels(
             self.config.config_torax.sources, neoclassical=self.config.config_torax.neoclassical
         )
@@ -145,7 +145,7 @@ class ToraxApp:
         self.state = state_history
         
         self.history = state_history.simulation_output_to_xr(file_restart=None)
-        self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+        self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")    
 
         self.is_start = True
 
@@ -165,8 +165,10 @@ class ToraxApp:
                                     self.delta_t_a)
         except ValueError as e:
             self.close()
-            raise ValueError(f"Error updating configuration: {e}")
-                
+            raise ValueError(f"Error updating configuration: {e}")   
+        
+        self.geometry_provider = self.config.config_torax.geometry.build_provider
+             
         self.dynamic_runtime_params_slice_provider = (
             build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
                 self.config.config_torax
@@ -190,18 +192,23 @@ class ToraxApp:
             print("Simulation has reached the final time, no further steps will be executed.")
             return True
 
-        sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
-            static_runtime_params_slice=self.static_runtime_params_slice,
-            dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
-            geometry_provider=self.geometry_provider,
-            initial_state=self.initial_state,
-            initial_post_processed_outputs=self.post_processed_outputs,
-            restart_case=True,
-            step_fn=self.step_fn,
-            log_timestep_info=False,
-            progress_bar=False,
-        )
-    
+        try: 
+            sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
+                static_runtime_params_slice=self.static_runtime_params_slice,
+                dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
+                geometry_provider=self.geometry_provider,
+                initial_state=self.initial_state,
+                initial_post_processed_outputs=self.post_processed_outputs,
+                restart_case=False,
+                step_fn=self.step_fn,
+                log_timestep_info=False,
+                progress_bar=False,
+            )
+        except Exception as e:
+            if sim_error == state.SimError.NAN_DETECTED:
+                print(f"NaN detected in simulation output. It could come from invalid input values.")
+            raise RuntimeError(f"An error occurred during the simulation: {e}")
+        
         current_sim_state = sim_states_list[-1]
         current_sim_output = post_processed_outputs_list[-1]
 
@@ -263,7 +270,6 @@ class ToraxApp:
         if self.tmp_file_path and os.path.exists(self.tmp_file_path):
             os.remove(self.tmp_file_path)
         self.tmp_file_path = None
-
 
     def get_state_data(self):
         """_summary_
