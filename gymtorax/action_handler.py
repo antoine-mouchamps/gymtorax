@@ -200,10 +200,10 @@ class Action(ABC):
                 structure for this action parameters.
         """
         try:
-            self._apply_mapping(config_dict, time=0)
+            self._apply_mapping(config_dict, time=0, warning=True)
         except Exception as e:
             raise KeyError(
-                f"An error occurred while initializing the action in the dictionary: {e}"
+                f"An error occurred while initializing the action in the dictionary: key {e} is missing"
             )
 
     def update_to_config(self, config_dict: dict[str, Any], time: float) -> None:
@@ -222,9 +222,9 @@ class Action(ABC):
             The configuration dictionary must have been initialized with
             init_dict before calling this method.
         """
-        self._apply_mapping(config_dict, time=time)
+        self._apply_mapping(config_dict, time=time, warning = False)
 
-    def _apply_mapping(self, config_dict: dict[str, Any], time: float) -> None:
+    def _apply_mapping(self, config_dict: dict[str, Any], time: float, warning: bool) -> None:
         """
         Apply the action values to a TORAX configuration dictionary.
         
@@ -237,7 +237,8 @@ class Action(ABC):
             config_dict: The TORAX configuration dictionary to modify
             time: Simulation time. If 0, initializes new time-dependent parameters.
                 If >0, updates existing time-dependent parameters.
-        
+            warning: If True, emits a warning when overwriting existing values.
+
         Note:
             This is an internal method used by init_dict and update_to_config.
             The configuration format follows TORAX conventions where time-dependent
@@ -246,12 +247,15 @@ class Action(ABC):
         for dict_path, idx in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
-
+            
             for key in dict_path[:-1]:
                 d = d[key]
 
             key = dict_path[-1]
             if time == 0:
+                #Check there is no value associated to the existing key
+                if d[key] != {} and warning:
+                    print("Warning: Overwriting existing value for key:", key)
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
