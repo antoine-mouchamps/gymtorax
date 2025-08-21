@@ -11,6 +11,7 @@ The BaseEnv class serves as a foundation for creating specific plasma control ta
 - Defining action and observation space structures  
 - Handling time discretization and episode management
 - Providing hooks for custom reward functions and terminal conditions
+- Configurable logging system for debugging and monitoring
 
 Classes:
     BaseEnv: Abstract base class for TORAX Gymnasium environments
@@ -55,11 +56,12 @@ class BaseEnv(gym.Env, ABC):
     action/observation space construction.
     
     The environment operates by:
-    1. Initializing TORAX configuration and simulation state
-    2. Managing discrete time steps with configurable time intervals
-    3. Applying actions by updating TORAX configuration parameters
-    4. Executing simulation steps and extracting observations
-    5. Computing rewards and determining episode termination
+    1. Setting up logging configuration for debugging and monitoring
+    2. Initializing TORAX configuration and simulation state
+    3. Managing discrete time steps with configurable time intervals
+    4. Applying actions by updating TORAX configuration parameters
+    5. Executing simulation steps and extracting observations
+    6. Computing rewards and determining episode termination
     
     Attributes:
         observation_handler (Observation): Handles observation space and data extraction
@@ -98,8 +100,8 @@ class BaseEnv(gym.Env, ABC):
         Initialize the TORAX gymnasium environment.
         
         Args:
+            config: TORAX configuration dictionary (required).
             render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
-            config: TORAX configuration dictionary.
             discretization_torax: Time discretization method. Options:
                 - "auto": Use explicit delta_t_a timing
                 - "fixed": Use ratio of simulation timesteps
@@ -107,6 +109,9 @@ class BaseEnv(gym.Env, ABC):
                 Required when discretization_torax="fixed".
             delta_t_a: Time interval between actions in seconds.
                 Required when discretization_torax="auto".
+            log_level: Logging level for environment operations. Options: "debug", "info", 
+                "warning", "error", "critical". Default: "warning".
+            logfile: Path to log file for writing log messages. If None, logs to console.
                 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
@@ -115,7 +120,10 @@ class BaseEnv(gym.Env, ABC):
         Note:
             The environment must implement build_observation_variables() and 
             build_action_list() abstract methods to define the observation and action spaces.
+            Logging is set up during initialization and applies to all environment operations.
         """
+        setup_logging(getattr(logging, log_level.upper()), logfile)
+
         # Initialize observation and action handlers using abstract methods
         # These must be implemented by concrete subclasses
         self.observation_handler = self.build_observation_variables()
@@ -379,7 +387,7 @@ class BaseEnv(gym.Env, ABC):
         # TODO: Implement custom termination logic
         return False
 
-    def _render_frame(self) -> Optional[NDArray[np.uint8]]:
+    def _render_frame(self):
         """
         Render a single frame of the environment state.
         
