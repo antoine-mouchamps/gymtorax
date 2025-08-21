@@ -128,6 +128,30 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
+    def get_n_grid_points(self) -> int:
+        """
+        Get the number of radial grid points (rho) in the simulation.
+
+        This extracts the :code:`n_rho` parameter from the geometry section,
+        which defines the number of radial grid points in the simulation. If
+        the parameter is not set, a default value of 25 will be used, in
+        accordance to TORAX settings.
+
+        Returns:
+            Number of radial grid points (rho)
+
+        Raises:
+            TypeError: If the value is not an integer
+        """
+        if "n_rho" in self.config_dict["geometry"]:
+            n_rho = self.config_dict["geometry"]["n_rho"]
+            if not isinstance(n_rho, int):
+                raise TypeError("n_rho must be an integer")
+            return n_rho
+        else:
+            return 25
+        
+
     def update_config(self, action_array: NDArray, current_time: float, final_time: float, delta_t_a: float) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
@@ -166,11 +190,6 @@ class ConfigLoader:
         Raises:
             ValueError: If the configuration is invalid
         """
-        # TODO: Implement validation logic based on Gym-TORAX requirements
-
-        if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
-            raise ValueError(f"Invalid value: calculator_type should always be 'fixed' when using Gym-TORAX, got {self.config_dict['time_step_calculator']['calculator_type']}")
-
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
         
@@ -185,6 +204,27 @@ class ConfigLoader:
                     else:
                         self.config_dict['profile_conditions']['Ip'] = self._Ip_computation()                
                         
+
+    def validate_discretization(self, discretization_torax: str) -> None:
+        """
+        Validate the discretization settings.
+
+        This method checks that the discretization settings are consistent
+        and valid for the simulation.
+
+        Raises:
+            ValueError: If the discretization settings are invalid
+        """
+        if discretization_torax == "fixed":
+            if 'calculator_type' in self.config_dict['time_step_calculator']:
+                if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
+                    raise ValueError("calculator_type must be set to 'fixed' for fixed discretization.")
+        elif discretization_torax == "auto":
+            if 'calculator_type' in self.config_dict['time_step_calculator']:
+                if self.config_dict['time_step_calculator']['calculator_type'] == 'fixed':
+                    raise ValueError("calculator_type must not be set to 'fixed' for auto discretization.")
+        else:
+            raise ValueError("Invalid discretization_torax setting.")
 
     def setup_for_simulation(self, file_path: str) -> None:
         """
