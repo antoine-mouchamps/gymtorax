@@ -63,7 +63,8 @@ class Action(ABC):
         config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
             paths to parameter indices. Keys are tuples representing the nested
             path in the config dictionary, values are parameter indices.
-    
+        state_var: tuple of variables directly modified by the action in the state
+        
     Instance Attributes:
         values (list[float]): Current parameter values
     
@@ -86,6 +87,7 @@ class Action(ABC):
     default_min: list[float]
     default_max: list[float] 
     config_mapping: dict[tuple[str, ...], int]
+    state_var: tuple[tuple[str]] = ()
     
     def __init__(
         self, 
@@ -142,8 +144,7 @@ class Action(ABC):
             raise ValueError(
                 f"Invalid max bounds dimension: expected {self.dimension}, got {len(self._max)}"
             )
-        
-        # Initialize the current parameter values
+        # Default value
         self.values = self._min
 
     @property
@@ -269,6 +270,16 @@ class Action(ABC):
         """
         return self.config_mapping
 
+    def get_state_variables(self) -> tuple[tuple[str]]:
+        """
+        Get the state variables modified by the action.
+
+        Returns:
+            tuple[tuple[str]]: A tuple of tuples, each containing the state variable
+            names modified by the action.
+        """
+        return self.state_var
+
     def __repr__(self) -> str:
         """
         Return a string representation of the action.
@@ -385,7 +396,8 @@ class IpAction(Action):
         default_min: [0.0]
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'Ip')
-    
+        state_var: tuple of variables directly modified by the action in the state
+        
     Example:
         >>> ip_action = IpAction(values=[1.5e6])  # 1.5 MA plasma current
         >>> ip_action.values
@@ -395,6 +407,7 @@ class IpAction(Action):
     default_min = [_MIN_IP_AMPS] # TORAX requirements
     default_max = [np.inf]
     config_mapping = {('profile_conditions', 'Ip'): 0}
+    state_var = (('scalars', 'Ip'))
 
 
 class VloopAction(Action):
@@ -409,7 +422,8 @@ class VloopAction(Action):
         default_min: [0.0]
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-    
+        state_var: tuple of variables directly modified by the action in the state
+        
     Example:
         >>> vloop_action = VloopAction(values=[2.5])  # 2.5 V loop voltage
         >>> vloop_action.values
@@ -419,6 +433,7 @@ class VloopAction(Action):
     default_min = [0.0]
     default_max = [np.inf]
     config_mapping = {('profile_conditions', 'v_loop_lcfs'): 0}
+    state_var = (('scalars', 'v_loop_lcfs'))
 
 
 class EcrhAction(Action):
@@ -433,7 +448,8 @@ class EcrhAction(Action):
         default_min: [0.0, 0.0, 0.0]
         default_max: [np.inf, np.inf, np.inf]
         config_mapping: Maps to ECRH source parameters
-    
+        state_var: tuple of variables directly modified by the action in the state
+        
     Parameters:
         - Index 0: Total power (P_total)
         - Index 1: Gaussian location (gaussian_location)
@@ -452,7 +468,8 @@ class EcrhAction(Action):
         ('sources', 'ecrh', 'gaussian_location'): 1,
         ('sources', 'ecrh', 'gaussian_width'): 2
     }
-    
+    state_var = (('scalars', 'P_ecrh_e'), ('profiles', 'p_ecrh_e'))
+
 
 class NbiAction(Action):
     """
@@ -467,7 +484,8 @@ class NbiAction(Action):
         default_min: [0.0, 0.0, 0.0, 0.0]
         default_max: [np.inf, np.inf, np.inf, np.inf]
         config_mapping: Maps to generic heat and current source parameters
-    
+        state_var: tuple of variables directly modified by the action in the state
+
     Parameters:
         - Index 0: Heating power (generic_heat P_total)
         - Index 1: Current drive power (generic_current I_generic)
@@ -491,4 +509,4 @@ class NbiAction(Action):
         ('sources', 'generic_current', 'gaussian_location'): 2,  # Shared location
         ('sources', 'generic_current', 'gaussian_width'): 3,     # Shared width
     }
-    
+    state_var = (('scalars', 'P_aux_generic_total', 'I_aux_generic'), ('profiles', 'p_generic_heat_e', 'p_generic_heat_i', 'j_generic_current'))
