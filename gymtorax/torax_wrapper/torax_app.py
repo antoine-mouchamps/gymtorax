@@ -17,10 +17,7 @@ from . import torax_plot_extensions
 
 import os
 import tempfile
-
-#Suppress TORAX prints
 import logging
-logging.getLogger().setLevel(logging.WARNING)
 
 class ToraxApp:
     """Represents the Torax application. It initializes the application with a given configuration
@@ -189,7 +186,7 @@ class ToraxApp:
             raise RuntimeError("ToraxApp must be started before running the simulation.")
         
         if self.t_current >= self.t_final:
-            print("Simulation has reached the final time, no further steps will be executed.")
+            logging.debugging("Simulation run terminated successfully.")
             return True
 
         try: 
@@ -205,9 +202,14 @@ class ToraxApp:
                 progress_bar=False,
             )
         except Exception as e:
-            if sim_error == state.SimError.NAN_DETECTED:
-                print(f"NaN detected in simulation output. It could come from invalid input values.")
-            raise RuntimeError(f"An error occurred during the simulation: {e}")
+            logging.error(f"An error occurred during the simulation run: {e}. The environment will reset")
+            self.close()
+            return False
+        
+        if(sim_error != state.SimError.NO_ERROR):
+            logging.warning(f"Simulation terminated with an error. The environment will reset")
+            self.close()
+            return False
         
         current_sim_state = sim_states_list[-1]
         current_sim_output = post_processed_outputs_list[-1]
@@ -218,11 +220,6 @@ class ToraxApp:
             sim_error=sim_error,
             torax_config=self.config.config_torax,
         )
-        
-        if(sim_error != state.SimError.NO_ERROR):
-            # TODO: Stop the simulation if an error has been encountered
-            self.close()
-            return False
         
         history = output.StateHistory(
             state_history=sim_states_list,
@@ -248,7 +245,7 @@ class ToraxApp:
         """
 
         for plot_config in plot_configs:
-            print(f"Plotting with configuration: {plot_config}")
+            logging.debugging(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,

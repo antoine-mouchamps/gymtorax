@@ -41,6 +41,8 @@ from typing import Any
 from numpy.typing import NDArray
 
 import numpy as np
+import logging
+
 from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
 
@@ -256,7 +258,7 @@ class Action(ABC):
             if time == 0:
                 #Check there is no value associated to the existing key
                 if d[key] != {} and warning:
-                    print("Warning: Overwriting existing value for key:", key)
+                    logging.warning(f"ARNING: overwriting existing value for key: {key}")
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})

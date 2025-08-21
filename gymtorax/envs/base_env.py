@@ -9,16 +9,20 @@ import xarray as xr
 from xarray import DataTree, Dataset
 
 import numpy as np
+import logging
 
 from ..action_handler import Action, ActionHandler
 from ..observation_handler import Observation, ObservationHandler
+from ..logger import setup_logging, get_logger
 
 
 class BaseEnv(gym.Env, ABC):
     """Gymnasium environment"""
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None):
+    def __init__(self, render_mode=None, config:dict|None=None, ratio_a_sim:int|None=None, log_level="warning", logfile=None):
+        setup_logging(getattr(logging, log_level.upper()), logfile)
+
         self.observation_handler = ObservationHandler(self.build_observation_variables())
         self.action_handler = ActionHandler(self.build_action_list())
         self.state: Dataset|None = None # States are saved as a Dataset directly
