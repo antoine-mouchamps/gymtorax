@@ -13,7 +13,7 @@ import logging
 
 from ..action_handler import Action, ActionHandler
 from ..observation_handler import Observation, ObservationHandler
-from ..logger import setup_logging, get_logger
+from ..logger import setup_logging
 
 
 class BaseEnv(gym.Env, ABC):
