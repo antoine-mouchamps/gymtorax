@@ -15,7 +15,7 @@ from numpy.typing import NDArray
 
 from .config_loader import ConfigLoader
 from . import torax_plot_extensions
-
+from ..utils import merge_history_list
 import os
 import tempfile
 import logging
@@ -58,8 +58,8 @@ class ToraxApp:
         self.current_sim_state: ToraxSimState|None = None
         self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
-        self.history: DataTree|None = None
-        
+        self.history_list: list[DataTree] = []
+    
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -142,9 +142,8 @@ class ToraxApp:
         )
 
         self.state = state_history
-        
-        self.history = state_history.simulation_output_to_xr(file_restart=None)
-        self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")    
+
+        self.history_list.append(state_history.simulation_output_to_xr(file_restart=None))
 
         self.is_start = True
 
@@ -232,8 +231,7 @@ class ToraxApp:
         
         self.t_current += self.delta_t_a
 
-        self.history = history.simulation_output_to_xr(self.config.config_torax.restart)
-        self.save_in_file()
+        self.history_list.append(history.simulation_output_to_xr(self.config.config_torax.restart))
         
         return True
 
@@ -245,7 +243,7 @@ class ToraxApp:
                 corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
             gif_name: The name of the GIF file to save the plots.
         """
-
+        self.save_in_file()
         for plot_config in plot_configs:
             logging.debug(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
@@ -256,9 +254,13 @@ class ToraxApp:
             )
     
     def save_in_file(self):
-        """ Save in a .nc file the state """
+        """ Save in a .nc file the history """
+        if len(self.history_list) == 1:
+            merged_dataTree = self.history_list[0]
+        else:
+            merged_dataTree = merge_history_list(self.history_list)
         try:
-            self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+            merged_dataTree.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         except Exception as e:
             self.close()
             raise ValueError(f"An error occurred while saving: {e}")
