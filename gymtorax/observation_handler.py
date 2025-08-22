@@ -20,7 +20,7 @@ Example:
     >>> obs_handler = AllObservation(
     ...     custom_bounds={"T_e": (0.0, 50.0)},  # Temperature bounds in keV
     ...     exclude=["n_impurity"],              # Exclude impurity density
-    ...     dtype=np.float32
+    ...     dtype=np.float64
     ... )
     >>> obs_handler.set_n_grid_points(25)  # Set radial resolution
     >>> obs_space = obs_handler.build_observation_space()
@@ -228,7 +228,7 @@ class Observation(ABC):
         variables: Dict[str, List[str]]|None = None,
         custom_bounds: Dict[str, Tuple[float, float]]|None = None,
         exclude: List[str]|None = None,
-        dtype: np.dtype = np.float32
+        dtype: np.dtype = np.float64
     ) -> None:
         """
         Initialize an Observation handler.
@@ -240,7 +240,7 @@ class Observation(ABC):
             custom_bounds: Dictionary of custom bounds for specific variables,
                 format: {var_name: (min_value, max_value)}. Overrides DEFAULT_BOUNDS.
             exclude: List of variable names to exclude from the observation space.
-            dtype: NumPy data type for the observation arrays (default: np.float32).
+            dtype: NumPy data type for the observation arrays (default: np.float64).
                 
         Raises:
             ValueError: If any variable in exclude, custom_bounds, or variables is
@@ -250,7 +250,7 @@ class Observation(ABC):
             >>> obs = Observation(
             ...     variables={"profiles": ["T_e", "T_i"], "scalars": ["Ip", "beta_N"]},
             ...     custom_bounds={"T_e": (0.0, 50.0), "T_i": (0.0, 50.0)},
-            ...     dtype=np.float32
+            ...     dtype=np.float64
             ... )
         """
         # Initialize instance attributes
@@ -503,7 +503,7 @@ class AllObservation(Observation):
         >>> # Custom bounds for temperatures (0-50 keV range)
         >>> obs_bounded = AllObservation(
         ...     custom_bounds={"T_e": (0.0, 50.0), "T_i": (0.0, 50.0)},
-        ...     dtype=np.float32
+        ...     dtype=np.float64
         ... )
     """
 
@@ -511,7 +511,7 @@ class AllObservation(Observation):
         self, 
         custom_bounds: Optional[Dict[str, Tuple[float, float]]] = None,
         exclude: Optional[List[str]] = None, 
-        dtype: np.dtype = np.float32
+        dtype: np.dtype = np.float64
     ) -> None:
         """
         Initialize AllObservation with all variables (minus exclusions).

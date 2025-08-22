@@ -33,7 +33,6 @@ Example:
 
 from abc import ABC, abstractmethod
 from typing import Any
-from gymnasium import spaces
 from numpy._typing._array_like import NDArray
 
 import numpy as np
@@ -164,7 +163,7 @@ class BaseEnv(gym.Env, ABC):
         self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
         # Build Gymnasium spaces
-        self.action_space = self._build_action_space()
+        self.action_space = self.action_handler.build_action_space()
         self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
         self.observation_space = self.observation_handler.build_observation_space()
 
@@ -341,33 +340,6 @@ class BaseEnv(gym.Env, ABC):
         if self.render_mode == "rgb_array":
             return self._render_frame()  
         return None  
-  
-    def _build_action_space(self) -> spaces.Box:
-        """
-        Build the Gymnasium action space from configured actions.
-
-        Returns:
-            spaces.Box: Continuous action space with bounds [lower, upper] where:
-                - lower: Concatenated minimum bounds from all actions
-                - upper: Concatenated maximum bounds from all actions
-                - dtype: np.float64 for high precision control
-        """
-        lower_bounds, upper_bounds = [], []
-        
-        # Concatenate bounds from all configured actions
-        for action in self.action_handler.get_actions():
-            lower_bounds.extend(action.min)
-            upper_bounds.extend(action.max)
-
-        # Create continuous Box space with collected bounds
-        space = spaces.Box(
-            low=np.array(lower_bounds), 
-            high=np.array(upper_bounds), 
-            dtype=np.float64
-        )
-
-        return space
-
 
     def _terminal_state(self) -> bool:
         """

@@ -6,14 +6,15 @@ in TORAX plasma simulations. Actions represent controllable parameters that
 can be modified during the simulation to influence plasma behavior.
 
 The Action class is designed to be extended by users to create custom actions
-for specific control parameters. The module includes several pre-configured
-example actions for common plasma control scenarios.
+for specific control parameters. Each action has a unique name, dimensionality,
+bounds, and knows how to map itself to TORAX configuration dictionaries and
+which state variables it affects.
 
 Classes:
     Action: Abstract base class for all action types (user-extensible)
     ActionHandler: Internal container and manager for multiple actions
     IpAction: Action for plasma current control
-    VloopAction: Action for loop voltage control
+    VloopAction: Action for loop voltage control  
     EcrhAction: Action for electron cyclotron resonance heating
     NbiAction: Action for neutral beam injection
 
@@ -21,6 +22,7 @@ Example:
     Create a custom action by extending the Action class:
     
     >>> class CustomAction(Action):
+    ...     name = "MyCustomAction"
     ...     dimension = 2
     ...     default_min = [0.0, -1.0]
     ...     default_max = [10.0, 1.0]
@@ -28,17 +30,18 @@ Example:
     ...         ('some_config', 'param1'): 0,
     ...         ('some_config', 'param2'): 1
     ...     }
+    ...     state_var = (('scalars', 'param1'), ('scalars', 'param2'))
     
     Use an existing action:
     
-    >>> ip_action = IpAction(values=[1.5e6])  # 1.5 MA plasma current
-    >>> ip_action.values
-    [1500000.0]
+    >>> ip_action = IpAction()
+    >>> ip_action.set_values([1.5e6])  # 1.5 MA plasma current
 """
 
 from abc import ABC
 from typing import Any
 from numpy.typing import NDArray
+from gymnasium import spaces
 
 import numpy as np
 import logging
@@ -59,21 +62,27 @@ class Action(ABC):
     to specify the action dimensionality, bounds, and configuration mapping.
     
     Class Attributes (must be overridden by subclasses):
+        name (str): Unique identifier for this action type
         dimension (int): Number of parameters controlled by this action
         default_min (list[float]): Default minimum values for parameters
         default_max (list[float]): Default maximum values for parameters
         config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
             paths to parameter indices. Keys are tuples representing the nested
             path in the config dictionary, values are parameter indices.
-        state_var: tuple of variables directly modified by the action in the state
+        state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
+            state variables directly modified by this action. Each inner tuple
+            contains the path to a state variable (e.g., ('scalars', 'Ip') or 
+            ('profiles', 'p_ecrh_e')).
         
     Instance Attributes:
         values (list[float]): Current parameter values
+        dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
     
     Example:
         Create a custom action for controlling two parameters:
         
         >>> class TwoParamAction(Action):
+        ...     name = "CustomTwoParam"
         ...     dimension = 2
         ...     default_min = [0.0, -5.0]
         ...     default_max = [10.0, 5.0]
@@ -81,11 +90,13 @@ class Action(ABC):
         ...         ('section', 'param1'): 0,
         ...         ('section', 'param2'): 1
         ...     }
-        >>> action = TwoParamAction(values=[3.0, 1.5])
+        ...     state_var = (('scalars', 'param1'), ('scalars', 'param2'))
+        >>> action = TwoParamAction()
     """
     
     # Class-level attributes to be overridden by subclasses
     dimension: int
+    name: str
     default_min: list[float]
     default_max: list[float] 
     config_mapping: dict[tuple[str, ...], int]
@@ -95,6 +106,7 @@ class Action(ABC):
         self, 
         min: list[float] | None = None, 
         max: list[float] | None = None, 
+        dtype: np.dtype = np.float64,
     ) -> None:
         """
         Initialize an Action instance.
@@ -104,19 +116,25 @@ class Action(ABC):
                 class default_min values. Must have length equal to dimension.
             max: Custom maximum bounds for each parameter. If None, uses the
                 class default_max values. Must have length equal to dimension.
+            dtype: NumPy data type for the action arrays (default: np.float64).
+                Used for creating action spaces.
                 
         Raises:
             ValueError: If any of the following conditions are met:
+                - name class attribute is not defined
                 - dimension class attribute is not defined or not a positive integer
                 - config_mapping class attribute is not defined
                 - default_min or default_max don't match the dimension
-                - provided min, max, or values don't match the dimension
-        
-        Note:
-            The bounds are used for validation purposes and can be accessed
-            via the min and max properties after initialization.
+                - provided min or max don't match the dimension
+
         """
         # Validate that required class attributes are properly defined
+        if not self.name:
+            raise ValueError(f"{self.__class__.__name__} must define 'name' class attribute")
+        
+        if not isinstance(self.name, str):
+            raise TypeError(f"{self.__class__.__name__} 'name' class attribute must be a string")
+
         if self.dimension is None:
             raise ValueError(f"{self.__class__.__name__} must define 'dimension' class attribute")
         
@@ -148,6 +166,8 @@ class Action(ABC):
             )
         # Default value
         self.values = self._min
+        
+        self.dtype = dtype
 
     @property
     def min(self) -> list[float]:
@@ -349,6 +369,29 @@ class ActionHandler:
         for action in self._actions:
             action.set_values(action_array[idx:idx + action.dimension])
             idx += action.dimension
+    
+    
+    def build_action_space(self) -> spaces.Dict:
+        """
+        Build a Gymnasium Dict action space from all managed actions.
+        
+        Creates a dictionary-based action space where each key corresponds to 
+        an action's name and each value is a Box space with the action's bounds
+        and data type.
+        
+        Returns:
+            spaces.Dict: Dictionary action space with action names as keys and
+                Box spaces as values. Each Box space uses the action's min/max
+                bounds and dtype for proper numerical handling.
+        """
+        
+        return spaces.Dict({
+            action.name: spaces.Box(low=np.array(action.min),
+                                    high=np.array(action.max),
+                                    dtype=action.dtype)
+            for action in self.get_actions()
+        })
+
 
     def _validate_action_handler(self) -> None:
         """
@@ -358,25 +401,28 @@ class ActionHandler:
         This function performs two main checks:
         1. It verifies that no duplicate parameters exist across all actions.
         2. It ensures that 'Ip' and 'Vloop' actions are not present simultaneously,
-        as TORAX can only use one for computation.
+        as TORAX can only use one or the other.
 
         Raises:
             ValueError: If duplicate parameters are found or if both 'Ip'
                         and 'Vloop' actions are present.
         """
         seen_keys = set()
+        seen_names = set()
         for action in self._actions:
             for key in action.get_mapping().keys():
                 if key in seen_keys:
                     raise ValueError(f"Duplicate action parameter detected: {key}")
                 seen_keys.add(key)
+            if action.name in seen_names:
+                raise ValueError(f"Duplicate action name detected: {action.name}")
+            seen_names.add(action.name)
 
         # Check for exclusive presence of Ip or Vloop actions (through their keys)
         if ('profile_conditions', 'v_loop_lcfs') in seen_keys and \
            ('profile_conditions', 'Ip') in seen_keys:
             raise ValueError(
                 "Cannot have both Ip and Vloop actions at the same time."
-                " TORAX uses only one for computation."
             )
 
 # =============================================================================
@@ -394,17 +440,18 @@ class IpAction(Action):
     It is a single-parameter action with non-negative bounds.
     
     Class Attributes:
+        name: "Ip"
         dimension: 1 (single parameter)
-        default_min: [0.0]
+        default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'Ip')
-        state_var: tuple of variables directly modified by the action in the state
+        state_var: (('scalars', 'Ip'),) - directly modifies plasma current scalar
         
     Example:
-        >>> ip_action = IpAction(values=[1.5e6])  # 1.5 MA plasma current
-        >>> ip_action.values
-        [1500000.0]
+        >>> ip_action = IpAction()
+        >>> ip_action.set_values([1.5e6])  # 1.5 MA plasma current
     """
+    name = "Ip"
     dimension = 1
     default_min = [_MIN_IP_AMPS] # TORAX requirements
     default_max = [np.inf]
@@ -420,17 +467,18 @@ class VloopAction(Action):
     simulations. It is a single-parameter action with non-negative bounds.
     
     Class Attributes:
+        name: "V_loop"
         dimension: 1 (single parameter)
         default_min: [0.0]
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-        state_var: tuple of variables directly modified by the action in the state
+        state_var: (('scalars', 'v_loop_lcfs'),) - directly modifies loop voltage scalar
         
     Example:
-        >>> vloop_action = VloopAction(values=[2.5])  # 2.5 V loop voltage
-        >>> vloop_action.values
-        [2.5]
+        >>> vloop_action = VloopAction()
+        >>> vloop_action.set_values([2.5])  # 2.5 V loop voltage
     """
+    name = "V_loop"
     dimension = 1
     default_min = [0.0]
     default_max = [np.inf]
@@ -446,6 +494,7 @@ class EcrhAction(Action):
     and Gaussian width of the heating profile.
     
     Class Attributes:
+        name: "ECRH"
         dimension: 3 (power, location, width)
         default_min: [0.0, 0.0, 0.0]
         default_max: [np.inf, np.inf, np.inf]
@@ -453,15 +502,15 @@ class EcrhAction(Action):
         state_var: tuple of variables directly modified by the action in the state
         
     Parameters:
-        - Index 0: Total power (P_total)
-        - Index 1: Gaussian location (gaussian_location)
-        - Index 2: Gaussian width (gaussian_width)
+        - Index 0: Total power (P_total) in Watts
+        - Index 1: Gaussian location (gaussian_location) - normalized radius [0,1]
+        - Index 2: Gaussian width (gaussian_width) - profile width parameter
     
     Example:
-        >>> ecrh_action = EcrhAction(values=[5e6, 0.3, 0.1])  # 5MW, r/a=0.3, width=0.1
-        >>> ecrh_action.values
-        [5000000.0, 0.3, 0.1]
+        >>> ecrh_action = EcrhAction()
+        >>> ecrh_action.set_values([5e6, 0.3, 0.1])  # 5MW, r/a=0.3, width=0.1
     """
+    name = "ECRH"
     dimension = 3  # power, location, width
     default_min = [0.0, 0.0, 0.01]
     default_max = [np.inf, 1.0, np.inf]  
@@ -482,24 +531,27 @@ class NbiAction(Action):
     components share the same spatial profile (location and width).
     
     Class Attributes:
+        name: "NBI"
         dimension: 4 (heating power, current power, location, width)
-        default_min: [0.0, 0.0, 0.0, 0.0]
-        default_max: [np.inf, np.inf, np.inf, np.inf]
-        config_mapping: Maps to generic heat and current source parameters
-        state_var: tuple of variables directly modified by the action in the state
+        default_min: [0.0, 0.0, 0.0, 0.01]
+        default_max: [np.inf, np.inf, 1.0, np.inf]
+        config_mapping: Maps to generic heat and current source parameters in TORAX configuration
+        state_var: (('scalars', 'P_aux_generic_total', 'I_aux_generic'), 
+                    ('profiles', 'p_generic_heat_e', 'p_generic_heat_i', 'j_generic_current')) -
+                   modifies total auxiliary power, current scalars, and heating/current profiles
 
     Parameters:
-        - Index 0: Heating power (generic_heat P_total)
-        - Index 1: Current drive power (generic_current I_generic)
-        - Index 2: Gaussian location (shared by heat and current)
-        - Index 3: Gaussian width (shared by heat and current)
+        - Index 0: Heating power (generic_heat P_total) in Watts
+        - Index 1: Current drive power (generic_current I_generic) in Amperes
+        - Index 2: Gaussian location (shared by heat and current) - normalized radius [0,1]
+        - Index 3: Gaussian width (shared by heat and current) - profile width parameter
     
     Example:
-        >>> nbi_action = NbiAction(values=[10e6, 2e6, 0.4, 0.2])
-        >>> # 10MW heating, 2MW current drive, r/a=0.4, width=0.2
-        >>> nbi_action.values
-        [10000000.0, 2000000.0, 0.4, 0.2]
+        >>> nbi_action = NbiAction()
+        >>> nbi_action.set_values([10e6, 2e6, 0.4, 0.2])
+        >>> # 10MW heating, 2MA current drive, r/a=0.4, width=0.2
     """
+    name = "NBI"
     dimension = 4  # heating power, current power, location, width
     default_min = [0.0, 0.0, 0.0, 0.01]
     default_max = [np.inf, np.inf, 1.0, np.inf]
