@@ -421,8 +421,6 @@ class Observation(ABC):
                 for var in self.variables["scalars"] 
             }
         }
-        
-        print(len(state), len(observation))
 
         return state, observation
 
