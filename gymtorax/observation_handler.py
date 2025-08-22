@@ -402,11 +402,11 @@ class Observation(ABC):
         state = {
             "profiles": {
                 var: state_profiles["data_vars"][var]["data"] 
-                for var in self.DEFAULT_BOUNDS["profiles"].keys()
+                for var in self.bounds["profiles"].keys()
             },
             "scalars": {
                 var: state_scalars["data_vars"][var]["data"] 
-                for var in self.DEFAULT_BOUNDS["scalars"].keys()
+                for var in self.bounds["scalars"].keys()
             },
         }
         
@@ -421,8 +421,35 @@ class Observation(ABC):
                 for var in self.variables["scalars"] 
             }
         }
+        
+        print(len(state), len(observation))
 
         return state, observation
+
+    def update_variables(self, variables: dict[str, list[str]]) -> None:
+        """
+        Remove specified variables from the observation handler.
+
+        This method removes variables from both the observation and state
+        variables list and their corresponding bounds.
+
+        Args:
+            variables: Dictionary mapping variable categories to lists of variable names
+                to remove.
+        
+        Raises:
+            KeyError: If a variable category is not recognized (must be 'profiles' 
+                or 'scalars'), or if a specified variable is not found in the 
+                current state/observation variables.
+        """
+        for cat, var_list in variables.items():
+            if cat not in self.variables:
+                raise KeyError(f"Variable category '{cat}' not recognized. Use 'profiles' or 'scalars'.")
+            for var in var_list:
+                if var not in self.variables[cat] or var not in self.bounds[cat]:
+                    raise KeyError(f"Variable '{var}' not found in current state variables.")
+                self.bounds[cat].pop(var)
+                self.variables[cat].remove(var)
 
     def build_observation_space(self) -> spaces.Dict:
         """

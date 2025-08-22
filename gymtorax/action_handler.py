@@ -346,6 +346,24 @@ class ActionHandler:
         """
         return self._actions
 
+    def get_action_variables(self) -> dict[str, list[str]]:
+        """
+        Get a dictionary of state variables modified by the managed actions.
+
+        Returns:
+            dict[str, list[str]]: Dictionary mapping variables categories to lists of
+            modified state variable names.
+        """
+        variables = {}
+
+        for action in self.get_actions():
+            for cat, var in action.state_var.items():
+                if cat not in variables:
+                    variables[cat] = []
+                if var not in variables[cat]:
+                    variables[cat].extend(var)            
+
+        return variables
 
     def update_actions(self, action_array: NDArray) -> None:
         """

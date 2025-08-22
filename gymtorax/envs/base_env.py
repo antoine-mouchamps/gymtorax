@@ -162,6 +162,9 @@ class BaseEnv(gym.Env, ABC):
         config_loader = ConfigLoader(config, self.action_handler)
         self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
+        # Update state/observation variables based on selected actions
+        self.observation_handler.update_variables(self.action_handler.get_action_variables())
+
         # Build Gymnasium spaces
         self.action_space = self.action_handler.build_action_space()
         self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
