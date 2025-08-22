@@ -239,7 +239,7 @@ class ConfigLoader:
             'filename': file_path,
             'time': 0,
             'do_restart': False, 
-            'stitch': True,
+            'stitch': False,
         }
         
     def _Ip_computation(self) -> float:

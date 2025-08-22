@@ -4,6 +4,7 @@ from torax._src.orchestration import initial_state as initial_state_lib
 from torax._src.orchestration import run_loop
 from torax._src.orchestration import step_function
 from torax._src.orchestration.sim_state import ToraxSimState
+from torax._src.output_tools.post_processing import PostProcessedOutputs
 from torax._src.output_tools import output
 from torax._src.sources import source_models as source_models_lib
 from torax._src.torax_pydantic import model_config
@@ -14,7 +15,7 @@ from numpy.typing import NDArray
 
 from .config_loader import ConfigLoader
 from . import torax_plot_extensions
-
+from ..utils import merge_history_list
 import os
 import tempfile
 import logging
@@ -57,10 +58,11 @@ class ToraxApp:
         self.dynamic_runtime_params_slice_provider = None
         self.step_fn = None
         self.post_processed_outputs = None  
-        self.initial_state: ToraxSimState|None = None
+        self.current_sim_state: ToraxSimState|None = None
+        self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
-        self.history: DataTree|None = None
-        
+        self.history_list: list[DataTree] = []
+    
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -96,7 +98,7 @@ class ToraxApp:
         self.static_runtime_params_slice = (
         build_runtime_params.build_static_params_from_config(self.config.config_torax)
         )
-
+        
         solver = self.config.config_torax.solver.build_solver(
             static_runtime_params_slice=self.static_runtime_params_slice,
             transport_model=transport_model,
@@ -125,7 +127,7 @@ class ToraxApp:
             )
         )
         
-        self.initial_state, self.post_processed_outputs = (
+        self.current_sim_state, self.current_sim_output = (
             initial_state_lib.get_initial_state_and_post_processed_outputs(
                 t=self.config.config_torax.numerics.t_initial,
                 static_runtime_params_slice=self.static_runtime_params_slice,
@@ -134,18 +136,17 @@ class ToraxApp:
                 step_fn=self.step_fn,
             )
         )
-            
+                    
         state_history = output.StateHistory(
-            state_history=[self.initial_state],
-            post_processed_outputs_history=[self.post_processed_outputs],
+            state_history=[self.current_sim_state],
+            post_processed_outputs_history=[self.current_sim_output],
             sim_error=SimError(0),
             torax_config=self.config.config_torax
         )
-        
+
         self.state = state_history
-        
-        self.history = state_history.simulation_output_to_xr(file_restart=None)
-        self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")    
+
+        self.history_list.append(state_history.simulation_output_to_xr(file_restart=None))
 
         self.is_start = True
 
@@ -191,7 +192,7 @@ class ToraxApp:
         if self.t_current >= self.t_final:
             logger.debug(" simulation run terminated successfully.")
             return True
-
+        
         try: 
             logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
             logger.debug(f" time since last run: {interval:.2f} seconds.")
@@ -199,8 +200,8 @@ class ToraxApp:
                 static_runtime_params_slice=self.static_runtime_params_slice,
                 dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                 geometry_provider=self.geometry_provider,
-                initial_state=self.initial_state,
-                initial_post_processed_outputs=self.post_processed_outputs,
+                initial_state=self.current_sim_state,
+                initial_post_processed_outputs=self.current_sim_output,
                 restart_case=False,
                 step_fn=self.step_fn,
                 log_timestep_info=False,
@@ -216,12 +217,12 @@ class ToraxApp:
             self.close()
             return False
         
-        current_sim_state = sim_states_list[-1]
-        current_sim_output = post_processed_outputs_list[-1]
-
+        self.current_sim_state = sim_states_list[-1]
+        self.current_sim_output = post_processed_outputs_list[-1]
+        
         self.state = output.StateHistory(
-            state_history=[current_sim_state],
-            post_processed_outputs_history=[current_sim_output],
+            state_history=[self.current_sim_state],
+            post_processed_outputs_history=[self.current_sim_output],
             sim_error=sim_error,
             torax_config=self.config.config_torax,
         )
@@ -235,8 +236,7 @@ class ToraxApp:
         
         self.t_current += self.delta_t_a
 
-        self.history = history.simulation_output_to_xr(self.config.config_torax.restart)
-        self.save_in_file()
+        self.history_list.append(history.simulation_output_to_xr(self.config.config_torax.restart))
         
         return True
 
@@ -248,7 +248,7 @@ class ToraxApp:
                 corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
             gif_name: The name of the GIF file to save the plots.
         """
-
+        self.save_in_file()
         for plot_config in plot_configs:
             logger.debug(f" plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
@@ -259,9 +259,13 @@ class ToraxApp:
             )
     
     def save_in_file(self):
-        """ Save in a .nc file the state """
+        """ Save in a .nc file the history """
+        if len(self.history_list) == 1:
+            merged_dataTree = self.history_list[0]
+        else:
+            merged_dataTree = merge_history_list(self.history_list)
         try:
-            self.history.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
+            merged_dataTree.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
         except Exception as e:
             self.close()
             raise ValueError(f"An error occurred while saving: {e}")
