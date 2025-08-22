@@ -445,7 +445,7 @@ class IpAction(Action):
         default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'Ip')
-        state_var: (('scalars', 'Ip'),) - directly modifies plasma current scalar
+        state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
         
     Example:
         >>> ip_action = IpAction()
@@ -456,7 +456,7 @@ class IpAction(Action):
     default_min = [_MIN_IP_AMPS] # TORAX requirements
     default_max = [np.inf]
     config_mapping = {('profile_conditions', 'Ip'): 0}
-    state_var = (('scalars', 'Ip'))
+    state_var = {'scalars': ['Ip']}
 
 
 class VloopAction(Action):
@@ -472,7 +472,7 @@ class VloopAction(Action):
         default_min: [0.0]
         default_max: [np.inf]
         config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-        state_var: (('scalars', 'v_loop_lcfs'),) - directly modifies loop voltage scalar
+        state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
         
     Example:
         >>> vloop_action = VloopAction()
@@ -483,7 +483,7 @@ class VloopAction(Action):
     default_min = [0.0]
     default_max = [np.inf]
     config_mapping = {('profile_conditions', 'v_loop_lcfs'): 0}
-    state_var = (('scalars', 'v_loop_lcfs'))
+    state_var = {'scalars': ['v_loop_lcfs']}
 
 
 class EcrhAction(Action):
@@ -499,7 +499,8 @@ class EcrhAction(Action):
         default_min: [0.0, 0.0, 0.0]
         default_max: [np.inf, np.inf, np.inf]
         config_mapping: Maps to ECRH source parameters
-        state_var: tuple of variables directly modified by the action in the state
+        state_var: {'scalars': ['P_ecrh_e']} -
+                   modifies total electron-cyclotron power scalar
         
     Parameters:
         - Index 0: Total power (P_total) in Watts
@@ -519,7 +520,7 @@ class EcrhAction(Action):
         ('sources', 'ecrh', 'gaussian_location'): 1,
         ('sources', 'ecrh', 'gaussian_width'): 2
     }
-    state_var = (('scalars', 'P_ecrh_e'), ('profiles', 'p_ecrh_e'))
+    state_var = {'scalars': ['P_ecrh_e']}
 
 
 class NbiAction(Action):
@@ -536,9 +537,8 @@ class NbiAction(Action):
         default_min: [0.0, 0.0, 0.0, 0.01]
         default_max: [np.inf, np.inf, 1.0, np.inf]
         config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        state_var: (('scalars', 'P_aux_generic_total', 'I_aux_generic'), 
-                    ('profiles', 'p_generic_heat_e', 'p_generic_heat_i', 'j_generic_current')) -
-                   modifies total auxiliary power, current scalars, and heating/current profiles
+        state_var: {'scalars': ['P_aux_generic_total', 'I_aux_generic']} -
+                   modifies total auxiliary power and current scalars
 
     Parameters:
         - Index 0: Heating power (generic_heat P_total) in Watts
@@ -563,4 +563,4 @@ class NbiAction(Action):
         ('sources', 'generic_current', 'gaussian_location'): 2,  # Shared location
         ('sources', 'generic_current', 'gaussian_width'): 3,     # Shared width
     }
-    state_var = (('scalars', 'P_aux_generic_total', 'I_aux_generic'), ('profiles', 'p_generic_heat_e', 'p_generic_heat_i', 'j_generic_current'))
+    state_var = {'scalars': ['P_aux_generic_total', 'I_aux_generic']}
