@@ -226,22 +226,6 @@ class ConfigLoader:
         else:
             raise ValueError("Invalid discretization_torax setting.")
 
-    def setup_for_simulation(self, file_path: str) -> None:
-        """
-        Prepare the configuration for a simulation run.
-        
-        This method sets up the configuration for a simulation, ensuring that
-        all necessary parameters are correctly initialized and ready for use.
-
-        """
-        
-        self.config_dict["restart"] = {
-            'filename': file_path,
-            'time': 0,
-            'do_restart': False, 
-            'stitch': False,
-        }
-        
     def _Ip_computation(self) -> float:
         """Compute Ip for the circular cross-section.
 

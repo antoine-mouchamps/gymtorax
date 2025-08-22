@@ -1,4 +1,3 @@
-import torax
 from torax._src.config import build_runtime_params
 from torax._src.orchestration import initial_state as initial_state_lib
 from torax._src.orchestration import run_loop
@@ -15,9 +14,7 @@ from numpy.typing import NDArray
 
 from .config_loader import ConfigLoader
 from . import torax_plot_extensions
-from ..utils import merge_history_list
-import os
-import tempfile
+
 import logging
 
 # Set up logger for this module
@@ -44,8 +41,6 @@ class ToraxApp:
     def __init__(self, config_loader: ConfigLoader, delta_t_a: float):
         self.config: ConfigLoader = config_loader
 
-        self.tmp_dir = None
-        self.tmp_file_path = None
         self.t_current = 0.0
         self.delta_t_a = delta_t_a
         self.t_final = self.config.get_total_simulation_time()
@@ -61,8 +56,11 @@ class ToraxApp:
         self.current_sim_state: ToraxSimState|None = None
         self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
-        self.history_list: list[DataTree] = []
+        # self.history_list: list[DataTree] = []
     
+        # self.history: DataTree|None = None
+
+        self.last_run_time = None
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -75,17 +73,6 @@ class ToraxApp:
             initial state, post-processed outputs, and a boolean indicating if the restart case is True.
         """
 
-        # Create an empty output.nc file for compatibility with torax
-        # restart mechanics
-        fd, self.tmp_file_path = tempfile.mkstemp(suffix=".nc", prefix="gymtorax_", dir=None)
-        os.close(fd)
-        
-        # Check if the file can be accessed
-        if self.tmp_file_path is None or not os.path.exists(self.tmp_file_path):
-            raise FileNotFoundError("Output file not found.")
-        self.config.setup_for_simulation(self.tmp_file_path)
-
-    
         transport_model = self.config.config_torax.transport.build_transport_model()
         pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
 
@@ -140,41 +127,15 @@ class ToraxApp:
         state_history = output.StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
-            sim_error=SimError(0),
+            sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax
         )
 
         self.state = state_history
 
-        self.history_list.append(state_history.simulation_output_to_xr(file_restart=None))
+        # self.history_list.append((self.current_sim_state, self.current_sim_output))
 
         self.is_start = True
-
-    def update_config(self, action: NDArray) -> None:
-        """Update the configuration of the simulation based on the provided action.
-        This method updates the configuration dictionary with new values for sources and profile conditions.
-        It also prepares the restart file if necessary. 
-        Args:
-            action: A list of values
-        Returns:
-            The updated configuration dictionary.
-        """
-        try:
-            self.config.update_config(action,
-                                    self.t_current,
-                                    self.t_final,
-                                    self.delta_t_a)
-        except ValueError as e:
-            self.close()
-            raise ValueError(f"Error updating configuration: {e}")   
-        
-        self.geometry_provider = self.config.config_torax.geometry.build_provider
-             
-        self.dynamic_runtime_params_slice_provider = (
-            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.config.config_torax
-            )
-        )
 
     def run(self)-> bool:
         """ Executes a single action step from `t_current` to `t_current + delta_t_a`.
@@ -192,34 +153,37 @@ class ToraxApp:
         if self.t_current >= self.t_final:
             logger.debug(" simulation run terminated successfully.")
             return True
-        
+
         try: 
+            import time
+            current_time = time.perf_counter()
+            interval = current_time - self.last_run_time if self.last_run_time is not None else 0
             logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
             logger.debug(f" time since last run: {interval:.2f} seconds.")
+            self.last_run_time = current_time
+
             sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
                 static_runtime_params_slice=self.static_runtime_params_slice,
                 dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                 geometry_provider=self.geometry_provider,
                 initial_state=self.current_sim_state,
                 initial_post_processed_outputs=self.current_sim_output,
-                restart_case=False,
+                restart_case=True,
                 step_fn=self.step_fn,
                 log_timestep_info=False,
                 progress_bar=False,
             )
         except Exception as e:
             logger.error(f" an error occurred during the simulation run: {e}. The environment will reset")
-            self.close()
             return False
         
         if(sim_error != state.SimError.NO_ERROR):
             logger.warning(f" simulation terminated with an error. The environment will reset")
-            self.close()
             return False
-        
+
         self.current_sim_state = sim_states_list[-1]
         self.current_sim_output = post_processed_outputs_list[-1]
-        
+
         self.state = output.StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
@@ -227,55 +191,64 @@ class ToraxApp:
             torax_config=self.config.config_torax,
         )
         
-        history = output.StateHistory(
-            state_history=sim_states_list,
-            post_processed_outputs_history=post_processed_outputs_list,
-            sim_error=sim_error,
-            torax_config=self.config.config_torax,
-        )
-        
         self.t_current += self.delta_t_a
 
-        self.history_list.append(history.simulation_output_to_xr(self.config.config_torax.restart))
-        
         return True
 
-    def render_gif(self, plot_configs: dict, gif_name: str)-> None:
-        """Renders the simulation results using the provided plot configurations and saves them in a gif file.
+
+    def update_config(self, action) -> None:
+        """Update the configuration of the simulation based on the provided action.
+        This method updates the configuration dictionary with new values for sources and profile conditions.
+        It also prepares the restart file if necessary. 
         Args:
-            plot_configs: A dictionary containing the plot configurations.
-                Possible keys are 'default', 'simple', 'sources', 'global_params'.
-                corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
-            gif_name: The name of the GIF file to save the plots.
+            action: The action to perform
+        Returns:
+            The updated configuration dictionary.
         """
-        self.save_in_file()
-        for plot_config in plot_configs:
-            logger.debug(f" plotting with configuration: {plot_config}")
-            torax_plot_extensions.plot_run_to_gif(
-                plot_config=plot_configs[plot_config],
-                outfile=self.tmp_file_path,
-                frame_skip=5,
-                gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
-            )
-    
-    def save_in_file(self):
-        """ Save in a .nc file the history """
-        if len(self.history_list) == 1:
-            merged_dataTree = self.history_list[0]
-        else:
-            merged_dataTree = merge_history_list(self.history_list)
         try:
-            merged_dataTree.to_netcdf(self.tmp_file_path, engine="h5netcdf", mode="w")
-        except Exception as e:
-            self.close()
-            raise ValueError(f"An error occurred while saving: {e}")
+            self.config.update_config(action,
+                                    self.t_current,
+                                    self.t_final,
+                                    self.delta_t_a)
+        except ValueError as e:
+            raise ValueError(f"Error updating configuration: {e}")   
         
-    def close(self):
-        """Close TORAX ? DELETE OUTPUT FILE(s)"""
-        # Clean up everything
-        if self.tmp_file_path and os.path.exists(self.tmp_file_path):
-            os.remove(self.tmp_file_path)
-        self.tmp_file_path = None
+        self.geometry_provider = self.config.config_torax.geometry.build_provider
+             
+        self.dynamic_runtime_params_slice_provider = (
+            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
+                self.config.config_torax
+            )
+        )
+
+    # def render_gif(self, plot_configs: dict, gif_name: str)-> None:
+    #     """Renders the simulation results using the provided plot configurations and saves them in a gif file.
+    #     Args:
+    #         plot_configs: A dictionary containing the plot configurations.
+    #             Possible keys are 'default', 'simple', 'sources', 'global_params'.
+    #             corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
+    #         gif_name: The name of the GIF file to save the plots.
+    #     """
+    #     self.save_in_file()
+    #     for plot_config in plot_configs:
+    #         logger.debug(f" plotting with configuration: {plot_config}")
+    #         torax_plot_extensions.plot_run_to_gif(
+    #             plot_config=plot_configs[plot_config],
+    #             outfile='WIP',
+    #             frame_skip=5,
+    #             gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
+    #         )
+    
+    # def save_in_file(self):
+    #     """ Save in a .nc file the history """
+    #     if len(self.history_list) == 1:
+    #         merged_dataTree = self.history_list[0]
+    #     else:
+    #         merged_dataTree = merge_history_list(self.history_list)
+    #     try:
+    #         merged_dataTree.to_netcdf('WIP', engine="h5netcdf", mode="w")
+    #     except Exception as e:
+    #         raise ValueError(f"An error occurred while saving: {e}")
 
     def get_state_data(self):
         """_summary_
