@@ -278,7 +278,7 @@ class Action(ABC):
             if time == 0:
                 #Check there is no value associated to the existing key
                 if d[key] != {} and warning:
-                    logging.warning(f"ARNING: overwriting existing value for key: {key}")
+                    logging.warning(f"WARNING: overwriting existing value for key: {key}")
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})

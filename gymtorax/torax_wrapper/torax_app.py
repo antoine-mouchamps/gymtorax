@@ -4,6 +4,7 @@ from torax._src.orchestration import initial_state as initial_state_lib
 from torax._src.orchestration import run_loop
 from torax._src.orchestration import step_function
 from torax._src.orchestration.sim_state import ToraxSimState
+from torax._src.output_tools.post_processing import PostProcessedOutputs
 from torax._src.output_tools import output
 from torax._src.sources import source_models as source_models_lib
 from torax._src.torax_pydantic import model_config
@@ -54,7 +55,8 @@ class ToraxApp:
         self.dynamic_runtime_params_slice_provider = None
         self.step_fn = None
         self.post_processed_outputs = None  
-        self.initial_state: ToraxSimState|None = None
+        self.current_sim_state: ToraxSimState|None = None
+        self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
         self.history: DataTree|None = None
         
@@ -93,7 +95,7 @@ class ToraxApp:
         self.static_runtime_params_slice = (
         build_runtime_params.build_static_params_from_config(self.config.config_torax)
         )
-
+        
         solver = self.config.config_torax.solver.build_solver(
             static_runtime_params_slice=self.static_runtime_params_slice,
             transport_model=transport_model,
@@ -122,7 +124,7 @@ class ToraxApp:
             )
         )
         
-        self.initial_state, self.post_processed_outputs = (
+        self.current_sim_state, self.current_sim_output = (
             initial_state_lib.get_initial_state_and_post_processed_outputs(
                 t=self.config.config_torax.numerics.t_initial,
                 static_runtime_params_slice=self.static_runtime_params_slice,
@@ -131,14 +133,14 @@ class ToraxApp:
                 step_fn=self.step_fn,
             )
         )
-            
+                    
         state_history = output.StateHistory(
-            state_history=[self.initial_state],
-            post_processed_outputs_history=[self.post_processed_outputs],
+            state_history=[self.current_sim_state],
+            post_processed_outputs_history=[self.current_sim_output],
             sim_error=SimError(0),
             torax_config=self.config.config_torax
         )
-        
+
         self.state = state_history
         
         self.history = state_history.simulation_output_to_xr(file_restart=None)
@@ -186,16 +188,16 @@ class ToraxApp:
             raise RuntimeError("ToraxApp must be started before running the simulation.")
         
         if self.t_current >= self.t_final:
-            logging.debugging("Simulation run terminated successfully.")
+            logging.debug("Simulation run terminated successfully.")
             return True
-
+        
         try: 
             sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
                 static_runtime_params_slice=self.static_runtime_params_slice,
                 dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                 geometry_provider=self.geometry_provider,
-                initial_state=self.initial_state,
-                initial_post_processed_outputs=self.post_processed_outputs,
+                initial_state=self.current_sim_state,
+                initial_post_processed_outputs=self.current_sim_output,
                 restart_case=False,
                 step_fn=self.step_fn,
                 log_timestep_info=False,
@@ -211,12 +213,12 @@ class ToraxApp:
             self.close()
             return False
         
-        current_sim_state = sim_states_list[-1]
-        current_sim_output = post_processed_outputs_list[-1]
-
+        self.current_sim_state = sim_states_list[-1]
+        self.current_sim_output = post_processed_outputs_list[-1]
+        
         self.state = output.StateHistory(
-            state_history=[current_sim_state],
-            post_processed_outputs_history=[current_sim_output],
+            state_history=[self.current_sim_state],
+            post_processed_outputs_history=[self.current_sim_output],
             sim_error=sim_error,
             torax_config=self.config.config_torax,
         )
@@ -245,7 +247,7 @@ class ToraxApp:
         """
 
         for plot_config in plot_configs:
-            logging.debugging(f"Plotting with configuration: {plot_config}")
+            logging.debug(f"Plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,
