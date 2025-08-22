@@ -19,6 +19,9 @@ import os
 import tempfile
 import logging
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 class ToraxApp:
     """Represents the Torax application. It initializes the application with a given configuration
     and provides methods to start the application, update the configuration, and run the simulation.
@@ -186,10 +189,12 @@ class ToraxApp:
             raise RuntimeError("ToraxApp must be started before running the simulation.")
         
         if self.t_current >= self.t_final:
-            logging.debugging("Simulation run terminated successfully.")
+            logger.debug(" simulation run terminated successfully.")
             return True
 
         try: 
+            logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
+            logger.debug(f" time since last run: {interval:.2f} seconds.")
             sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
                 static_runtime_params_slice=self.static_runtime_params_slice,
                 dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
@@ -202,12 +207,12 @@ class ToraxApp:
                 progress_bar=False,
             )
         except Exception as e:
-            logging.error(f"An error occurred during the simulation run: {e}. The environment will reset")
+            logger.error(f" an error occurred during the simulation run: {e}. The environment will reset")
             self.close()
             return False
         
         if(sim_error != state.SimError.NO_ERROR):
-            logging.warning(f"Simulation terminated with an error. The environment will reset")
+            logger.warning(f" simulation terminated with an error. The environment will reset")
             self.close()
             return False
         
@@ -245,7 +250,7 @@ class ToraxApp:
         """
 
         for plot_config in plot_configs:
-            logging.debugging(f"Plotting with configuration: {plot_config}")
+            logger.debug(f" plotting with configuration: {plot_config}")
             torax_plot_extensions.plot_run_to_gif(
                 plot_config=plot_configs[plot_config],
                 outfile=self.tmp_file_path,

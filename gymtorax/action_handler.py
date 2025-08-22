@@ -48,6 +48,9 @@ import logging
 
 from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 
 class Action(ABC):
     """
@@ -278,7 +281,7 @@ class Action(ABC):
             if time == 0:
                 #Check there is no value associated to the existing key
                 if d[key] != {} and warning:
-                    logging.warning(f"ARNING: overwriting existing value for key: {key}")
+                    logger.warning(f" overwriting existing value for key: {key}")
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
@@ -384,6 +387,7 @@ class ActionHandler:
             )
         
         idx = 0
+        logger.debug(f" updating actions with: {actions}")
         for action in self._actions:
             action.set_values(action_array[idx:idx + action.dimension])
             idx += action.dimension

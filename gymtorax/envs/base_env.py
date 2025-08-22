@@ -44,6 +44,9 @@ from ..observation_handler import Observation
 from ..torax_wrapper import ToraxApp, ConfigLoader
 from ..logger import setup_logging
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 
 class BaseEnv(gym.Env, ABC):
     """
@@ -216,6 +219,8 @@ class BaseEnv(gym.Env, ABC):
         # Render initial state if in human mode
         if self.render_mode == "human":
             self._render_frame()
+
+        logger.debug(" environment reset complete.")
 
         return self.observation, {}
 
@@ -435,7 +440,7 @@ class BaseEnv(gym.Env, ABC):
             ...         }
             ...     )
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def build_action_list(self) -> list[Action]:
@@ -460,4 +465,4 @@ class BaseEnv(gym.Env, ABC):
             ...         NbiAction()                               # NBI with defaults
             ...     ]
         """
-        pass
+        raise NotImplementedError
