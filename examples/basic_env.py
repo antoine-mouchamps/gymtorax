@@ -158,7 +158,7 @@ CONFIG = {
 
 class TestEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None, config=CONFIG, discretization_torax="auto", delta_t_a=1)
+        super().__init__(render_mode=None, config=CONFIG, discretization_torax="auto", delta_t_a=50)
     
     def build_action_list(self):
         actions = [

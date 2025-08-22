@@ -152,7 +152,7 @@ class ConfigLoader:
             return 25
         
 
-    def update_config(self, action_array: NDArray, current_time: float, final_time: float, delta_t_a: float) -> None:
+    def update_config(self, action, current_time: float, final_time: float, delta_t_a: float) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary. 
@@ -170,7 +170,7 @@ class ConfigLoader:
         if self.config_dict['geometry']['Ip_from_parameters'] == False:
             self.config_dict['geometry']['Ip_from_parameters'] = True
 
-        self.action_handler.update_actions(action_array)
+        self.action_handler.update_actions(action)
         actions = self.action_handler.get_actions()
 
         for action in actions:

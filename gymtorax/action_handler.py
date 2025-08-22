@@ -280,7 +280,7 @@ class Action(ABC):
             key = dict_path[-1]
             if time == 0:
                 #Check there is no value associated to the existing key
-                if d[key] != {} and warning:
+                if (d[key] != {} or d[key] != {0: 0}) and warning:
                     logger.warning(f" overwriting existing value for key: {key}")
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
@@ -338,6 +338,7 @@ class ActionHandler:
         """
         self._actions = actions
         self._validate_action_handler()
+        self.action_space = self.build_action_space()
         
 
     def get_actions(self) -> list[Action]:
@@ -368,29 +369,20 @@ class ActionHandler:
 
         return variables
 
-    def update_actions(self, action_array: NDArray) -> None:
+    def update_actions(self, actions: spaces.Dict) -> None:
         """
         Update the current values of all managed actions.
         
         Args:
-            action_array: Array of new values for each action values.
-                Must match the total number of parameters across all actions.
+            action: The action to perform.
                 
         Raises:
             ValueError: If the length of action_array does not match the
                 total number of parameters in all managed actions.
         """
-        total_params = sum(action.dimension for action in self._actions)
-        if len(action_array) != total_params:
-            raise ValueError(
-                f"Expected {total_params} action parameters, got {len(action_array)}"
-            )
-        
-        idx = 0
         logger.debug(f" updating actions with: {actions}")
         for action in self._actions:
-            action.set_values(action_array[idx:idx + action.dimension])
-            idx += action.dimension
+            action.set_values(actions[action.name])
     
     
     def build_action_space(self) -> spaces.Dict:
