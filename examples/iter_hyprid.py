@@ -190,7 +190,7 @@ class IterHybridAgent(BaseAgent):
             action["NBI"][1] = nbi_cd[2]
 
         if(self.time < 100):
-            action["Ip"][0] = 3e6 + self.time*(12.5e6-3e6)/(100-self.time)
+            action["Ip"][0] = 3e6 + self.time*(12.5e6-3e6)/100
         else:
             action["Ip"][0] = 12.5e6
 
@@ -205,7 +205,8 @@ class IterHybridEnv(BaseEnv):
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,
-                         log_level="debug"
+                         log_level="debug",
+                         store_state_history=True
                          )
 
     def build_action_list(self):
@@ -231,4 +232,7 @@ if __name__ == "__main__":
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-
+        if agent.time > 90:
+            env.save_file('tmp/output.nc')
+            break
+    
