@@ -43,6 +43,7 @@ from ..action_handler import Action, ActionHandler
 from ..observation_handler import Observation
 from ..torax_wrapper import ToraxApp, ConfigLoader
 from ..logger import setup_logging
+import gymtorax.rendering.visualization as viz
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -96,7 +97,8 @@ class BaseEnv(gym.Env, ABC):
         ratio_a_sim: int|None = None, 
         delta_t_a: float|None = None,
         log_level="warning",
-        logfile=None
+        logfile=None,
+        plotter: viz.ToraxStyleRealTimePlotter|None = None
     ) -> None:
         """
         Initialize the TORAX gymnasium environment.
@@ -176,7 +178,8 @@ class BaseEnv(gym.Env, ABC):
         # Validate and set rendering mode
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-
+        self.plotter = plotter
+        
         # Initialize rendering components (will be set up when needed)
         self.window = None
         self.clock = None
@@ -279,11 +282,12 @@ class BaseEnv(gym.Env, ABC):
         # Update time tracking
         self.current_time += self.delta_t_a
         self.timestep += 1
-        
+        if self.current_time >= self.T:
+            self.terminated = True
+
         # Render frame if in human mode
         if self.render_mode == "human":
             self._render_frame()
-        
         return observation, reward, self.terminated, truncated, info 
 
     def reward(
@@ -345,6 +349,9 @@ class BaseEnv(gym.Env, ABC):
         Note:
             Currently not fully implemented. Returns None for all modes.
         """
+        if self.render_mode == "human":
+            return self._render_frame()
+        
         if self.render_mode == "rgb_array":
             return self._render_frame()  
         return None  
@@ -405,6 +412,8 @@ class BaseEnv(gym.Env, ABC):
             # pygame.event.pump()
             # self.clock.tick(self.metadata["render_fps"])
             # pygame.display.flip()
+            self.plotter.update(self.state, self.current_time) if self.plotter is not None else None
+            print("======================")
             pass
         elif self.render_mode == "rgb_array":
             # Generate RGB array for the current state

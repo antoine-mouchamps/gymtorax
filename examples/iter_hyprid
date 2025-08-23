@@ -3,6 +3,7 @@ from gymtorax import BaseEnv, BaseAgent
 import numpy as np
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
+import gymtorax.rendering.visualization as viz
 
 
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
@@ -52,7 +53,7 @@ CONFIG = {
         'current_profile_nu': 2, # exponent in initial current formula
     },
     'numerics': {
-        't_final': 150,  # length of simulation time in seconds
+        't_final': 60,  # length of simulation time in seconds
         'fixed_dt': 1, # fixed timestep
         'evolve_ion_heat': True, # solve ion heat equation
         'evolve_electron_heat': True, # solve electron heat equation
@@ -201,11 +202,11 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None,
+        super().__init__(render_mode="human",
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,
-                         log_level="debug"
+                         log_level="debug", plotter = test_realTimePlot
                          )
 
     def build_action_list(self):
@@ -220,6 +221,13 @@ class IterHybridEnv(BaseEnv):
     def build_observation_variables(self):
         return oh.AllObservation()
 
+Ip_plot = viz.PlotProperties_temporal(attrs=('I_p',), labels=('Plasma Current',), ylabel="Current, [A]")
+density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
+temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
+fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
+test_fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, Ip_plot, density_plot))
+test_realTimePlot = viz.ToraxStyleRealTimePlotter(test_fig, render_mode="human")
+
 
 if __name__ == "__main__":
     env = IterHybridEnv()
@@ -231,4 +239,4 @@ if __name__ == "__main__":
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-
+    env.plotter.save_gif(filename="tmp/iter_hybrid.gif", interval=500)
