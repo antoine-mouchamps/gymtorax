@@ -16,6 +16,7 @@ from .config_loader import ConfigLoader
 from . import torax_plot_extensions
 
 import logging
+import time
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -38,7 +39,8 @@ class ToraxApp:
         render(plot_configs, gif_name): Renders the simulation results using the provided plot configurations 
             and saves them to files.
     """
-    def __init__(self, config_loader: ConfigLoader, delta_t_a: float):
+    def __init__(self, config_loader: ConfigLoader, delta_t_a: float, store_history: bool = False):
+        self.store_history = store_history
         self.config: ConfigLoader = config_loader
 
         self.t_current = 0.0
@@ -56,11 +58,12 @@ class ToraxApp:
         self.current_sim_state: ToraxSimState|None = None
         self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
-        # self.history_list: list[DataTree] = []
-    
-        # self.history: DataTree|None = None
 
-        self.last_run_time = None
+        if self.store_history is True:
+            self.history_list: list = []
+
+        if logger.isEnabledFor(logging.DEBUG):
+            self.last_run_time = None
 
     def start(self):
         """Initialize the Torax application with the provided configuration.
@@ -114,7 +117,7 @@ class ToraxApp:
             )
         )
         
-        self.current_sim_state, self.current_sim_output = (
+        initial_sim_state, initial_sim_output = (
             initial_state_lib.get_initial_state_and_post_processed_outputs(
                 t=self.config.config_torax.numerics.t_initial,
                 static_runtime_params_slice=self.static_runtime_params_slice,
@@ -123,7 +126,13 @@ class ToraxApp:
                 step_fn=self.step_fn,
             )
         )
-                    
+        
+        if self.store_history is True:
+            self.history_list.append([initial_sim_state, initial_sim_output])
+
+        self.current_sim_state = initial_sim_state
+        self.current_sim_output = initial_sim_output
+      
         state_history = output.StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
@@ -155,12 +164,14 @@ class ToraxApp:
             return True
 
         try: 
-            import time
-            current_time = time.perf_counter()
-            interval = current_time - self.last_run_time if self.last_run_time is not None else 0
+            if logger.isEnabledFor(logging.DEBUG):
+                current_time = time.perf_counter()
+                interval = current_time - self.last_run_time if self.last_run_time is not None else 0
             logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
             logger.debug(f" time since last run: {interval:.2f} seconds.")
-            self.last_run_time = current_time
+
+            if logger.isEnabledFor(logging.DEBUG):
+                self.last_run_time = current_time
 
             sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
                 static_runtime_params_slice=self.static_runtime_params_slice,
@@ -183,6 +194,9 @@ class ToraxApp:
 
         self.current_sim_state = sim_states_list[-1]
         self.current_sim_output = post_processed_outputs_list[-1]
+
+        if self.store_history is True:
+            self.history_list.append([sim_states_list[-1], post_processed_outputs_list[-1]])
 
         self.state = output.StateHistory(
             state_history=[self.current_sim_state],
@@ -239,16 +253,25 @@ class ToraxApp:
     #             gif_filename=f"tmp/{gif_name}_{plot_config}.gif", 
     #         )
     
-    # def save_in_file(self):
-    #     """ Save in a .nc file the history """
-    #     if len(self.history_list) == 1:
-    #         merged_dataTree = self.history_list[0]
-    #     else:
-    #         merged_dataTree = merge_history_list(self.history_list)
-    #     try:
-    #         merged_dataTree.to_netcdf('WIP', engine="h5netcdf", mode="w")
-    #     except Exception as e:
-    #         raise ValueError(f"An error occurred while saving: {e}")
+    def save_output_file(self, file_name):
+        """ Save in a .nc file the history """
+        if(self.store_history is False):
+            raise RuntimeError()
+
+        state_history = [l[0] for l in self.history_list]
+        post_processed_outputs_history = [l[1] for l in self.history_list]
+        
+        state_history = output.StateHistory(
+            state_history=state_history,
+            post_processed_outputs_history=post_processed_outputs_history,
+            sim_error=SimError.NO_ERROR,
+            torax_config=self.config.config_torax
+        )
+        dt = state_history.simulation_output_to_xr()
+        try:
+            dt.to_netcdf(file_name, engine="h5netcdf", mode="w")
+        except Exception as e:
+            raise ValueError(f"An error occurred while saving: {e}")
 
     def get_state_data(self):
         """_summary_

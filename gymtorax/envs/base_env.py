@@ -32,6 +32,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
+from ctypes import ArgumentError
 from typing import Any
 from numpy._typing._array_like import NDArray
 
@@ -96,7 +97,8 @@ class BaseEnv(gym.Env, ABC):
         ratio_a_sim: int|None = None, 
         delta_t_a: float|None = None,
         log_level="warning",
-        logfile=None
+        logfile=None,
+        store_state_history=False,
     ) -> None:
         """
         Initialize the TORAX gymnasium environment.
@@ -162,8 +164,11 @@ class BaseEnv(gym.Env, ABC):
         self.timestep: int = 0  # Current action timestep counter
 
         # Initialize TORAX simulation wrapper
+        self.store_state_history = store_state_history
         config_loader = ConfigLoader(config, self.action_handler)
-        self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
+        self.torax_app: ToraxApp = ToraxApp(config_loader,
+                                            self.delta_t_a,
+                                            store_state_history)
 
         # Update state/observation variables based on selected actions
         self.observation_handler.update_variables(self.action_handler.get_action_variables())
@@ -347,7 +352,16 @@ class BaseEnv(gym.Env, ABC):
         """
         if self.render_mode == "rgb_array":
             return self._render_frame()  
-        return None  
+        return None
+
+    def save_file(self, file_name):
+        """"""
+        try:
+            self.torax_app.save_output_file(file_name)
+        except RuntimeError as e:
+            raise ArgumentError("To save the output file, the store_history option must be set to True when creating the environment.") from e
+
+        logger.debug(f"Saved simulation history to {file_name}")
 
     def _terminal_state(self) -> bool:
         """
