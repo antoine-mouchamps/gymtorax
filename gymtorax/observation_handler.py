@@ -390,26 +390,24 @@ class Observation(ABC):
         # Extract datasets from the TORAX DataTree structure
         profiles: Dataset = datatree["/profiles/"].ds
         scalars: Dataset = datatree["/scalars/"].ds
-
-        # Remove singleton dimensions (e.g., time dimension if present)
-        profiles = profiles.map(lambda da: da.squeeze())
-        scalars = scalars.map(lambda da: da.squeeze())
-        
+ 
         # Convert xarray datasets to dictionaries for easier access
         state_profiles, state_scalars = profiles.to_dict(), scalars.to_dict()
         
         # Build complete state dictionary with all available TORAX variables
         state = {
             "profiles": {
-                var: state_profiles["data_vars"][var]["data"] 
+                var: state_profiles["data_vars"][var]["data"][0]
                 for var in self.bounds["profiles"].keys()
             },
             "scalars": {
-                var: state_scalars["data_vars"][var]["data"] 
+                var: (state_scalars["data_vars"][var]["data"][0]
+                      if isinstance(state_scalars["data_vars"][var]["data"], list)
+                      else state_scalars["data_vars"][var]["data"])
                 for var in self.bounds["scalars"].keys()
             },
         }
-        
+
         # Filter state to create observation with only selected variables
         observation = {
             "profiles": {
