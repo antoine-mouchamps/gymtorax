@@ -17,7 +17,9 @@ import matplotlib.animation as animation
 from typing import List, Dict, Any, Optional
 import sys
 from torax._src.plotting import plotruns_lib
-
+import logging
+logging.getLogger('PIL.PngImagePlugin').setLevel(logging.INFO)
+logger = logging.getLogger(__name__)
 class ToraxStyleRealTimePlotter:
     """
     Real-time plotter using Torax plot style and axis conventions.
@@ -149,9 +151,10 @@ class ToraxStyleRealTimePlotter:
                 ax.autoscale_view()
             fig.suptitle(f"t = {self.time_history[i]:.3f} {self.xlabel_time_unit}")
             return lines
-
+        logger.debug(f" Saving GIF to {filename} with {nframes} frames.")
         ani = animation.FuncAnimation(fig, animate, frames=nframes, blit=False, interval=interval)
         ani.save(filename, writer='pillow')
+        logger.debug(f" Finished saving GIF to {filename} with {nframes} frames.")
         plt.close(fig)
 
 

@@ -167,6 +167,11 @@ CONFIG = {
 # CONFIG['sources']['generic_current']['gaussian_location'] = {0: 0}
 # CONFIG['sources']['generic_current']['P_total'] = {0: 0}
 
+# Variables to plot
+density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
+temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
+fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
+fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot))
 
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
@@ -202,11 +207,12 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode="human",
+        super().__init__(render_mode=None,
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,
-                         log_level="debug", plotter = test_realTimePlot
+                         log_level="debug", 
+                         fig=fig
                          )
 
     def build_action_list(self):
@@ -220,14 +226,6 @@ class IterHybridEnv(BaseEnv):
 
     def build_observation_variables(self):
         return oh.AllObservation()
-
-#Ip_plot = viz.PlotProperties_temporal(attrs=('I_p',), labels=('Plasma Current',), ylabel="Current, [A]")
-density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
-temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
-fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
-test_fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot))
-test_realTimePlot = viz.ToraxStyleRealTimePlotter(test_fig, render_mode="human")
-
 
 if __name__ == "__main__":
     env = IterHybridEnv()

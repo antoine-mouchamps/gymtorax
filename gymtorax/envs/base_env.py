@@ -98,7 +98,7 @@ class BaseEnv(gym.Env, ABC):
         delta_t_a: float|None = None,
         log_level="warning",
         logfile=None,
-        plotter: viz.ToraxStyleRealTimePlotter|None = None
+        fig: viz.FigureProperties|None = None
     ) -> None:
         """
         Initialize the TORAX gymnasium environment.
@@ -178,7 +178,7 @@ class BaseEnv(gym.Env, ABC):
         # Validate and set rendering mode
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-        self.plotter = plotter
+        self.plotter = viz.ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
         
         # Initialize rendering components (will be set up when needed)
         self.window = None
@@ -220,8 +220,7 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = self.observation_handler.extract_state_observation(torax_state)
 
         # Render initial state if in human mode
-        if self.render_mode == "human":
-            self._render_frame()
+        self.render()
 
         logger.debug(" environment reset complete.")
 
@@ -285,9 +284,9 @@ class BaseEnv(gym.Env, ABC):
         if self.current_time >= self.T:
             self.terminated = True
 
-        # Render frame if in human mode
-        if self.render_mode == "human":
-            self._render_frame()
+        # Render frame 
+        self.render()
+            
         return observation, reward, self.terminated, truncated, info 
 
     def reward(
@@ -339,22 +338,39 @@ class BaseEnv(gym.Env, ABC):
             # pygame.quit()
             pass
     
-    def render(self):
+    def render(self) -> None:
         """
-        Render the current environment state.
+        Render the current environment state following Gymnasium convention.
         
         Returns:
-            NDArray or None: RGB array if render_mode is "rgb_array", else None.
-            
+            np.ndarray or None: RGB array if render_mode is "rgb_array", else None.
+        
         Note:
-            Currently not fully implemented. Returns None for all modes.
+            - For 'human' mode, this calls the plotter's update method for live visualization.
+            - For 'rgb_array' mode, this calls the plotter's get_rgb_array() method (which must be implemented by the plotter).
+            - Subclasses must provide a plotter compatible with these calls.
         """
         if self.render_mode == "human":
-            return self._render_frame()
-        
-        if self.render_mode == "rgb_array":
-            return self._render_frame()  
-        return None  
+            if self.plotter is not None:
+                self.plotter.update(self.state, self.current_time)
+        else:
+            if self.plotter is not None:
+                self.plotter.update(self.state, self.current_time)
+
+    def get_gif(self, filename: str) -> None:
+        """
+        Save the current plot as a GIF file.
+        Args:
+            filename: Path to save the GIF file. 
+                If it does not end with ".gif", the suffix will be added.
+        """
+        if self.plotter is not None:
+            # verify that the suffix is correct
+            if not filename.endswith(".gif"):
+                filename += ".gif"
+            self.plotter.save_gif(filename)
+        else:
+            logger.warning("No plotter available to save GIF.")
 
     def _terminal_state(self) -> bool:
         """
@@ -376,50 +392,9 @@ class BaseEnv(gym.Env, ABC):
 
     def _render_frame(self):
         """
-        Render a single frame of the environment state.
-        
-        This method handles the actual rendering logic for both human and
-        rgb_array modes. Currently not fully implemented.
-        
-        Returns:
-            NDArray or None: RGB array for rgb_array mode, None for human mode.
-            
-        TODO:
-            Implement visualization using matplotlib or pygame:
-            - Plasma profiles (temperature, density, current)
-            - Time evolution plots
-            - Control parameter displays
-            - Performance metrics
+        [DEPRECATED] Use render() instead. This method is kept for backward compatibility.
         """
-        # TODO: Implement rendering logic
-        # Ideas for visualization:
-        # - Plot temperature and density profiles
-        # - Show time evolution of key parameters (beta_N, H-factor, etc.)
-        # - Display current control actions
-        # - Show reward history
-        
-        if self.render_mode == "human":
-            # if self.window is None:
-            #     pygame.init()
-            #     pygame.display.init()
-            #     self.window = pygame.display.set_mode((800, 600))
-            # if self.clock is None:
-            #     self.clock = pygame.time.Clock()
-            #
-            # # Draw plasma state visualization
-            # # ... rendering code ...
-            #
-            # pygame.event.pump()
-            # self.clock.tick(self.metadata["render_fps"])
-            # pygame.display.flip()
-            self.plotter.update(self.state, self.current_time) if self.plotter is not None else None
-            pass
-        elif self.render_mode == "rgb_array":
-            # Generate RGB array for the current state
-            # return np.zeros((600, 800, 3), dtype=np.uint8)  # Placeholder
-            pass
-            
-        return None
+        return self.render()
 
 
     # =============================================================================
