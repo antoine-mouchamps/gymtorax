@@ -42,7 +42,7 @@ class ConfigLoader:
             raise TypeError("Configuration must be a dictionary")
         self.action_handler = action_handler
 
-        self.config_dict: dict[str, Any] = config
+        self.config_dict: dict[str, Any] = config      
         self.validate()
         
         try:
@@ -197,13 +197,6 @@ class ConfigLoader:
             action_list = self.action_handler.get_actions()
             for a in action_list:
                 a.init_dict(self.config_dict)
-                #For computations, Ip needs to be defined in the initial configuration
-                if ('profile_conditions', 'Ip') in a.get_mapping().keys():
-                    if self.config_dict['geometry']['geometry_type'] != 'circular':
-                        self.config_dict['geometry']['Ip_from_parameters'] = False
-                    else:
-                        self.config_dict['profile_conditions']['Ip'] = self._Ip_computation()                
-                        
 
     def validate_discretization(self, discretization_torax: str) -> None:
         """

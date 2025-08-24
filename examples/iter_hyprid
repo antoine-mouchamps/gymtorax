@@ -221,11 +221,11 @@ class IterHybridEnv(BaseEnv):
     def build_observation_variables(self):
         return oh.AllObservation()
 
-Ip_plot = viz.PlotProperties_temporal(attrs=('I_p',), labels=('Plasma Current',), ylabel="Current, [A]")
+#Ip_plot = viz.PlotProperties_temporal(attrs=('I_p',), labels=('Plasma Current',), ylabel="Current, [A]")
 density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
 temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
 fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
-test_fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, Ip_plot, density_plot))
+test_fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot))
 test_realTimePlot = viz.ToraxStyleRealTimePlotter(test_fig, render_mode="human")
 
 

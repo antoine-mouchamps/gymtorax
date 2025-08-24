@@ -140,7 +140,7 @@ class BaseEnv(gym.Env, ABC):
         # Load and validate TORAX configuration
         self.config: ConfigLoader = ConfigLoader(config)
         self.config.validate_discretization(discretization_torax)
-        
+    
         # Get total simulation time from configuration
         self.T: float = self.config.get_total_simulation_time()  # [seconds]
         
@@ -413,7 +413,6 @@ class BaseEnv(gym.Env, ABC):
             # self.clock.tick(self.metadata["render_fps"])
             # pygame.display.flip()
             self.plotter.update(self.state, self.current_time) if self.plotter is not None else None
-            print("======================")
             pass
         elif self.render_mode == "rgb_array":
             # Generate RGB array for the current state

@@ -273,7 +273,6 @@ class Action(ABC):
         for dict_path, idx in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
-            
             for key in dict_path[:-1]:
                 d = d[key]
 
@@ -282,6 +281,17 @@ class Action(ABC):
                 #Check there is no value associated to the existing key
                 if (d[key] != {} or d[key] != {0: 0}) and warning:
                     logger.warning(f" overwriting existing value for key: {key}")
+                    if isinstance(d[key], (float, int)):
+                        self.values[idx] = d[key]
+                    elif isinstance(d[key], dict):
+                        self.values[idx] = d[key][0]
+                    elif isinstance(d[key], tuple) and 0 in d[key][0]:
+                        if isinstance(d[key][0], (list, tuple)):
+                            pos = d[key][0].index(0)
+                        elif isinstance(d[key][0], np.ndarray):
+                            pos = np.where(d[key][0] == 0)[0][0]
+                        self.values[idx] = d[key][1][pos]
+                # Always assign a scalar (not a list) for each dimension
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
