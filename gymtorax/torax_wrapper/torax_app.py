@@ -17,6 +17,7 @@ from . import torax_plot_extensions
 
 import logging
 import time
+import copy
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -41,20 +42,10 @@ class ToraxApp:
     """
     def __init__(self, config_loader: ConfigLoader, delta_t_a: float, store_history: bool = False):
         self.store_history = store_history
-        self.config: ConfigLoader = config_loader
+        self.initial_config: ConfigLoader = config_loader
 
-        self.t_current = 0.0
         self.delta_t_a = delta_t_a
-        self.t_final = self.config.get_total_simulation_time()
-        self.config.set_total_simulation_time(self.delta_t_a) # End for the first action step
-        
-        self.is_start: bool = False     #Indicates if the application has been started
-        
-        self.geometry_provider = None
-        self.static_runtime_params_slice = None
-        self.dynamic_runtime_params_slice_provider = None
-        self.step_fn = None
-        self.post_processed_outputs = None  
+ 
         self.current_sim_state: ToraxSimState|None = None
         self.current_sim_output: PostProcessedOutputs|None = None
         self.state: output.StateHistory|None = None # history made up of a single state
@@ -65,7 +56,9 @@ class ToraxApp:
         if logger.isEnabledFor(logging.DEBUG):
             self.last_run_time = None
 
-    def start(self):
+        self.is_started: bool = False     #Indicates if the application has been started
+
+    def _start(self):
         """Initialize the Torax application with the provided configuration.
         This method sets up the transport model, pedestal model, geometry provider, source models,
         static runtime parameters slice, dynamic runtime parameters slice provider, solver, and step function.
@@ -76,27 +69,27 @@ class ToraxApp:
             initial state, post-processed outputs, and a boolean indicating if the restart case is True.
         """
 
-        transport_model = self.config.config_torax.transport.build_transport_model()
-        pedestal_model = self.config.config_torax.pedestal.build_pedestal_model()
+        transport_model = self.initial_config.config_torax.transport.build_transport_model()
+        pedestal_model = self.initial_config.config_torax.pedestal.build_pedestal_model()
 
-        self.geometry_provider = self.config.config_torax.geometry.build_provider
+        self.geometry_provider = self.initial_config.config_torax.geometry.build_provider
         
         source_models = source_models_lib.SourceModels(
-            self.config.config_torax.sources, neoclassical=self.config.config_torax.neoclassical
+            self.initial_config.config_torax.sources, neoclassical=self.initial_config.config_torax.neoclassical
         )
 
         self.static_runtime_params_slice = (
-        build_runtime_params.build_static_params_from_config(self.config.config_torax)
+        build_runtime_params.build_static_params_from_config(self.initial_config.config_torax)
         )
         
-        solver = self.config.config_torax.solver.build_solver(
+        solver = self.initial_config.config_torax.solver.build_solver(
             static_runtime_params_slice=self.static_runtime_params_slice,
             transport_model=transport_model,
             source_models=source_models,
             pedestal_model=pedestal_model,
         )
 
-        mhd_models = self.config.config_torax.mhd.build_mhd_models(
+        mhd_models = self.initial_config.config_torax.mhd.build_mhd_models(
             static_runtime_params_slice=self.static_runtime_params_slice,
             transport_model=transport_model,
             source_models=source_models,
@@ -105,7 +98,7 @@ class ToraxApp:
 
         self.step_fn = step_function.SimulationStepFn(
             solver=solver,
-            time_step_calculator= self.config.config_torax.time_step_calculator.time_step_calculator,
+            time_step_calculator= self.initial_config.config_torax.time_step_calculator.time_step_calculator,
             transport_model=transport_model,
             pedestal_model=pedestal_model,
             mhd_models=mhd_models,
@@ -113,38 +106,51 @@ class ToraxApp:
 
         self.dynamic_runtime_params_slice_provider = (
             build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.config.config_torax
+                self.initial_config.config_torax
             )
         )
         
-        initial_sim_state, initial_sim_output = (
+        self.initial_sim_state, self.initial_sim_output = (
             initial_state_lib.get_initial_state_and_post_processed_outputs(
-                t=self.config.config_torax.numerics.t_initial,
+                t=self.initial_config.config_torax.numerics.t_initial,
                 static_runtime_params_slice=self.static_runtime_params_slice,
                 dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
                 geometry_provider=self.geometry_provider,
                 step_fn=self.step_fn,
             )
         )
-        
-        if self.store_history is True:
-            self.history_list.append([initial_sim_state, initial_sim_output])
 
-        self.current_sim_state = initial_sim_state
-        self.current_sim_output = initial_sim_output
-      
+        self.is_started = True
+
+        logger.debug(" ToraxApp started.")
+
+
+    def reset(self):
+        if self.is_started is False:
+            self._start()
+
+        if self.store_history is True:
+            self.history_list.append([self.initial_sim_state, self.initial_sim_output])
+
+        self.current_sim_state = self.initial_sim_state
+        self.current_sim_output = self.initial_sim_output
+
         state_history = output.StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
             sim_error=SimError.NO_ERROR,
-            torax_config=self.config.config_torax
+            torax_config=self.initial_config.config_torax
         )
 
         self.state = state_history
+        self.config = copy.deepcopy(self.initial_config)
 
-        # self.history_list.append((self.current_sim_state, self.current_sim_output))
+        self.t_current = 0.0
+        self.t_final = self.config.get_total_simulation_time()
+        self.config.set_total_simulation_time(self.delta_t_a) # End for the first action step
 
-        self.is_start = True
+        logger.debug(" ToraxApp reset.")
+        
 
     def run(self)-> bool:
         """ Executes a single action step from `t_current` to `t_current + delta_t_a`.
@@ -156,7 +162,7 @@ class ToraxApp:
         Raises:
             RuntimeError: If the application has not been started before running the simulation.
         """
-        if self.is_start is False:
+        if self.is_started is False:
             raise RuntimeError("ToraxApp must be started before running the simulation.")
         
         if self.t_current >= self.t_final:

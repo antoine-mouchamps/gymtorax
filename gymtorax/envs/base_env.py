@@ -215,7 +215,7 @@ class BaseEnv(gym.Env, ABC):
         self.current_time = 0.0
         
         # Initialize TORAX simulation
-        self.torax_app.start()  # Set up initial simulation state
+        self.torax_app.reset()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
         
         # Extract initial observation
