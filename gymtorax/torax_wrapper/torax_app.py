@@ -191,6 +191,19 @@ class ToraxApp:
         self.current_sim_state = self.initial_sim_state
         self.current_sim_output = self.initial_sim_output
 
+        # Rebuild geometry provider with initial configuration
+        # This handles geometry changes (e.g., current profile modifications)
+        self.geometry_provider = self.initial_config.config_torax.geometry.build_provider
+
+        # Rebuild dynamic runtime parameters provider with initial configuration
+        # This ensures time-dependent parameters reflect the updated config
+        self.dynamic_runtime_params_slice_provider = (
+            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
+                self.initial_config.config_torax
+            )
+        )
+
+        # Create state history container with initial state
         state_history = output.StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
