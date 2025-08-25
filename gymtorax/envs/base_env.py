@@ -128,9 +128,7 @@ class BaseEnv(gym.Env, ABC):
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
-        # Initialize observation and action handlers using abstract methods
-        # These must be implemented by concrete subclasses
-        self.observation_handler = self.build_observation_variables()
+        # Initialize action handler using abstract method
         self.action_handler = ActionHandler(self.build_action_list())
         
         # Initialize state tracking
@@ -170,12 +168,25 @@ class BaseEnv(gym.Env, ABC):
                                             self.delta_t_a,
                                             store_state_history)
 
-        # Update state/observation variables based on selected actions
-        self.observation_handler.update_variables(self.action_handler.get_action_variables())
+        # Start simulator
+        self.torax_app.start()
+
+        # Initialize observation handler
+        self.observation_handler = self.build_observation_variables()
+
+        # Set variables appearing in the actual simulation states
+        self.observation_handler.set_state_variables(self.torax_app.get_state_data())
+
+        # Set the variables appearing in the action, to be removed from the
+        # state/observation
+        self.observation_handler.set_action_variables(self.action_handler.get_action_variables())
+
+        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
 
         # Build Gymnasium spaces
+        # WARNING: At this stage, the observation space cannot be fully
+        # determined. It is first set to the maximal possible space. 
         self.action_space = self.action_handler.build_action_space()
-        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
         self.observation_space = self.observation_handler.build_observation_space()
 
         # Validate and set rendering mode
@@ -284,7 +295,11 @@ class BaseEnv(gym.Env, ABC):
         # Update time tracking
         self.current_time += self.delta_t_a
         self.timestep += 1
-        
+
+        # If simulation reached final time, terminate the environment
+        if(self.current_time > self.T):
+            self.terminated = True
+
         # Render frame if in human mode
         if self.render_mode == "human":
             self._render_frame()

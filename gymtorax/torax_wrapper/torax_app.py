@@ -87,7 +87,7 @@ class ToraxApp:
         # Track initialization state
         self.is_started: bool = False
 
-    def _start(self):
+    def start(self):
         """
         Initialize TORAX simulation components.
 
@@ -162,6 +162,17 @@ class ToraxApp:
             )
         )
 
+        # Create state history container with initial state
+        state_history = output.StateHistory(
+            state_history=[self.initial_sim_state],
+            post_processed_outputs_history=[self.initial_sim_output],
+            sim_error=SimError.NO_ERROR,
+            torax_config=self.initial_config.config_torax
+        )
+
+        # Update state and configuration references
+        self.state = state_history
+
         # Mark as initialized
         self.is_started = True
 
@@ -181,7 +192,7 @@ class ToraxApp:
         """
         # Initialize TORAX physics models if not already done
         if self.is_started is False:
-            self._start()
+            self.start()
 
         # Store initial state in history if history tracking is enabled
         if self.store_history is True:
@@ -395,6 +406,7 @@ class ToraxApp:
             torax_config=self.config.config_torax
         )
         dt = state_history.simulation_output_to_xr()
+
         try:
             dt.to_netcdf(file_name, engine="h5netcdf", mode="w")
         except Exception as e:
@@ -409,11 +421,17 @@ class ToraxApp:
         
         Returns:
             DataTree: Current simulation state.
-                
+
+        Raises:
+            RuntimeError: If simulation state has not been computed yet.
+
         Note:
             - Returns single-timestep state (current moment)
             - For full history, use save_output_file() with store_history=True
         """
+        if(self.state is None):
+            raise RuntimeError("Simulation state has not been computed yet.")
+
         data = self.state.simulation_output_to_xr()
         
         return data
