@@ -168,10 +168,11 @@ CONFIG = {
 # CONFIG['sources']['generic_current']['P_total'] = {0: 0}
 
 # Variables to plot
+ip_plot = viz.PlotProperties_temporal(attrs=('Ip',), labels=('Plasma Current',), ylabel="Current, [A]")
 density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
 temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
 fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
-fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot))
+fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot, ip_plot))
 
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
@@ -196,7 +197,7 @@ class IterHybridAgent(BaseAgent):
             action["NBI"][1] = nbi_cd[2]
 
         if(self.time < 100):
-            action["Ip"][0] = 3e6 + self.time*(12.5e6-3e6)/(100-self.time)
+            action["Ip"][0] = 3e6 + self.time*(12.5e6-3e6)/(100-0)
         else:
             action["Ip"][0] = 12.5e6
 
@@ -207,7 +208,7 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None,
+        super().__init__(render_mode="human",
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,

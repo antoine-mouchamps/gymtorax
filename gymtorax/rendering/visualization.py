@@ -47,14 +47,17 @@ class ToraxStyleRealTimePlotter:
             plt.ion()
 
 
-    def update(self, current_state: dict, t: float = None):
+    def update(self, current_state: dict, action_input: dict, t: float = None):
         """
         Update the plot with the current state.
         current_state: dict with keys 'profiles' and 'scalars'.
         t: current time (float)
         """
         profiles = current_state.get("profiles", {})
+        profiles.update(action_input.get("profiles", {}))  # Include action profiles if any
         scalars = current_state.get("scalars", {})
+        scalars.update(action_input.get("scalars", {}))
+
         if t is not None:
             self.time_history.append(t)
         line_idx = 0

@@ -167,6 +167,8 @@ class BaseEnv(gym.Env, ABC):
         config_loader = ConfigLoader(config, self.action_handler)
         self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
+        # Initialize last_action_dict for storing last actions
+        self.last_action_dict = {}
         # Update state/observation variables based on selected actions
         self.observation_handler.update_variables(self.action_handler.get_action_variables())
 
@@ -215,7 +217,10 @@ class BaseEnv(gym.Env, ABC):
         # Initialize TORAX simulation
         self.torax_app.start()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
-        
+
+        # Update last_action_dict with initial state
+        self._update_last_action_dict(torax_state)
+                
         # Extract initial observation
         self.state, self.observation = self.observation_handler.extract_state_observation(torax_state)
 
@@ -272,6 +277,10 @@ class BaseEnv(gym.Env, ABC):
 
         # Extract new state and observation after simulation step
         next_torax_state = self.torax_app.get_state_data()
+        
+        # Update last_action_dict with new state
+        self._update_last_action_dict(next_torax_state)
+        
         next_state, observation = self.observation_handler.extract_state_observation(next_torax_state)
         self.state, self.observation = next_state, observation
 
@@ -286,8 +295,8 @@ class BaseEnv(gym.Env, ABC):
 
         # Render frame 
         self.render()
-            
-        return observation, reward, self.terminated, truncated, info 
+
+        return observation, reward, self.terminated, truncated, info
 
     def reward(
         self, 
@@ -352,10 +361,10 @@ class BaseEnv(gym.Env, ABC):
         """
         if self.render_mode == "human":
             if self.plotter is not None:
-                self.plotter.update(self.state, self.current_time)
+                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
         else:
             if self.plotter is not None:
-                self.plotter.update(self.state, self.current_time)
+                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
 
     def get_gif(self, filename: str) -> None:
         """
@@ -372,30 +381,19 @@ class BaseEnv(gym.Env, ABC):
         else:
             logger.warning("No plotter available to save GIF.")
 
-    def _terminal_state(self) -> bool:
+    def _update_last_action_dict(self, state):
         """
-        Check if the environment has reached a terminal state.
-        
-        This method can be overridden by subclasses to implement custom
-        termination conditions based on plasma state, time limits, or
-        other criteria.
-        
-        Returns:
-            bool: True if episode should terminate, False otherwise.
-            
-        Note:
-            Currently not implemented. Termination is handled by simulation
-            failure detection in the step() method.
+        Update self.last_action_dict as a nested dict: {'scalars': {...}, 'profiles': {...}}
+        Keys are variable names, values are from the current state (scalars/profiles).
         """
-        # TODO: Implement custom termination logic
-        return False
-
-    def _render_frame(self):
-        """
-        [DEPRECATED] Use render() instead. This method is kept for backward compatibility.
-        """
-        return self.render()
-
+        self.last_action_dict = {"scalars": {}, "profiles": {}}
+        action_vars = self.action_handler.get_action_variables()
+        for cat, var_list in action_vars.items():
+            if cat not in self.last_action_dict:
+                self.last_action_dict[cat] = {}
+            for var in var_list:
+                value = state.get(cat, {}).get(var, None)
+                self.last_action_dict[cat][var] = value
 
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
