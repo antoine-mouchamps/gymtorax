@@ -40,12 +40,29 @@ class ToraxStyleRealTimePlotter:
         self.render_mode = render_mode
         # Setup figure, axes, and lines
         self.fig, self.axes, self.lines = self._setup_figure_and_lines()
-        self.initialized = False
         self.render_mode = render_mode
         
         if render_mode == "human":
             plt.ion()
 
+    def reset(self):
+        """
+        Reset the plotter to its initial state without closing the figure.
+        """
+        self.time_history = []
+        self.scalar_histories = {}
+        self.spatial_histories = {}
+        self.spatial_x_histories = {}
+        # Clear all lines
+        for line in self.lines:
+            line.set_xdata([])
+            line.set_ydata([])
+        for ax in self.axes:
+            ax.relim()
+            ax.autoscale_view()
+        if self.render_mode == "human":
+            self.fig.canvas.draw()
+            self.fig.canvas.flush_events()
 
     def update(self, current_state: dict, action_input: dict, t: float = None):
         """
@@ -53,10 +70,11 @@ class ToraxStyleRealTimePlotter:
         current_state: dict with keys 'profiles' and 'scalars'.
         t: current time (float)
         """
-        profiles = current_state.get("profiles", {})
-        profiles.update(action_input.get("profiles", {}))  # Include action profiles if any
+        profiles = current_state.get("profiles", {}) 
         scalars = current_state.get("scalars", {})
-        scalars.update(action_input.get("scalars", {}))
+        if action_input is not None:
+            profiles.update(action_input.get("profiles", {}))
+            scalars.update(action_input.get("scalars", {}))
 
         if t is not None:
             self.time_history.append(t)
@@ -88,9 +106,9 @@ class ToraxStyleRealTimePlotter:
                             self.lines[line_idx].set_xdata(x_arr)
                             self.lines[line_idx].set_ydata(y_arr)
                         else:
-                            print(f"[ToraxStyleRealTimePlotter] Warning: Cannot plot spatial variable '{attr}': x shape {x_arr.shape}, y shape {y_arr.shape}")
+                            logger.warning(f"[ToraxStyleRealTimePlotter] Warning: Cannot plot spatial variable '{attr}': x shape {x_arr.shape}, y shape {y_arr.shape}")
                     else:
-                        print(f"[ToraxStyleRealTimePlotter] Warning: Cannot plot spatial variable '{attr}': missing or incompatible x or y. Available keys: {list(profiles.keys())}")
+                        logger.warning(f"[ToraxStyleRealTimePlotter] Warning: Cannot plot spatial variable '{attr}': missing or incompatible x or y. Available keys: {list(profiles.keys())}")
                     line_idx += 1
             # Time series plot
             elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
@@ -221,7 +239,6 @@ class PlotProperties_spatial(plotruns_lib.PlotProperties):
         lower_percentile: float = 0.0
         include_first_timepoint: bool = True
         ylim_min_zero: bool = True
-        plot_type: PlotType = PlotType.SPATIAL
         suppress_zero_values: bool = False  # If True, all-zero-data is not plotted
 
     """  
@@ -242,7 +259,6 @@ class PlotProperties_temporal(plotruns_lib.PlotProperties):
         lower_percentile: float = 0.0
         include_first_timepoint: bool = True
         ylim_min_zero: bool = True
-        plot_type: PlotType = PlotType.SPATIAL
         suppress_zero_values: bool = False  # If True, all-zero-data is not plotted
 
     """

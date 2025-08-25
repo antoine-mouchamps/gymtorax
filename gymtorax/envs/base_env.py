@@ -167,8 +167,6 @@ class BaseEnv(gym.Env, ABC):
         config_loader = ConfigLoader(config, self.action_handler)
         self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
 
-        # Initialize last_action_dict for storing last actions
-        self.last_action_dict = {}
         # Update state/observation variables based on selected actions
         self.observation_handler.update_variables(self.action_handler.get_action_variables())
 
@@ -213,6 +211,10 @@ class BaseEnv(gym.Env, ABC):
         self.truncated = False
         self.timestep = 0
         self.current_time = 0.0
+        
+        # Initialize last_action_dict for storing last actions
+        self.last_action_dict = {}
+        self.plotter.reset()
         
         # Initialize TORAX simulation
         self.torax_app.start()  # Set up initial simulation state
@@ -384,17 +386,28 @@ class BaseEnv(gym.Env, ABC):
     def _update_last_action_dict(self, state):
         """
         Update self.last_action_dict as a nested dict: {'scalars': {...}, 'profiles': {...}}
-        Keys are variable names, values are from the current state (scalars/profiles).
+        Only initialize the structure if the dict is empty, otherwise just update values.
         """
-        self.last_action_dict = {"scalars": {}, "profiles": {}}
         action_vars = self.action_handler.get_action_variables()
+        # Initialize structure only if empty
+        if not self.last_action_dict:
+            self.last_action_dict = {"scalars": {}, "profiles": {}}
+            for cat, var_list in action_vars.items():
+                if cat not in self.last_action_dict:
+                    self.last_action_dict[cat] = {}
+                for var in var_list:
+                    self.last_action_dict[cat][var] = None
+        # Update values
         for cat, var_list in action_vars.items():
-            if cat not in self.last_action_dict:
-                self.last_action_dict[cat] = {}
             for var in var_list:
                 value = state.get(cat, {}).get(var, None)
+                if hasattr(value, 'item') and np.isscalar(value):
+                    value = value.item()
+                elif hasattr(value, 'tolist'):
+                    value = value.tolist()
+                elif hasattr(value, 'values'):
+                    value = value.values.tolist() if hasattr(value.values, 'tolist') else value.values
                 self.last_action_dict[cat][var] = value
-
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================
@@ -447,3 +460,28 @@ class BaseEnv(gym.Env, ABC):
             ...     ]
         """
         raise NotImplementedError
+    
+    # =============================================================================
+    # Default figures - Custom figures must be implemented by concrete subclasses
+    # =============================================================================
+    sources_fig = viz.FigureProperties(rows=3, cols=3,
+                        axes=(viz.PlotProperties_temporal(attrs=('P_ecrh_e',), labels=('ECRH power',), ylabel="Power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('P_radiation_e','P_bremsstrahlung_e', 'P_cyclotron_e'), labels=('Total sink power under radiation','P_bremsstrahlung_e', 'P_cyclotron_e'), ylabel="Sink power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('P_icrh_total',), labels=('Total ICRH power',), ylabel="Power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('P_aux_generic_total','P_aux_generic_e', 'P_aux_generic_i'), labels=('Total', 'Electron', 'Ion'), ylabel="Auxiliary heating power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('P_ei_exchange_i',), labels=('EI exchange to ions',), ylabel="Power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('P_ohmic_e',), labels=('Ohmic heating power',), ylabel="Power, [W]"),
+                              viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion power gain',), ylabel="Ratio, [-]"),
+                              viz.PlotProperties_temporal(attrs=('Ip', 'I_ecrh', 'I_bootstrap', 'I_aux_generic',), labels=('Plasma Current', 'ECRH Current', 'Bootstrap Current', 'Auxiliary Current'), ylabel="Current, [A]"),
+                              viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
+                        ))
+
+    default_fig = viz.FigureProperties(rows=2, cols=3, 
+                        axes=(viz.PlotProperties_temporal(attrs=('Ip', 'I_ecrh', 'I_bootstrap', 'I_aux_generic',), labels=('Plasma Current', 'ECRH Current', 'Bootstrap Current', 'Auxiliary Current'), ylabel="Current, [A]"),
+                              viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]"),
+                              viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]"),
+                              viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]"),
+                              viz.PlotProperties_temporal(attrs=('beta_N', 'beta_pol', 'beta_tor'), labels=('Beta normalized', 'Beta poloidal', 'Beta toroidal'), ylabel="Beta, [-]"),
+                              viz.PlotProperties_spatial(attrs=('q',), labels=('Safety factor',), ylabel="[-]"),
+                        ))
+    

@@ -53,7 +53,7 @@ CONFIG = {
         'current_profile_nu': 2, # exponent in initial current formula
     },
     'numerics': {
-        't_final': 60,  # length of simulation time in seconds
+        't_final': 120,  # length of simulation time in seconds
         'fixed_dt': 1, # fixed timestep
         'evolve_ion_heat': True, # solve ion heat equation
         'evolve_electron_heat': True, # solve electron heat equation
@@ -168,11 +168,6 @@ CONFIG = {
 # CONFIG['sources']['generic_current']['P_total'] = {0: 0}
 
 # Variables to plot
-ip_plot = viz.PlotProperties_temporal(attrs=('Ip',), labels=('Plasma Current',), ylabel="Current, [A]")
-density_plot = viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]")
-temperature_plot = viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
-fusion_plot = viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]")
-fig = viz.FigureProperties(rows=2, cols=2, axes=(temperature_plot, fusion_plot, density_plot, ip_plot))
 
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
@@ -208,12 +203,12 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode="human",
+        super().__init__(render_mode=None,
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,
                          log_level="debug", 
-                         fig=fig
+                         fig=self.fig_with_actions
                          )
 
     def build_action_list(self):
@@ -227,6 +222,17 @@ class IterHybridEnv(BaseEnv):
 
     def build_observation_variables(self):
         return oh.AllObservation()
+    
+    fig_with_actions = viz.FigureProperties(rows=3, cols=3, 
+                    axes=(viz.PlotProperties_temporal(attrs=('Ip', 'I_ecrh', 'I_bootstrap', 'I_aux_generic',), labels=('Plasma Current', 'ECRH Current', 'Bootstrap Current', 'Auxiliary Current'), ylabel="Current, [A]"),
+                            viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]"),
+                            viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]"),
+                            viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]"),
+                            viz.PlotProperties_temporal(attrs=('beta_N', 'beta_pol', 'beta_tor'), labels=('Beta normalized', 'Beta poloidal', 'Beta toroidal'), ylabel="Beta, [-]"),
+                            viz.PlotProperties_spatial(attrs=('q',), labels=('Safety factor',), ylabel="[-]"),
+                            viz.PlotProperties_temporal(attrs=('P_ecrh_e','P_aux_generic_total'), labels=('ECRH power', 'NBI power'), ylabel="Power, [W]"),
+                            ),
+                    )
 
 if __name__ == "__main__":
     env = IterHybridEnv()
@@ -238,4 +244,4 @@ if __name__ == "__main__":
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-    env.plotter.save_gif(filename="tmp/iter_hybrid.gif", interval=500)
+    #env.plotter.save_gif(filename="tmp/iter_hybrid.gif", interval=500)
