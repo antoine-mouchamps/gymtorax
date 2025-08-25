@@ -9,7 +9,6 @@ management for Gymnasium environments.
 import torax
 
 from torax import ToraxConfig
-from numpy.typing import NDArray
 from typing import Any
 
 import gymtorax.action_handler as act

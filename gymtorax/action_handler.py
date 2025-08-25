@@ -282,6 +282,16 @@ class Action(ABC):
                 #Check there is no value associated to the existing key
                 if (d[key] != {} or d[key] != {0: 0}) and warning:
                     logger.warning(f" overwriting existing value for key: {key}")
+                    if isinstance(d[key], (float, int)):
+                        self.values[idx] = d[key]
+                    elif isinstance(d[key], dict):
+                        self.values[idx] = d[key][0]
+                    elif isinstance(d[key], tuple) and 0 in d[key][0]:
+                        if isinstance(d[key][0], (list, tuple)):
+                            pos = d[key][0].index(0)
+                        elif isinstance(d[key][0], np.ndarray):
+                            pos = np.where(d[key][0] == 0)[0][0]
+                        self.values[idx] = d[key][1][pos]
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
@@ -337,6 +347,7 @@ class ActionHandler:
             actions: List of Action instances to manage.
         """
         self._actions = actions
+        self._actions_names = set([a.name for a in actions])
         self._validate_action_handler()
         self.action_space = self.build_action_space()
         
@@ -375,11 +386,11 @@ class ActionHandler:
         
         Args:
             action: The action to perform.
-                
-        Raises:
-            ValueError: If the length of action_array does not match the
-                total number of parameters in all managed actions.
         """
+        for action_name, _ in actions.items():
+            if action_name not in self._actions_names:
+                raise ValueError(f"Action '{action_name}' does not exist in this environment.")
+
         logger.debug(f" updating actions with: {actions}")
         for action in self._actions:
             action.set_values(actions[action.name])

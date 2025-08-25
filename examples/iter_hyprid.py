@@ -184,7 +184,7 @@ class IterHybridAgent(BaseAgent):
             action["NBI"][0] = nbi_powers[1]
             action["NBI"][1] = nbi_cd[1]
 
-        if(self.time == 100):
+        if(self.time >= 100):
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
             action["NBI"][1] = nbi_cd[2]
@@ -232,7 +232,9 @@ if __name__ == "__main__":
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-        if agent.time > 90:
-            env.save_file('tmp/output.nc')
-            break
+        # print(observation["profiles"]["T_e"])
+        # if agent.time > 90:
+
+    env.save_file('tmp/output.nc')
+            # break
     
