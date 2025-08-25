@@ -166,9 +166,13 @@ class ConfigLoader:
         self.config_dict['numerics']['t_final'] = current_time + delta_t_a
         if self.config_dict['numerics']['t_final'] > final_time:
             self.config_dict['numerics']['t_final'] = final_time
-        #Allow the control of Ip after initialization
-        if self.config_dict['geometry']['Ip_from_parameters'] == False:
-            self.config_dict['geometry']['Ip_from_parameters'] = True
+
+        # Allow the control of Ip after initialization
+        if("Ip" in self.action_handler.get_action_variables()):
+            if ('Ip_from_parameters' in self.config_dict['geometry']
+                and self.config_dict['geometry']['Ip_from_parameters'] == False
+                ):
+                raise ValueError("Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it.")
 
         self.action_handler.update_actions(action)
         actions = self.action_handler.get_actions()
@@ -197,13 +201,7 @@ class ConfigLoader:
             action_list = self.action_handler.get_actions()
             for a in action_list:
                 a.init_dict(self.config_dict)
-                #For computations, Ip needs to be defined in the initial configuration
-                if ('profile_conditions', 'Ip') in a.get_mapping().keys():
-                    if self.config_dict['geometry']['geometry_type'] != 'circular':
-                        self.config_dict['geometry']['Ip_from_parameters'] = False
-                    else:
-                        self.config_dict['profile_conditions']['Ip'] = self._Ip_computation()                
-                        
+
 
     def validate_discretization(self, discretization_torax: str) -> None:
         """
@@ -225,17 +223,3 @@ class ConfigLoader:
                     raise ValueError("calculator_type must not be set to 'fixed' for auto discretization.")
         else:
             raise ValueError("Invalid discretization_torax setting.")
-
-    def _Ip_computation(self) -> float:
-        """Compute Ip for the circular cross-section.
-
-        Returns:
-            float: The computed Ip value.
-        """
-        R_0 = self.config_dict['geometry']['R_major']
-        a = self.config_dict['geometry']['a_minor']
-        B_0 = self.config_dict['geometry']['B_0']
-        kappa = self.config_dict['geometry']['elongation_LCFS']
-        q_lcfs = 2  # Minimal requirement in lots of situations to avoid instabilities
-
-        return 5 * a**2 * B_0 * (1 + kappa**2)/(2*R_0*q_lcfs) * 10**6  # To get Ip in A
