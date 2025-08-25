@@ -341,13 +341,8 @@ class BaseEnv(gym.Env, ABC):
         """
         # Close TORAX simulation
         self.torax_app.close()
-        
-        # Clean up rendering resources
-        if self.window is not None:
-            # TODO: Add pygame cleanup when rendering is implemented
-            # pygame.display.quit()
-            # pygame.quit()
-            pass
+        if self.plotter is not None:
+            self.plotter.close()
     
     def render(self) -> None:
         """
@@ -401,13 +396,8 @@ class BaseEnv(gym.Env, ABC):
         for cat, var_list in action_vars.items():
             for var in var_list:
                 value = state.get(cat, {}).get(var, None)
-                if hasattr(value, 'item') and np.isscalar(value):
-                    value = value.item()
-                elif hasattr(value, 'tolist'):
-                    value = value.tolist()
-                elif hasattr(value, 'values'):
-                    value = value.values.tolist() if hasattr(value.values, 'tolist') else value.values
                 self.last_action_dict[cat][var] = value
+                
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================

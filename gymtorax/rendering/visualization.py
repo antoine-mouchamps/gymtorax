@@ -173,11 +173,16 @@ class ToraxStyleRealTimePlotter:
             fig.suptitle(f"t = {self.time_history[i]:.3f} {self.xlabel_time_unit}")
             return lines
         logger.debug(f" Saving GIF to {filename} with {nframes} frames.")
-        ani = animation.FuncAnimation(fig, animate, frames=nframes, blit=False, interval=interval)
+        ani = animation.FuncAnimation(fig, animate, frames=nframes, blit=True, interval=interval)
         ani.save(filename, writer='pillow')
         logger.debug(f" Finished saving GIF to {filename} with {nframes} frames.")
         plt.close(fig)
 
+    def close(self):
+        """
+        Close the visualization figure.
+        """
+        plt.close(self.fig)
 
     def _setup_figure_and_lines(self):
         """
