@@ -134,7 +134,7 @@ class ToraxStyleRealTimePlotter:
             self.fig.canvas.flush_events()
             plt.pause(0.001)
 
-    def save_gif(self, filename="torax_output.gif", interval=100):
+    def save_gif(self, filename: str, interval: float, frame_step: int):
         """
         Create a GIF using the stored spatial and time series data.
         Both spatial and time series variables are shown (spatial animated, time series static).
@@ -142,12 +142,21 @@ class ToraxStyleRealTimePlotter:
         Args:
             filename: Output GIF filename
             interval: Delay between frames in ms
+            frame_step: Save every Nth frame (default 1 = all frames)
         """
         import matplotlib.animation as animation
         fig, axes, lines = self._setup_figure_and_lines()
         nframes = len(self.time_history)
+        if frame_step < 1 or frame_step > nframes or frame_step is None:
+            logger.warning(f"[ToraxStyleRealTimePlotter] Warning: Invalid frame_step {frame_step}, resetting to 1.")
+            frame_step = 1
+        frame_indices = list(range(0, nframes, frame_step))
+        # Ensure the last frame is included
+        if nframes > 0 and (frame_indices == [] or frame_indices[-1] != nframes - 1):
+            frame_indices.append(nframes - 1)
 
-        def animate(i):
+        def animate(idx):
+            i = frame_indices[idx]
             line_idx = 0
             for ax, cfg in zip(axes, self.plot_config.axes):
                 if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
@@ -161,21 +170,19 @@ class ToraxStyleRealTimePlotter:
                         line_idx += 1
                 elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
                     for attr in cfg.attrs:
-                        # Always show the full time series as a static line
                         xdata = self.time_history
                         ydata = self.scalar_histories.get(attr, [])
                         lines[line_idx].set_xdata(xdata)
                         lines[line_idx].set_ydata(ydata)
                         line_idx += 1
-                # Autoscale y-axis for each frame
                 ax.relim()
                 ax.autoscale_view()
             fig.suptitle(f"t = {self.time_history[i]:.3f} {self.xlabel_time_unit}")
             return lines
-        logger.debug(f" Saving GIF to {filename} with {nframes} frames.")
-        ani = animation.FuncAnimation(fig, animate, frames=nframes, blit=True, interval=interval)
+        logger.debug(f" Saving GIF to {filename} with {len(frame_indices)} frames (step={frame_step}).")
+        ani = animation.FuncAnimation(fig, animate, frames=len(frame_indices), blit=True, interval=interval)
         ani.save(filename, writer='pillow')
-        logger.debug(f" Finished saving GIF to {filename} with {nframes} frames.")
+        logger.debug(f" Finished saving GIF to {filename} with {len(frame_indices)} frames.")
         plt.close(fig)
 
     def close(self):

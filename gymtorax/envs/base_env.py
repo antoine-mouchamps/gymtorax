@@ -363,18 +363,21 @@ class BaseEnv(gym.Env, ABC):
             if self.plotter is not None:
                 self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
 
-    def get_gif(self, filename: str) -> None:
+    def save_gif(self, filename: str = "torax_output.gif", interval: int = 200, frame_step: int = 2) -> None:
         """
-        Save the current plot as a GIF file.
+        Save the data as a GIF file.
         Args:
             filename: Path to save the GIF file. 
                 If it does not end with ".gif", the suffix will be added.
+            interval: Delay between frames in ms.
+            frame_step: Save every Nth frame (default 2 = all frames).
+                The last frame is always included.
         """
         if self.plotter is not None:
             # verify that the suffix is correct
             if not filename.endswith(".gif"):
                 filename += ".gif"
-            self.plotter.save_gif(filename)
+            self.plotter.save_gif(filename, interval=interval, frame_step=frame_step)
         else:
             logger.warning("No plotter available to save GIF.")
 
@@ -472,6 +475,6 @@ class BaseEnv(gym.Env, ABC):
                               viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]"),
                               viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]"),
                               viz.PlotProperties_temporal(attrs=('beta_N', 'beta_pol', 'beta_tor'), labels=('Beta normalized', 'Beta poloidal', 'Beta toroidal'), ylabel="Beta, [-]"),
-                              viz.PlotProperties_spatial(attrs=('q',), labels=('Safety factor',), ylabel="[-]"),
+                              viz.PlotProperties_spatial(attrs=('q','magnetic_shear'), labels=('Safety factor','Magnetic shear'), ylabel="[-]"),
                         ))
     
