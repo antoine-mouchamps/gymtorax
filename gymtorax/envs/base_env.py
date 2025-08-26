@@ -136,7 +136,7 @@ class BaseEnv(gym.Env, ABC):
         self.observation: dict[str, Any]|None = None  # Observation
 
         # Load and validate TORAX configuration
-        self.config: ConfigLoader = ConfigLoader(config)
+        self.config: ConfigLoader = ConfigLoader(config, self.action_handler)
         self.config.validate_discretization(discretization_torax)
         
         # Get total simulation time from configuration
@@ -163,8 +163,7 @@ class BaseEnv(gym.Env, ABC):
 
         # Initialize TORAX simulation wrapper
         self.store_state_history = store_state_history
-        config_loader = ConfigLoader(config, self.action_handler)
-        self.torax_app: ToraxApp = ToraxApp(config_loader,
+        self.torax_app: ToraxApp = ToraxApp(self.config,
                                             self.delta_t_a,
                                             store_state_history)
 
