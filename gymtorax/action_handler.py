@@ -226,7 +226,7 @@ class Action(ABC):
                 structure for this action parameters.
         """
         try:
-            self._apply_mapping(config_dict, time=0)
+            self._apply_mapping(config_dict, time="init")
         except Exception as e:
             raise RuntimeError(
                 f"An error occurred while initializing the action in the dictionary: {e}"
@@ -250,7 +250,7 @@ class Action(ABC):
         """
         self._apply_mapping(config_dict, time=time)
 
-    def _apply_mapping(self, config_dict: dict[str, Any], time: float) -> None:
+    def _apply_mapping(self, config_dict: dict[str, Any], time: float|str) -> None:
         """
         Apply the action values to a TORAX configuration dictionary.
         
@@ -277,9 +277,8 @@ class Action(ABC):
                 d = d[key]
 
             key = dict_path[-1]
-
             # Handle the case of the initial condition
-            if time == 0:
+            if time == "init":
                 # Check if there is no value associated to the existing key
                 if (d[key] != {}):
                     if isinstance(d[key], (float, int)):
@@ -291,6 +290,7 @@ class Action(ABC):
                             pos = d[key][0].index(0)
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
+                        print(key, d[key], d[key][0])
                         self.values[idx] = d[key][1][pos]
                     logger.debug(f" using {self.values[idx]} as initial condition for key: {key}")
                 else:
