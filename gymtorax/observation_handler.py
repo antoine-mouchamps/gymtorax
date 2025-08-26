@@ -43,15 +43,15 @@ class Observation(ABC):
     
     This class provides the foundation for converting TORAX simulation outputs into
     structured observation spaces suitable for reinforcement learning environments.
-    It handles variable selection, bound specification and data extraction from
-    TORAX DataTree structure.
+    It handles variable selection, bounds specification, data extraction from
+    TORAX DataTree structure, and automatic removal of action-controlled variables.
     
     The class maintains a comprehensive catalog of all TORAX variables with their
     default bounds and dimensionality, allowing users to create custom observation
     spaces by selecting subsets of variables and specifying custom bounds, if
     needed.
     
-    Attributes:
+    Class Attributes:
         DEFAULT_BOUNDS (dict): Master catalog of all TORAX variables with their
             default bounds and size specifications. Variables are categorized as:
             - "profiles": Spatially-resolved variables (functions of radius)
@@ -59,20 +59,33 @@ class Observation(ABC):
         
         variables (dict): Selected variables for this observation space
         custom_bounds (dict): User-specified bounds overriding defaults
-        exclude (set): Variables to exclude from the observation space
         dtype (np.dtype): Data type for observation arrays
-        n_rho (int): Number of radial grid points (set via set_n_grid_points)
-        bounds (dict): Final bounds after applying custom overrides
+        
+        # Set by setup methods:
+        action_variables (dict|None): Variables controlled by actions (via set_action_variables)
+        state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
+        
+        # Internal processing attributes:
+        observation_variables (dict): Final observation variables after filtering
+        bounds (dict): Final bounds after applying custom overrides and sizing
+        first_state (bool): Flag to ensure build_observation_space() called only once
+        _sizes (dict|None): Mapping from symbolic to actual array sizes
     """
     
-    # Master catalog of all TORAX variables with default bounds and grid sizing
+    # This comprehensive dictionary contains all known TORAX output variables
+    # organized by category with their physical bounds and array size specifications
     DEFAULT_BOUNDS = {
+        # NOTE: Commented out numerics category - these are diagnostic/control variables
+        # that are typically not needed in RL observation spaces
         # "numerics": {
         #     "inner_solver_iterations": {"min": -np.inf, "max": np.inf, "size": 1},
         #     "outer_solver_iterations": {"min": -np.inf, "max": np.inf, "size": 1},
         #     "sawtooth_crash": {"min": -np.inf, "max": np.inf, "size": 1},
         #     "sim_error": {"min": -np.inf, "max": np.inf, "size": 1},
         # },
+        
+        # Profile variables: spatially-resolved quantities as functions of radius
+        # Sizes are symbolic and resolved via set_n_grid_points() method
         "profiles": {
             "area": {"min": -np.inf, "max": np.inf, "size": "rho_norm"},
             "chi_bohm_e": {"min": -np.inf, "max": np.inf, "size": "rho_face_norm"},
@@ -147,6 +160,9 @@ class Observation(ABC):
             "Z_i": {"min": -np.inf, "max": np.inf, "size": "rho_norm"},
             "Z_impurity": {"min": -np.inf, "max": np.inf, "size": "rho_norm"},
         },
+        
+        # Scalar variables: global/integrated quantities (single values)
+        # All scalars have size=1 and represent volume-averaged or boundary values
         "scalars": {
             "a_minor": {"min": -np.inf, "max": np.inf, "size": 1},
             "A_i": {"min": -np.inf, "max": np.inf, "size": 1},
@@ -231,6 +247,8 @@ class Observation(ABC):
         },
     }
 
+    # Class-level constant: Set containing all available variable names
+    # Computed from both profiles and scalars categories for quick membership testing
     DEFAULT_VARIABLES = set(DEFAULT_BOUNDS["profiles"].keys()) | set(DEFAULT_BOUNDS["scalars"].keys())
 
 
@@ -244,25 +262,37 @@ class Observation(ABC):
         """
         Initialize an Observation handler.
         
+        This constructor sets up the basic configuration for the observation handler
+        but does not finalize the observation space. The actual space construction
+        requires calling setup methods first (set_state_variables, set_action_variables,
+        set_n_grid_points) followed by build_observation_space().
+        
         Args:
-            variables: dictionary specifying which variables to include in the
+            variables: Dictionary specifying which variables to include in the
                 observation space. Format: {"profiles": [var_names], "scalars": [var_names]}.
-                If None, includes all variables except those in exclude list.
-            custom_bounds: dictionary of custom bounds for specific variables,
-                format: {var_name: (min_value, max_value)}. Overrides DEFAULT_BOUNDS.
-            exclude: list of variable names to exclude from the observation space.
+                If None, includes all available variables except those in exclude list.
+                Missing categories are automatically added as empty lists.
+            custom_bounds: Dictionary of custom bounds for specific variables,
+                format: {var_name: (min_value, max_value)}. Overrides DEFAULT_BOUNDS
+                for the specified variables.
+            exclude: List of variable names to exclude from the observation space.
+                Only used if variables=None. Cannot be used together with variables.
             dtype: NumPy data type for the observation arrays (default: np.float64).
                 
         Raises:
-            ValueError: If any variable in exclude, custom_bounds, or variables is
-                not found in DEFAULT_BOUNDS, or if custom bounds are malformed.
+            ValueError: If both variables and exclude are specified, if custom bounds
+                are malformed, or if bound values are invalid.
                 
         Example:
+            >>> # Include specific variables with custom bounds
             >>> obs = Observation(
             ...     variables={"profiles": ["T_e", "T_i"], "scalars": ["Ip", "beta_N"]},
             ...     custom_bounds={"T_e": (0.0, 50.0), "T_i": (0.0, 50.0)},
             ...     dtype=np.float64
             ... )
+            >>> 
+            >>> # Include all variables except some specific ones
+            >>> obs = Observation(exclude=["n_impurity", "Z_impurity"])
         """
         # Initialize instance attributes
         self.custom_bounds = custom_bounds or {}
@@ -295,11 +325,14 @@ class Observation(ABC):
         # Initialize variables list with defaults, will be filtered later
         # These will be updated in _validate_and_filter_variables() based on actual
         # state variables and user selections
-        self.variables = {
+        self.observation_variables = {
             "profiles": list(self.bounds["profiles"].keys()),
             "scalars": list(self.bounds["scalars"].keys())
         }
 
+        # Store private reference to _sizes mapping for validation
+        self._sizes = None  # Will be set via set_n_grid_points()
+        
         # Flag to ensure build_observation_space() is only called once
         self.first_state = True
 
@@ -310,18 +343,24 @@ class Observation(ABC):
         This method must be called before building the observation space, as it
         determines the array dimensions for spatially-resolved variables.
         
-        The TORAX grid uses three different radial coordinate systems:
-        - rho_norm: Cell centers (n_rho + 2 points, includes boundary conditions)
-        - rho_cell_norm: Cell centers for transport (n_rho points)  
-        - rho_face_norm: Cell faces (n_rho + 1 points)
+        TORAX uses three different radial coordinate systems with different sizes:
+        - rho_norm: Cell centers with boundary conditions (n_rho + 2 points)
+        - rho_cell_norm: Cell centers for transport equations (n_rho points)  
+        - rho_face_norm: Cell interfaces/faces (n_rho + 1 points)
 
         Args:
             n_rho: Number of radial transport cells in the simulation grid.
-                This determines the resolution of profile variables.
+                Must be a positive integer. This determines the resolution 
+                of all profile variables.
+                
+        Raises:
+            ValueError: If n_rho is not a positive integer.
                 
         Note:
-            This updates the size specifications in self.bounds for all profile
-            variables, converting symbolic size names to actual array dimensions.
+            This method creates the internal _sizes mapping that converts
+            symbolic size names in DEFAULT_BOUNDS to actual array dimensions.
+            All profile variables use these symbolic names which get resolved
+            when build_observation_space() is called.
         """
         if not isinstance(n_rho, int) or n_rho <= 0:
             raise ValueError(f"n_rho must be a positive integer, got {n_rho}")
@@ -353,27 +392,27 @@ class Observation(ABC):
         # Determine final variable selection
         if self.variables_to_include is None:
             # Include all variables except excluded ones
-            self.variables = {
+            self.observation_variables = {
                 cat: [var for var in vars_.keys() if var not in self.variables_to_exclude]
                 for cat, vars_ in self.state_variables.items()
             }
         else:
             # Use explicitly provided variables
-            self.variables = {
+            self.observation_variables = {
                 cat: [var for var in vars_] for cat, vars_ in self.variables_to_include.items()
             }
 
         # Apply custom bounds by overriding defaults where specified
         for var, custom_bound in self.custom_bounds.items():
             # Create new bound entry with custom min/max but preserving size info
-            if var in self.variables["profiles"]:
+            if var in self.observation_variables["profiles"]:
                 original_size = self.bounds["profiles"][var]["size"]
                 self.bounds["profiles"][var] = {
                     "min": custom_bound[0],
                     "max": custom_bound[1],
                     "size": original_size
                 }
-            elif var in self.variables["scalars"]:
+            elif var in self.observation_variables["scalars"]:
                 original_size = self.bounds["scalars"][var]["size"]
                 self.bounds["scalars"][var] = {
                     "min": custom_bound[0],
@@ -381,7 +420,8 @@ class Observation(ABC):
                     "size": original_size
                 }
         
-        # Update all profile variable sizes
+        # Convert symbolic profile variable sizes to actual array dimensions
+        # This resolves size specifications like "rho_norm" -> actual integer values
         self.bounds["profiles"] = {
             key: {
                 "min": val["min"],
@@ -399,11 +439,11 @@ class Observation(ABC):
 
         if logger.isEnabledFor(logging.DEBUG):
             total_dim = 0
-            for cat, vars_ in self.variables.items():
+            for cat, vars_ in self.observation_variables.items():
                 total_dim += sum(self.bounds[cat][var]["size"] for var in vars_)
             logger.debug(f"Validation of all variables done. State space "
-                         f"is composed of {len(self.variables['profiles'])} "
-                         f"profiles variables, and {len(self.variables['scalars'])} "
+                         f"is composed of {len(self.observation_variables['profiles'])} "
+                         f"profiles variables, and {len(self.observation_variables['scalars'])} "
                          f"scalars variables, for a total of {total_dim} distinct "
                          f"variables.")
 
@@ -458,6 +498,9 @@ class Observation(ABC):
                 for var in var_list:
                     if var not in all_state_variables:
                         raise ValueError(f"Variable '{var}' not found in state variables.")
+            
+            # Ensure both categories exist in variables_to_include to prevent KeyError
+            # Add empty lists for missing categories to maintain consistent structure
             if "profiles" not in self.variables_to_include:
                 self.variables_to_include["profiles"] = []
             if "scalars" not in self.variables_to_include:
@@ -487,16 +530,20 @@ class Observation(ABC):
         """
         Set the variables that are controlled by actions.
         
-        Action variables will be removed from the observation space to avoid
-        including controllable parameters in the state observation, which would
-        create redundancy with the action space.
+        Action variables will be automatically removed from the state and
+        observation space to prevent redundancy between controllable parameters
+        (actions) and observable parameters (observations). This ensures clean
+        separation between what the agent can control and what it can observe.
         
         Args:
             variables: Dictionary specifying action variables by category.
-                Format: {"profiles": [var_names], "scalars": [var_names]}
+                Format: {"profiles": [var_names], "scalars": [var_names]}.
+                Variables listed here will be excluded from the final observation space.
+                Categories not present are treated as empty lists.
                 
         Note:
-            This method must be called before build_observation_space().
+            This method must be called before build_observation_space(). Variables
+            not present in the intial observation space will be ignored.
         """
         self.action_variables = variables
 
@@ -504,19 +551,15 @@ class Observation(ABC):
         """
         Set the state variables available from TORAX simulation output.
         
-        This method analyzes the TORAX DataTree to determine which variables
-        are actually present in the simulation output. This is important because
-        not all variables in DEFAULT_BOUNDS may be available depending on the
-        TORAX configuration and models used.
-        
         Args:
-            state: TORAX DataTree containing the simulation output structure
-                with /profiles/ and /scalars/ datasets.
+            state: TORAX DataTree containing the complete simulation output structure.
+                Must have /profiles/ and /scalars/ datasets with actual variable data.
+                This is typically obtained from torax_app.get_state_data().
                 
         Note:
             This method must be called before build_observation_space().
-            Variables missing from the simulation output but present in
-            DEFAULT_BOUNDS will be automatically added with infinite bounds.
+            Any variables found in the TORAX output that aren't in DEFAULT_BOUNDS
+            will be automatically added with bounds (-inf, +inf) and a warning logged.
         """
         self.state_variables = self._get_state_as_dict(state)
 
@@ -525,28 +568,23 @@ class Observation(ABC):
         Extract complete state and filtered observation from TORAX DataTree output.
 
         This method processes the TORAX simulation output and returns both the
-        complete state (all variables selected for this observation handler) and 
-        the filtered observation (same as state - maintained for API consistency).
+        complete state (all variables present in the TORAX output) and the 
+        filtered observation (only variables selected for this observation handler).
 
         Args:
             datatree: TORAX simulation output containing profiles and scalars datasets.
                 
         Returns:
             tuple containing:
-            - state (dict): Complete state with selected variables
+            - state (dict): Complete state with all available TORAX variables
                 Format: {"profiles": {var: ndarray}, "scalars": {var: scalar}}
-            - observation (dict): Same as state (maintained for API consistency)  
+            - observation (dict): Filtered state with only selected observation variables  
                 Format: {"profiles": {var: ndarray}, "scalars": {var: scalar}}
-                
-        Note:
-            Both returned dictionaries are identical. This method maintains the
-            separate state/observation return values for API consistency, but
-            the observation filtering is now handled during space construction
-            via action variable removal.
         """
         state = self._get_state_as_dict(datatree)
 
         # Build complete state dictionary with all available TORAX variables
+        # This includes all variables present in the simulation output
         state = {
             "profiles": {
                 var: state["profiles"][var]["data"][0]
@@ -561,14 +599,15 @@ class Observation(ABC):
         }
 
         # Filter state to create observation with only selected variables
+        # This uses the filtered variables list (after action variable removal)
         observation = {
             "profiles": {
                 var: state["profiles"][var] 
-                for var in self.variables["profiles"]
+                for var in self.observation_variables["profiles"]
             },
             "scalars": {
                 var: state["scalars"][var] 
-                for var in self.variables["scalars"] 
+                for var in self.observation_variables["scalars"] 
             }
         }
 
@@ -583,19 +622,24 @@ class Observation(ABC):
         from appearing in the observation space, avoiding redundancy between
         the action and observation spaces.
         
+        Variables that are in the action space but not present in the current
+        observation variables are silently skipped (no error raised).
+        
         Raises:
-            KeyError: If action variables reference categories or variables that
-                don't exist in the current variable configuration.
+            KeyError: If action variables reference categories that don't exist
+                (i.e., categories other than 'profiles' or 'scalars').
         """
         for cat, var_list in self.action_variables.items():
-            if cat not in self.variables:
+            if cat not in self.observation_variables:
                 raise KeyError(f"Variable category '{cat}' not recognized. Use 'profiles' or 'scalars'.")
             for var in var_list:
-                if var not in self.variables[cat] or var not in self.bounds[cat]:
+                # Skip variables that aren't present in current observation variables
+                # This handles cases where action variables may not be in the selected observation set
+                if var not in self.observation_variables[cat] or var not in self.bounds[cat]:
                     continue
-                    # raise KeyError(f"Variable '{var}' not found in current state variables.")
+                # Remove the variable from both bounds and variables lists
                 self.bounds[cat].pop(var)
-                self.variables[cat].remove(var)
+                self.observation_variables[cat].remove(var)
 
     def build_observation_space(self) -> spaces.Dict:
         """
@@ -633,36 +677,45 @@ class Observation(ABC):
         return spaces.Dict({
             "profiles": spaces.Dict({
                 var: self._make_box(var)
-                for var in self.variables["profiles"]
+                for var in self.observation_variables["profiles"]
             }),
             "scalars": spaces.Dict({
                 var: self._make_box(var)
-                for var in self.variables["scalars"]
+                for var in self.observation_variables["scalars"]
             }),
         })
     
     def _make_box(self, var_name: str) -> spaces.Box:
         """
-        Create a Box space for a single variable with appropriate bounds and shape.
+        Create a Gymnasium Box space for a single variable with appropriate bounds and shape.
+        
+        This method creates the actual Box space that will be used in the observation
+        space dictionary. It handles both profile variables (with array shapes) and
+        scalar variables (single values) by looking up the variable in the bounds
+        dictionary and creating appropriate arrays.
         
         Args:
             var_name: Name of the variable to create a Box space for.
+                Must exist in either self.bounds["profiles"] or self.bounds["scalars"].
             
         Returns:
-            spaces.Box: Box space with bounds and shape for the variable.
+            spaces.Box: Gymnasium Box space configured with:
+                - Appropriate bounds (low/high arrays)
+                - Correct shape (1D array for profiles, single value for scalars)
+                - Specified dtype
         """
-        # Check if variable is in profiles category
+        # Determine variable category and extract bounds/shape information
         if var_name in self.bounds["profiles"]:
             low = self.bounds["profiles"][var_name]["min"]
             high = self.bounds["profiles"][var_name]["max"]
             shape = (self.bounds["profiles"][var_name]["size"],)
-        # Otherwise, it must be in scalars category
         else:
+            # Variable must be in scalars category (verified during validation)
             low = self.bounds["scalars"][var_name]["min"]
             high = self.bounds["scalars"][var_name]["max"]
             shape = (self.bounds["scalars"][var_name]["size"],)
 
-        # Create arrays for bounds with the appropriate shape and dtype
+        # Create bound arrays with the appropriate shape and dtype
         low_arr = np.full(shape, low, dtype=self.dtype)
         high_arr = np.full(shape, high, dtype=self.dtype)
 
