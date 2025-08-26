@@ -155,18 +155,6 @@ CONFIG = {
     },
 }
 
-# CONFIG['profile_conditions']['Ip'] = {1e6}
-# CONFIG['sources']['ecrh']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['ecrh']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['ecrh']['P_total'] = {0: 0}
-# CONFIG['sources']['generic_heat']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['generic_heat']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['generic_heat']['P_total'] = {0: 0}
-# CONFIG['sources']['generic_current']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['generic_current']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['generic_current']['P_total'] = {0: 0}
-
-
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
         super().__init__(action_space=action_space)
@@ -211,7 +199,7 @@ class IterHybridEnv(BaseEnv):
 
     def build_action_list(self):
         actions = [
-            ah.IpAction(min=[1e6]),
+            ah.IpAction(),
             ah.NbiAction(),
             ah.EcrhAction()
         ]
@@ -223,6 +211,9 @@ class IterHybridEnv(BaseEnv):
 
 
 if __name__ == "__main__":
+    import cProfile, pstats
+    profiler = cProfile.Profile()
+
     env = IterHybridEnv()
     agent = IterHybridAgent(env.action_space)
 
@@ -236,5 +227,13 @@ if __name__ == "__main__":
         # if agent.time > 90:
 
     env.save_file('tmp/output.nc')
+    from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
+    from torax.plotting.configs.default_plot_config import PLOT_CONFIG as simple_plot_config
+    plot_run_to_gif(
+            plot_config=simple_plot_config,
+            outfile='tmp/output.nc',
+            gif_filename=f"tmp/test.gif",
+            duration=500
+        )
             # break
     

@@ -226,10 +226,10 @@ class Action(ABC):
                 structure for this action parameters.
         """
         try:
-            self._apply_mapping(config_dict, time=0, warning=True)
+            self._apply_mapping(config_dict, time=0)
         except Exception as e:
-            raise KeyError(
-                f"An error occurred while initializing the action in the dictionary: key {e} is missing"
+            raise RuntimeError(
+                f"An error occurred while initializing the action in the dictionary: {e}"
             )
 
     def update_to_config(self, config_dict: dict[str, Any], time: float) -> None:
@@ -248,9 +248,9 @@ class Action(ABC):
             The configuration dictionary must have been initialized with
             init_dict before calling this method.
         """
-        self._apply_mapping(config_dict, time=time, warning = False)
+        self._apply_mapping(config_dict, time=time)
 
-    def _apply_mapping(self, config_dict: dict[str, Any], time: float, warning: bool) -> None:
+    def _apply_mapping(self, config_dict: dict[str, Any], time: float) -> None:
         """
         Apply the action values to a TORAX configuration dictionary.
         
@@ -263,7 +263,6 @@ class Action(ABC):
             config_dict: The TORAX configuration dictionary to modify
             time: Simulation time. If 0, initializes new time-dependent parameters.
                 If >0, updates existing time-dependent parameters.
-            warning: If True, emits a warning when overwriting existing values.
 
         Note:
             This is an internal method used by init_dict and update_to_config.
@@ -278,10 +277,11 @@ class Action(ABC):
                 d = d[key]
 
             key = dict_path[-1]
+
+            # Handle the case of the initial condition
             if time == 0:
-                #Check there is no value associated to the existing key
-                if (d[key] != {} or d[key] != {0: 0}) and warning:
-                    logger.warning(f" overwriting existing value for key: {key}")
+                # Check if there is no value associated to the existing key
+                if (d[key] != {}):
                     if isinstance(d[key], (float, int)):
                         self.values[idx] = d[key]
                     elif isinstance(d[key], dict):
@@ -292,6 +292,9 @@ class Action(ABC):
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
                         self.values[idx] = d[key][1][pos]
+                    logger.debug(f" using {self.values[idx]} as initial condition for key: {key}")
+                else:
+                    logger.warning(f" using the lower bound {self.values[idx]} of {key} as initial condition. Consider providing one in the configuration file.")
                 d[key] = ({0: self.values[idx]}, "STEP")
             else:
                 d[key][0].update({time: self.values[idx]})
@@ -350,6 +353,7 @@ class ActionHandler:
         self._actions_names = set([a.name for a in actions])
         self._validate_action_handler()
         self.action_space = self.build_action_space()
+        self.number_of_updates = 0
         
 
     def get_actions(self) -> list[Action]:
@@ -391,11 +395,12 @@ class ActionHandler:
             if action_name not in self._actions_names:
                 raise ValueError(f"Action '{action_name}' does not exist in this environment.")
 
-        logger.debug(f" updating actions with: {actions}")
+        logger.debug(f" updating actions with: a_{self.number_of_updates} = {actions}")
         for action in self._actions:
             action.set_values(actions[action.name])
-    
-    
+
+        self.number_of_updates += 1
+
     def build_action_space(self) -> spaces.Dict:
         """
         Build a Gymnasium Dict action space from all managed actions.

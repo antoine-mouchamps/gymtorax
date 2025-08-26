@@ -23,7 +23,7 @@ class ConfigLoader:
     """
     
     def __init__(self, config: dict[str, Any],
-                 action_handler: act.ActionHandler | None = None,
+                 action_handler: act.ActionHandler,
     ):
         """
         Initialize the configuration loader.
@@ -42,8 +42,7 @@ class ConfigLoader:
         self.action_handler = action_handler
 
         self.config_dict: dict[str, Any] = config
-        self.validate()
-        
+        self._validate()
         try:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
         except Exception as e:
@@ -182,7 +181,7 @@ class ConfigLoader:
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
     
-    def validate(self) -> None:
+    def _validate(self) -> None:
         """
         Validate the configuration dictionary.
         
@@ -195,11 +194,10 @@ class ConfigLoader:
         """
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
-        
-        if(self.action_handler is not None):
-            action_list = self.action_handler.get_actions()
-            for a in action_list:
-                a.init_dict(self.config_dict)
+
+        action_list = self.action_handler.get_actions()
+        for a in action_list:
+            a.init_dict(self.config_dict)
 
 
     def validate_discretization(self, discretization_torax: str) -> None:

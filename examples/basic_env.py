@@ -167,7 +167,7 @@ class TestEnv(BaseEnv):
     
     def build_action_list(self):
         actions = [
-            ah.IpAction(min=[1e6]),
+            ah.IpAction(),
         ]
         
         return actions
