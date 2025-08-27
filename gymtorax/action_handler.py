@@ -290,7 +290,6 @@ class Action(ABC):
                             pos = d[key][0].index(0)
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
-                        print(key, d[key], d[key][0])
                         self.values[idx] = d[key][1][pos]
                     logger.debug(f" using {self.values[idx]} as initial condition for key: {key}")
                 else:
