@@ -156,19 +156,6 @@ CONFIG = {
     },
 }
 
-# CONFIG['profile_conditions']['Ip'] = {1e6}
-# CONFIG['sources']['ecrh']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['ecrh']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['ecrh']['P_total'] = {0: 0}
-# CONFIG['sources']['generic_heat']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['generic_heat']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['generic_heat']['P_total'] = {0: 0}
-# CONFIG['sources']['generic_current']['gaussian_width'] = {0: 0}
-# CONFIG['sources']['generic_current']['gaussian_location'] = {0: 0}
-# CONFIG['sources']['generic_current']['P_total'] = {0: 0}
-
-# Variables to plot
-
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
         super().__init__(action_space=action_space)
@@ -208,12 +195,13 @@ class IterHybridEnv(BaseEnv):
                          discretization_torax="fixed",
                          ratio_a_sim=1,
                          log_level="debug", 
+                         store_state_history=True,
                          fig=self.default_fig
                          )
 
     def build_action_list(self):
         actions = [
-            ah.IpAction(min=[1e6]),
+            ah.IpAction(),
             ah.NbiAction(),
             ah.EcrhAction()
         ]
@@ -235,6 +223,9 @@ class IterHybridEnv(BaseEnv):
                     )
 
 if __name__ == "__main__":
+    import cProfile, pstats
+    profiler = cProfile.Profile()
+
     env = IterHybridEnv()
     agent = IterHybridAgent(env.action_space)
 

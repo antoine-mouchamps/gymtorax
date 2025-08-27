@@ -32,6 +32,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
+from ctypes import ArgumentError
 from typing import Any
 from numpy._typing._array_like import NDArray
 
@@ -99,6 +100,7 @@ class BaseEnv(gym.Env, ABC):
         log_level="warning",
         logfile=None,
         fig: viz.FigureProperties|None = None
+        store_state_history=False,
     ) -> None:
         """
         Initialize the TORAX gymnasium environment.
@@ -128,9 +130,7 @@ class BaseEnv(gym.Env, ABC):
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
-        # Initialize observation and action handlers using abstract methods
-        # These must be implemented by concrete subclasses
-        self.observation_handler = self.build_observation_variables()
+        # Initialize action handler using abstract method
         self.action_handler = ActionHandler(self.build_action_list())
         
         # Initialize state tracking
@@ -138,7 +138,7 @@ class BaseEnv(gym.Env, ABC):
         self.observation: dict[str, Any]|None = None  # Observation
 
         # Load and validate TORAX configuration
-        self.config: ConfigLoader = ConfigLoader(config)
+        self.config: ConfigLoader = ConfigLoader(config, self.action_handler)
         self.config.validate_discretization(discretization_torax)
     
         # Get total simulation time from configuration
@@ -164,15 +164,30 @@ class BaseEnv(gym.Env, ABC):
         self.timestep: int = 0  # Current action timestep counter
 
         # Initialize TORAX simulation wrapper
-        config_loader = ConfigLoader(config, self.action_handler)
-        self.torax_app: ToraxApp = ToraxApp(config_loader, self.delta_t_a)
+        self.store_state_history = store_state_history
+        self.torax_app: ToraxApp = ToraxApp(self.config,
+                                            self.delta_t_a,
+                                            store_state_history)
 
-        # Update state/observation variables based on selected actions
-        self.observation_handler.update_variables(self.action_handler.get_action_variables())
+        # Start simulator
+        self.torax_app.start()
+
+        # Initialize observation handler
+        self.observation_handler = self.build_observation_variables()
+
+        # Set variables appearing in the actual simulation states
+        self.observation_handler.set_state_variables(self.torax_app.get_state_data())
+
+        # Set the variables appearing in the action, to be removed from the
+        # state/observation
+        self.observation_handler.set_action_variables(self.action_handler.get_action_variables())
+
+        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
 
         # Build Gymnasium spaces
+        # WARNING: At this stage, the observation space cannot be fully
+        # determined. It is first set to the maximal possible space. 
         self.action_space = self.action_handler.build_action_space()
-        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
         self.observation_space = self.observation_handler.build_observation_space()
 
         # Validate and set rendering mode
@@ -217,7 +232,7 @@ class BaseEnv(gym.Env, ABC):
         self.plotter.reset()
         
         # Initialize TORAX simulation
-        self.torax_app.start()  # Set up initial simulation state
+        self.torax_app.reset()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
 
         # Update last_action_dict with initial state
@@ -292,7 +307,7 @@ class BaseEnv(gym.Env, ABC):
         # Update time tracking
         self.current_time += self.delta_t_a
         self.timestep += 1
-        if self.current_time >= self.T:
+        if self.current_time > self.T:
             self.terminated = True
 
         # Render frame 
@@ -356,6 +371,15 @@ class BaseEnv(gym.Env, ABC):
             - For 'rgb_array' mode, this calls the plotter's get_rgb_array() method (which must be implemented by the plotter).
             - Subclasses must provide a plotter compatible with these calls.
         """
+
+    def save_file(self, file_name):
+        """"""
+        try:
+            self.torax_app.save_output_file(file_name)
+        except RuntimeError as e:
+            raise ArgumentError("To save the output file, the store_history option must be set to True when creating the environment.") from e
+
+        logger.debug(f"Saved simulation history to {file_name}")
         if self.render_mode == "human":
             if self.plotter is not None:
                 self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
@@ -457,6 +481,7 @@ class BaseEnv(gym.Env, ABC):
     # =============================================================================
     # Default figures - Custom figures must be implemented by concrete subclasses
     # =============================================================================
+
     sources_fig = viz.FigureProperties(rows=3, cols=3,
                         axes=(viz.PlotProperties_temporal(attrs=('P_ecrh_e',), labels=('ECRH power',), ylabel="Power, [W]"),
                               viz.PlotProperties_temporal(attrs=('P_radiation_e','P_bremsstrahlung_e', 'P_cyclotron_e'), labels=('Total sink power under radiation','P_bremsstrahlung_e', 'P_cyclotron_e'), ylabel="Sink power, [W]"),

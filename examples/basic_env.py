@@ -158,11 +158,16 @@ CONFIG = {
 
 class TestEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None, config=CONFIG, discretization_torax="auto", delta_t_a=50)
+        super().__init__(render_mode=None,
+                         config=CONFIG,
+                         discretization_torax="auto",
+                         delta_t_a=1,
+                         log_level='debug',
+                         store_state_history=True)
     
     def build_action_list(self):
         actions = [
-            ah.IpAction(min=[1e6]),
+            ah.IpAction(),
         ]
         
         return actions
@@ -172,11 +177,16 @@ class TestEnv(BaseEnv):
         return oh.AllObservation()
     
 if __name__ == "__main__":
-    env = TestEnv()
-    env.reset()
-    print("RESET DONE")
+    import cProfile, pstats, atexit
 
-    for t in range(10):
-        env.step([3e6])
-        print("DONE")
-    
+    profiler = cProfile.Profile()
+    env = TestEnv()
+    env.reset()    
+
+    for i in range(10):
+        if i == 4:
+            profiler.enable()
+        env.step({"Ip": [3e6]})
+
+    profiler.disable()
+

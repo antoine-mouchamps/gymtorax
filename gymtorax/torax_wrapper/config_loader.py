@@ -9,7 +9,6 @@ management for Gymnasium environments.
 import torax
 
 from torax import ToraxConfig
-from numpy.typing import NDArray
 from typing import Any
 
 import gymtorax.action_handler as act
@@ -24,7 +23,7 @@ class ConfigLoader:
     """
     
     def __init__(self, config: dict[str, Any],
-                 action_handler: act.ActionHandler | None = None,
+                 action_handler: act.ActionHandler,
     ):
         """
         Initialize the configuration loader.
@@ -42,9 +41,8 @@ class ConfigLoader:
             raise TypeError("Configuration must be a dictionary")
         self.action_handler = action_handler
 
-        self.config_dict: dict[str, Any] = config      
-        self.validate()
-        
+        self.config_dict: dict[str, Any] = config
+        self._validate()
         try:
             self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
         except Exception as e:
@@ -166,9 +164,13 @@ class ConfigLoader:
         self.config_dict['numerics']['t_final'] = current_time + delta_t_a
         if self.config_dict['numerics']['t_final'] > final_time:
             self.config_dict['numerics']['t_final'] = final_time
-        #Allow the control of Ip after initialization
-        if self.config_dict['geometry']['Ip_from_parameters'] == False:
-            self.config_dict['geometry']['Ip_from_parameters'] = True
+
+        # Allow the control of Ip after initialization
+        if("Ip" in self.action_handler.get_action_variables()):
+            if ('Ip_from_parameters' in self.config_dict['geometry']
+                and self.config_dict['geometry']['Ip_from_parameters'] == False
+                ):
+                raise ValueError("Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it.")
 
         self.action_handler.update_actions(action)
         actions = self.action_handler.get_actions()
@@ -179,7 +181,7 @@ class ConfigLoader:
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
     
-    def validate(self) -> None:
+    def _validate(self) -> None:
         """
         Validate the configuration dictionary.
         
@@ -192,11 +194,11 @@ class ConfigLoader:
         """
         if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
             raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
-        
-        if(self.action_handler is not None):
-            action_list = self.action_handler.get_actions()
-            for a in action_list:
-                a.init_dict(self.config_dict)
+
+        action_list = self.action_handler.get_actions()
+        for a in action_list:
+            a.init_dict(self.config_dict)
+
 
     def validate_discretization(self, discretization_torax: str) -> None:
         """
@@ -218,17 +220,3 @@ class ConfigLoader:
                     raise ValueError("calculator_type must not be set to 'fixed' for auto discretization.")
         else:
             raise ValueError("Invalid discretization_torax setting.")
-
-    def _Ip_computation(self) -> float:
-        """Compute Ip for the circular cross-section.
-
-        Returns:
-            float: The computed Ip value.
-        """
-        R_0 = self.config_dict['geometry']['R_major']
-        a = self.config_dict['geometry']['a_minor']
-        B_0 = self.config_dict['geometry']['B_0']
-        kappa = self.config_dict['geometry']['elongation_LCFS']
-        q_lcfs = 2  # Minimal requirement in lots of situations to avoid instabilities
-
-        return 5 * a**2 * B_0 * (1 + kappa**2)/(2*R_0*q_lcfs) * 10**6  # To get Ip in A
