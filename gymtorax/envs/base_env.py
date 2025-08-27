@@ -99,7 +99,7 @@ class BaseEnv(gym.Env, ABC):
         delta_t_a: float|None = None,
         log_level="warning",
         logfile=None,
-        fig: viz.FigureProperties|None = None
+        fig: viz.FigureProperties|None = None,
         store_state_history=False,
     ) -> None:
         """
@@ -372,6 +372,13 @@ class BaseEnv(gym.Env, ABC):
             - Subclasses must provide a plotter compatible with these calls.
         """
 
+        if self.render_mode == "human":
+            if self.plotter is not None:
+                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
+        else:
+            if self.plotter is not None:
+                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
+
     def save_file(self, file_name):
         """"""
         try:
@@ -380,12 +387,6 @@ class BaseEnv(gym.Env, ABC):
             raise ArgumentError("To save the output file, the store_history option must be set to True when creating the environment.") from e
 
         logger.debug(f"Saved simulation history to {file_name}")
-        if self.render_mode == "human":
-            if self.plotter is not None:
-                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
-        else:
-            if self.plotter is not None:
-                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
 
     def save_gif(self, filename: str = "torax_output.gif", interval: int = 200, frame_step: int = 2) -> None:
         """

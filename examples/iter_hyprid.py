@@ -53,7 +53,7 @@ CONFIG = {
         'current_profile_nu': 2, # exponent in initial current formula
     },
     'numerics': {
-        't_final': 120,  # length of simulation time in seconds
+        't_final': 150,  # length of simulation time in seconds
         'fixed_dt': 1, # fixed timestep
         'evolve_ion_heat': True, # solve ion heat equation
         'evolve_electron_heat': True, # solve electron heat equation
@@ -189,12 +189,12 @@ class IterHybridAgent(BaseAgent):
 
 
 class IterHybridEnv(BaseEnv):
-    def __init__(self):
-        super().__init__(render_mode=None,
+    def __init__(self, render_mode=None, log_level="debug"):
+        super().__init__(render_mode=render_mode,
                          config=CONFIG,
                          discretization_torax="fixed",
                          ratio_a_sim=1,
-                         log_level="debug", 
+                         log_level=log_level,
                          store_state_history=True,
                          fig=self.default_fig
                          )
@@ -226,7 +226,7 @@ if __name__ == "__main__":
     import cProfile, pstats
     profiler = cProfile.Profile()
 
-    env = IterHybridEnv()
+    env = IterHybridEnv(render_mode="human")
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
