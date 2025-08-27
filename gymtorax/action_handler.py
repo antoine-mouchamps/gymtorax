@@ -291,7 +291,10 @@ class Action(ABC):
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
                         self.values[idx] = d[key][1][pos]
-                    logger.debug(f" using {self.values[idx]} as initial condition for key: {key}")
+                    # TODO: This log is only valid if we don't do a restart from a .nc file, since in such a case,
+                    # no initial condition are needed. Currently it logs it but (somehow, to be investigated) it is
+                    # not taken into account.
+                    logger.debug(f" using {self.values[idx]} as initial condition for: {key}")
                 else:
                     logger.warning(f" using the lower bound {self.values[idx]} of {key} as initial condition. Consider providing one in the configuration file.")
                 d[key] = ({0: self.values[idx]}, "STEP")

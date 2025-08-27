@@ -150,17 +150,28 @@ class ToraxApp:
                 self.initial_config.config_torax
             )
         )
-        
-        # Get initial plasma state and derived quantities
-        self.initial_sim_state, self.initial_sim_output = (
-            initial_state_lib.get_initial_state_and_post_processed_outputs(
-                t=self.initial_config.config_torax.numerics.t_initial,
-                static_runtime_params_slice=self.static_runtime_params_slice,
-                dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
-                geometry_provider=self.geometry_provider,
-                step_fn=self.step_fn,
+
+        if self.initial_config.config_torax.restart and self.initial_config.config_torax.restart.do_restart:
+            self.initial_sim_state, self.initial_sim_output = (
+                initial_state_lib.get_initial_state_and_post_processed_outputs_from_file(
+                    t_initial=self.initial_config.config_torax.numerics.t_initial,
+                    file_restart=self.initial_config.config_torax.restart,
+                    static_runtime_params_slice=self.static_runtime_params_slice,
+                    dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
+                    geometry_provider=self.geometry_provider,
+                    step_fn=self.step_fn,
+                )
             )
-        )
+        else:
+            self.initial_sim_state, self.initial_sim_output = (
+                initial_state_lib.get_initial_state_and_post_processed_outputs(
+                    t=self.initial_config.config_torax.numerics.t_initial,
+                    static_runtime_params_slice=self.static_runtime_params_slice,
+                    dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
+                    geometry_provider=self.geometry_provider,
+                    step_fn=self.step_fn,
+                )
+            )
 
         # Create state history container with initial state
         state_history = output.StateHistory(
@@ -227,7 +238,11 @@ class ToraxApp:
         self.config = copy.deepcopy(self.initial_config)
 
         # Reset time tracking to beginning of episode
-        self.t_current = 0.0
+        if self.initial_config.config_torax.restart and self.initial_config.config_torax.restart.do_restart:
+            self.t_current = self.config.get_initial_simulation_time(reset=True)
+        else:
+            self.t_current = self.config.get_initial_simulation_time()
+
         self.t_final = self.config.get_total_simulation_time()
         
         # Set simulation end time to first action timestep
@@ -236,7 +251,7 @@ class ToraxApp:
         logger.debug(" ToraxApp reset.")
         
 
-    def run(self) -> bool:
+    def run(self) -> tuple[bool, bool]:
         """
         Execute one simulation step from t_current to t_current + delta_t_a.
         
@@ -251,6 +266,7 @@ class ToraxApp:
         Returns:
             bool: True if simulation step completed successfully, False if an error
                 occurred or simulation reached final time.
+            bool:  True if whole simulation is done
         
         Raises:
             RuntimeError: If reset() has not been called before running.
@@ -264,11 +280,6 @@ class ToraxApp:
         # Ensure simulation has been initialized
         if self.is_started is False:
             raise RuntimeError("ToraxApp must be started before running the simulation.")
-        
-        # Check if we have reached the end of the episode
-        if self.t_current >= self.t_final:
-            logger.debug(" simulation run terminated successfully.")
-            return True
 
         try: 
             # Performance monitoring - track time between runs
@@ -297,12 +308,12 @@ class ToraxApp:
             )
         except Exception as e:
             logger.error(f" an error occurred during the simulation run: {e}. The environment will reset")
-            return False
+            return False, False
         
         # Check if TORAX simulation encountered internal errors
         if(sim_error != state.SimError.NO_ERROR):
             logger.warning(f" simulation terminated with an error. The environment will reset")
-            return False
+            return False, False
 
         # Update current state to final state from simulation step
         self.current_sim_state = sim_states_list[-1]
@@ -323,7 +334,12 @@ class ToraxApp:
         # Advance time by one action timestep
         self.t_current += self.delta_t_a
 
-        return True
+        # Check if we have reached the end of the episode
+        if self.t_current > self.t_final:
+            logger.debug(" simulation run terminated successfully.")
+            return True, True
+
+        return True, False
 
 
     def update_config(self, action) -> None:
@@ -405,7 +421,7 @@ class ToraxApp:
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax
         )
-        dt = state_history.simulation_output_to_xr()
+        dt = state_history.simulation_output_to_xr(self.config.config_torax.restart)
 
         try:
             dt.to_netcdf(file_name, engine="h5netcdf", mode="w")
