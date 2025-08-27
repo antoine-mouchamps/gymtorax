@@ -286,8 +286,8 @@ class ToraxApp:
             if logger.isEnabledFor(logging.DEBUG):
                 current_time = time.perf_counter()
                 interval = current_time - self.last_run_time if self.last_run_time is not None else 0
-            logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
-            logger.debug(f" time since last run: {interval:.2f} seconds.")
+                logger.debug(f" running simulation step at {self.t_current}/{self.t_final}s.")
+                logger.debug(f" time since last run: {interval:.2f} seconds.")
 
             # Update timing reference for next run
             if logger.isEnabledFor(logging.DEBUG):
