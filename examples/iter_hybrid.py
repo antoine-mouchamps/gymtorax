@@ -167,18 +167,18 @@ class IterHybridAgent(BaseAgent):
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
-        if(self.time == 99):
+        if(self.time == 98):
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
             action["NBI"][1] = nbi_cd[1]
 
-        if(self.time >= 100):
+        if(self.time >= 99):
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
             action["NBI"][1] = nbi_cd[2]
 
-        if(self.time < 100):
-            action["Ip"][0] = 3e6 + self.time*(12.5e6-3e6)/100
+        if(self.time < 99):
+            action["Ip"][0] = 3e6 + (self.time+1)*(12.5e6-3e6)/100
         else:
             action["Ip"][0] = 12.5e6
 
@@ -190,14 +190,11 @@ class IterHybridAgent(BaseAgent):
 class IterHybridEnv(BaseEnv):
     def __init__(self):
         super().__init__(render_mode=None,
-                         config=CONFIG,
-                         discretization_torax="fixed",
-                         ratio_a_sim=1,
                          log_level="debug",
                          store_state_history=True
                          )
 
-    def build_action_list(self):
+    def _actions(self):
         actions = [
             ah.IpAction(),
             ah.NbiAction(),
@@ -206,8 +203,14 @@ class IterHybridEnv(BaseEnv):
 
         return actions
 
-    def build_observation_variables(self):
+    def _observation(self):
         return oh.AllObservation()
+    
+    def _torax_config(self):
+        return {'config': CONFIG,
+                'discretization': "fixed",
+                'ratio_a_sim': 1,
+                }
 
 
 if __name__ == "__main__":

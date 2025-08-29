@@ -20,10 +20,10 @@ Example:
     Create a custom environment by extending BaseEnv:
     
     >>> class PlasmaControlEnv(BaseEnv):
-    ...     def build_observation_variables(self):
+    ...     def _observation(self):
     ...         return AllObservation(exclude=["n_impurity"])
     ...     
-    ...     def build_action_list(self):
+    ...     def _actions(self):
     ...         return [IpAction(), EcrhAction()]
     ...     
     ...     def reward(self, state, next_state, action):
@@ -81,8 +81,8 @@ class BaseEnv(gym.Env, ABC):
         truncated (bool): Episode truncation flag
     
     Abstract Methods:
-        build_observation_variables(): Define observation space variables
-        build_action_list(): Define available control actions
+        _observation(): Define observation space variables
+        _actions(): Define available control actions
         reward(): Compute reward signal (optional override)
     """
     
@@ -91,11 +91,7 @@ class BaseEnv(gym.Env, ABC):
 
     def __init__(
         self, 
-        config: dict[str, Any],
         render_mode: str|None = None, 
-        discretization_torax: str = "auto", 
-        ratio_a_sim: int|None = None, 
-        delta_t_a: float|None = None,
         log_level="warning",
         logfile=None,
         store_state_history=False,
@@ -104,15 +100,7 @@ class BaseEnv(gym.Env, ABC):
         Initialize the TORAX gymnasium environment.
         
         Args:
-            config: TORAX configuration dictionary (required).
             render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
-            discretization_torax: Time discretization method. Options:
-                - "auto": Use explicit delta_t_a timing
-                - "fixed": Use ratio of simulation timesteps
-            ratio_a_sim: Ratio of action timesteps to simulation timesteps. 
-                Required when discretization_torax="fixed".
-            delta_t_a: Time interval between actions in seconds.
-                Required when discretization_torax="auto".
             log_level: Logging level for environment operations. Options: "debug", "info", 
                 "warning", "error", "critical". Default: "warning".
             logfile: Path to log file for writing log messages. If None, logs to console.
@@ -122,14 +110,20 @@ class BaseEnv(gym.Env, ABC):
             TypeError: If discretization_torax is not "auto" or "fixed".
             
         Note:
-            The environment must implement build_observation_variables() and 
-            build_action_list() abstract methods to define the observation and action spaces.
+            The environment must implement _observation() and 
+            _actions() abstract methods to define the observation and action spaces.
             Logging is set up during initialization and applies to all environment operations.
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
+        
+        try:
+            config = self._torax_config()['config']
+            discretization_torax = self._torax_config()['discretization']
+        except KeyError as e:
+            raise KeyError(f"Missing key in TORAX config: {e}")
 
         # Initialize action handler using abstract method
-        self.action_handler = ActionHandler(self.build_action_list())
+        self.action_handler = ActionHandler(self._actions())
         
         # Initialize state tracking
         self.state: dict[str, Any]|None = None  # Plasma state
@@ -145,15 +139,15 @@ class BaseEnv(gym.Env, ABC):
         # Configure time discretization based on chosen method
         if discretization_torax == "auto":
             # Use explicit action timestep timing
-            if delta_t_a is None:
+            if self._torax_config()['delta_t_a'] is None:
                 raise ValueError("delta_t_a must be provided for auto discretization")
-            self.delta_t_a: float = delta_t_a  # Time between actions [s]
+            self.delta_t_a: float = self._torax_config()['delta_t_a']  # Time between actions [s]
         elif discretization_torax == "fixed":
             # Use ratio-based timing relative to simulation timesteps
-            if ratio_a_sim is None:
+            if self._torax_config()['ratio_a_sim'] is None:
                 raise ValueError("ratio_a_sim must be provided for fixed discretization")
             delta_t_sim: float = self.config.get_simulation_timestep()  # TORAX internal timestep [s]
-            self.delta_t_a: float = ratio_a_sim * delta_t_sim  # Action interval [s]
+            self.delta_t_a: float = self._torax_config()['ratio_a_sim'] * delta_t_sim  # Action interval [s]
         else:
             raise TypeError(f"Invalid discretization method: {discretization_torax}. Use 'auto' or 'fixed'.")
 
@@ -171,7 +165,7 @@ class BaseEnv(gym.Env, ABC):
         self.torax_app.start()
 
         # Initialize observation handler
-        self.observation_handler = self.build_observation_variables()
+        self.observation_handler = self._observation()
 
         # Set variables appearing in the actual simulation states
         self.observation_handler.set_state_variables(self.torax_app.get_state_data())
@@ -367,8 +361,10 @@ class BaseEnv(gym.Env, ABC):
         Note:
             Currently not fully implemented. Returns None for all modes.
         """
-        if self.render_mode == "rgb_array":
-            return self._render_frame()  
+        if self.render_mode == "human":
+            pass
+        if self.render_mode == "rgb_array" or self.render_mode == None:
+            pass 
         return None
 
     def save_file(self, file_name):
@@ -380,77 +376,13 @@ class BaseEnv(gym.Env, ABC):
 
         logger.debug(f"Saved simulation history to {file_name}")
 
-    def _terminal_state(self) -> bool:
-        """
-        Check if the environment has reached a terminal state.
-        
-        This method can be overridden by subclasses to implement custom
-        termination conditions based on plasma state, time limits, or
-        other criteria.
-        
-        Returns:
-            bool: True if episode should terminate, False otherwise.
-            
-        Note:
-            Currently not implemented. Termination is handled by simulation
-            failure detection in the step() method.
-        """
-        # TODO: Implement custom termination logic
-        return False
-
-    def _render_frame(self):
-        """
-        Render a single frame of the environment state.
-        
-        This method handles the actual rendering logic for both human and
-        rgb_array modes. Currently not fully implemented.
-        
-        Returns:
-            NDArray or None: RGB array for rgb_array mode, None for human mode.
-            
-        TODO:
-            Implement visualization using matplotlib or pygame:
-            - Plasma profiles (temperature, density, current)
-            - Time evolution plots
-            - Control parameter displays
-            - Performance metrics
-        """
-        # TODO: Implement rendering logic
-        # Ideas for visualization:
-        # - Plot temperature and density profiles
-        # - Show time evolution of key parameters (beta_N, H-factor, etc.)
-        # - Display current control actions
-        # - Show reward history
-        
-        if self.render_mode == "human":
-            # if self.window is None:
-            #     pygame.init()
-            #     pygame.display.init()
-            #     self.window = pygame.display.set_mode((800, 600))
-            # if self.clock is None:
-            #     self.clock = pygame.time.Clock()
-            #
-            # # Draw plasma state visualization
-            # # ... rendering code ...
-            #
-            # pygame.event.pump()
-            # self.clock.tick(self.metadata["render_fps"])
-            # pygame.display.flip()
-            pass
-        elif self.render_mode == "rgb_array":
-            # Generate RGB array for the current state
-            # return np.zeros((600, 800, 3), dtype=np.uint8)  # Placeholder
-            pass
-            
-        return None
-
 
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================
 
     @abstractmethod
-    def build_observation_variables(self) -> Observation:
+    def _observation(self) -> Observation:
         """
         Define the observation space variables for this environment.
         
@@ -462,7 +394,7 @@ class BaseEnv(gym.Env, ABC):
                 plasma state variables are visible to the RL agent.
                 
         Example:
-            >>> def build_observation_variables(self):
+            >>> def _observation(self):
             ...     return AllObservation(
             ...         exclude=["n_impurity", "Z_impurity"],
             ...         custom_bounds={
@@ -474,7 +406,7 @@ class BaseEnv(gym.Env, ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def build_action_list(self) -> list[Action]:
+    def _actions(self) -> list[Action]:
         """
         Define the available control actions for this environment.
         
@@ -486,7 +418,7 @@ class BaseEnv(gym.Env, ABC):
                 parameters with their bounds and TORAX configuration mappings.
                 
         Example:
-            >>> def build_action_list(self):
+            >>> def _actions(self):
             ...     return [
             ...         IpAction(min=[0.5e6], max=[2.0e6]),      # Plasma current
             ...         EcrhAction(                               # ECRH heating
@@ -497,3 +429,24 @@ class BaseEnv(gym.Env, ABC):
             ...     ]
         """
         raise NotImplementedError
+         
+    @abstractmethod
+    def _torax_config(self) -> dict[str, Any]:
+        """Configure the TORAX simulation.
+
+        This abstract method must be implemented by concrete subclasses 
+        which provides the necessary parameters for the TORAX simulation, 
+        including its core configuration, the time discretization method, 
+        the control time step, and the ratio between simulation and control time steps.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing the TORAX configuration.
+                The dictionary must have the following keys:
+                - "config" (dict): A dictionary of TORAX configuration parameters.
+                - "discretisation_torax" (str): The time discretization method.
+                    Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
+                - "ratio_a_sim" (int, optional): The ratio of action timesteps to
+                    simulation timesteps. Required if 'discretisation_torax' is "fixed".
+                - "delta_t_a" (float, optional): The time interval between actions
+                    in seconds. Required if 'discretisation_torax' is "auto".
+        """
