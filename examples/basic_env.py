@@ -159,23 +159,24 @@ CONFIG = {
 class TestEnv(BaseEnv):
     def __init__(self):
         super().__init__(render_mode=None,
-                         config=CONFIG,
-                         discretization_torax="auto",
-                         delta_t_a=1,
                          log_level='debug',
                          store_state_history=True)
     
-    def build_action_list(self):
+    def _actions(self):
         actions = [
             ah.IpAction(),
         ]
         
         return actions
 
-
-    def build_observation_variables(self):
+    def _observation(self):
         return oh.AllObservation()
     
+    def _torax_config(self):
+        return {'config': CONFIG,
+                'discretization': 'auto',
+                'delta_t_a': 1.0}
+
 if __name__ == "__main__":
     import cProfile, pstats, atexit
 

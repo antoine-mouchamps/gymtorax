@@ -103,6 +103,32 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
+    def get_initial_simulation_time(self, reset=False) -> float:
+        """
+        Get the initial simulation time in seconds.
+
+        This extracts the :code:`t_initial` parameter from the numerics section,
+        which defines the initial time for the plasma simulation.
+        
+        Returns:
+            Total simulation time in seconds
+            
+        Raises:
+            KeyError: If the configuration doesn't contain the required keys
+            TypeError: If the value is not a number
+        """
+        if reset is False:
+            if 't_initial' not in self.config_dict["numerics"]:
+                t_initial = 0.0
+            else:
+                t_initial = self.config_dict["numerics"]["t_initial"]
+        else:
+            t_initial = self.config_dict["restart"]["time"]
+
+        if not isinstance(t_initial, (int, float)):
+            raise TypeError("t_initial must be a number")
+
+        return float(t_initial)
 
     def get_simulation_timestep(self) -> float:
         """
@@ -192,9 +218,6 @@ class ConfigLoader:
         Raises:
             ValueError: If the configuration is invalid
         """
-        if 't_initial' in self.config_dict['numerics'] and self.config_dict['numerics']['t_initial'] != 0.0:
-            raise ValueError("The 't_initial' in 'numerics' must be set to 0.0 for the initial configuration.")
-
         action_list = self.action_handler.get_actions()
         for a in action_list:
             a.init_dict(self.config_dict)
