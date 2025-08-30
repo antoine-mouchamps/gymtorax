@@ -5,7 +5,7 @@ import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
 import gymtorax.rendering.visualization as viz
 
-
+from gymtorax.rendering.plots import main_prop_fig, sources_fig
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
 
 ITER hybrid scenario based (roughly) on van Mulders Nucl. Fusion 2021.
@@ -191,10 +191,11 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
 
-    def __init__(self):
-        super().__init__(render_mode=None,
+    def __init__(self, render_mode, fig, store_state_history):
+        super().__init__(render_mode=render_mode, 
                          log_level="debug",
-                         store_state_history=True
+                         fig = fig,
+                         store_state_history=store_state_history
                          )
 
     def _actions(self):
@@ -219,14 +220,21 @@ class IterHybridEnv(BaseEnv):
 if __name__ == "__main__":
     import cProfile, pstats
     profiler = cProfile.Profile()
-
-    env = IterHybridEnv(render_mode="human")
+    fig_plot = main_prop_fig
+    env = IterHybridEnv(render_mode=None, fig=fig_plot, store_state_history=True)
     agent = IterHybridAgent(env.action_space)
-
+    
     observation, _ = env.reset()
     terminated = False
-
+ 
+    i = 0
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-    env.save_gif(filename="tmp/iter_hybrid.gif", interval=200, frame_step=7)
+        i+=1
+        if i%10 == 0:
+            env.render()
+        
+    env.save_file("tmp/outputs_iter_torax.nc")
+    #env.save_gif(filename="tmp/iter_hybrid.gif", interval=200, frame_step=7)
+    viz.save_gif_from_nc("tmp/outputs_iter_torax.nc", fig_properties = fig_plot, filename="tmp/output_torax.gif", interval=200, frame_step=5)

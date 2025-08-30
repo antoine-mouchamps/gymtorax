@@ -231,13 +231,11 @@ class BaseEnv(gym.Env, ABC):
 
         # Update last_action_dict with initial state
         self._update_last_action_dict(torax_state)
-                
+        
         # Extract initial observation
         self.state, self.observation = self.observation_handler.extract_state_observation(torax_state)
 
-        # Render initial state if in human mode
-        self.render()
-
+        self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
         logger.debug(" environment reset complete.")
 
         return self.observation, {}
@@ -307,8 +305,8 @@ class BaseEnv(gym.Env, ABC):
         if self.current_time > self.T:
             self.terminated = True
 
-        # Render frame 
-        self.render()
+        if self.render_mode == "human" and self.plotter is not None:
+            self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
 
         return observation, reward, self.terminated, truncated, info
 
@@ -368,13 +366,8 @@ class BaseEnv(gym.Env, ABC):
             - For 'rgb_array' mode, this calls the plotter's get_rgb_array() method (which must be implemented by the plotter).
             - Subclasses must provide a plotter compatible with these calls.
         """
-
-        if self.render_mode == "human":
-            if self.plotter is not None:
-                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
-        else:
-            if self.plotter is not None:
-                self.plotter.update(current_state=self.state, action_input=self.last_action_dict, t=self.current_time)
+        if self.render_mode == "human" and self.plotter is not None:
+            self.plotter.render_frame(t=self.current_time)
 
     def save_file(self, file_name):
         """"""
@@ -384,6 +377,7 @@ class BaseEnv(gym.Env, ABC):
             raise ArgumentError("To save the output file, the store_history option must be set to True when creating the environment.") from e
 
         logger.debug(f"Saved simulation history to {file_name}")
+
 
     def save_gif(self, filename: str = "torax_output.gif", interval: int = 200, frame_step: int = 2) -> None:
         """
@@ -496,50 +490,3 @@ class BaseEnv(gym.Env, ABC):
                 - "delta_t_a" (float, optional): The time interval between actions
                     in seconds. Required if 'discretisation_torax' is "auto".
         """  
-    
-    # =============================================================================
-    # Default figures - Custom figures must be implemented by concrete subclasses
-    # =============================================================================
-
-    sources_fig = viz.FigureProperties(rows=3, cols=3,
-                        axes=(viz.PlotProperties_temporal(attrs=('P_ecrh_e',), labels=('ECRH power',), ylabel="Power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('P_radiation_e','P_bremsstrahlung_e', 'P_cyclotron_e'), labels=('Total sink power under radiation','P_bremsstrahlung_e', 'P_cyclotron_e'), ylabel="Sink power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('P_icrh_total',), labels=('Total ICRH power',), ylabel="Power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('P_aux_generic_total','P_aux_generic_e', 'P_aux_generic_i'), labels=('Total', 'Electron', 'Ion'), ylabel="Auxiliary heating power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('P_ei_exchange_i',), labels=('EI exchange to ions',), ylabel="Power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('P_ohmic_e',), labels=('Ohmic heating power',), ylabel="Power, [W]"),
-                              viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion power gain',), ylabel="Ratio, [-]"),
-                              viz.PlotProperties_temporal(attrs=('Ip', 'I_ecrh', 'I_bootstrap', 'I_aux_generic',), labels=('Plasma Current', 'ECRH Current', 'Bootstrap Current', 'Auxiliary Current'), ylabel="Current, [A]"),
-                              viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]")
-                        ))
-
-    default_fig = viz.FigureProperties(rows=2, cols=3, 
-                        axes=(viz.PlotProperties_temporal(attrs=('Ip', 'I_ecrh', 'I_bootstrap', 'I_aux_generic',), labels=('Plasma Current', 'ECRH Current', 'Bootstrap Current', 'Auxiliary Current'), ylabel="Current, [A]"),
-                              viz.PlotProperties_spatial(attrs=('n_e', 'n_i'), labels=('Electron Density', 'Ion Density'), ylabel="Density, [1/m^3]"),
-                              viz.PlotProperties_spatial(attrs=('T_i', 'T_e'), labels=('Ion Temperature', 'Electron Temperature'), ylabel="Temperature, [keV]"),
-                              viz.PlotProperties_temporal(attrs=('Q_fusion',), labels=('Fusion Power gain',), ylabel="Power gain, [-]"),
-                              viz.PlotProperties_temporal(attrs=('beta_N', 'beta_pol', 'beta_tor'), labels=('Beta normalized', 'Beta poloidal', 'Beta toroidal'), ylabel="Beta, [-]"),
-                              viz.PlotProperties_spatial(attrs=('q','magnetic_shear'), labels=('Safety factor','Magnetic shear'), ylabel="[-]"),
-                        ))
-    
-         
-    @abstractmethod
-    def _torax_config(self) -> dict[str, Any]:
-        """Configure the TORAX simulation.
-
-        This abstract method must be implemented by concrete subclasses 
-        which provides the necessary parameters for the TORAX simulation, 
-        including its core configuration, the time discretization method, 
-        the control time step, and the ratio between simulation and control time steps.
-
-        Returns:
-            Dict[str, Any]: A dictionary containing the TORAX configuration.
-                The dictionary must have the following keys:
-                - "config" (dict): A dictionary of TORAX configuration parameters.
-                - "discretisation_torax" (str): The time discretization method.
-                    Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-                - "ratio_a_sim" (int, optional): The ratio of action timesteps to
-                    simulation timesteps. Required if 'discretisation_torax' is "fixed".
-                - "delta_t_a" (float, optional): The time interval between actions
-                    in seconds. Required if 'discretisation_torax' is "auto".
-        """
