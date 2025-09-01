@@ -229,6 +229,7 @@ class BaseEnv(gym.Env, ABC):
         self.torax_app.reset()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
 
+        self.current_time = torax_state["/"]["time"][0].item()
         # Update last_action_dict with initial state
         self._update_last_action_dict(torax_state)
         
@@ -305,8 +306,7 @@ class BaseEnv(gym.Env, ABC):
         if self.current_time > self.T:
             self.terminated = True
 
-        if self.render_mode == "human" and self.plotter is not None:
-            self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
+        self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
 
         return observation, reward, self.terminated, truncated, info
 
