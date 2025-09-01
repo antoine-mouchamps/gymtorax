@@ -276,7 +276,6 @@ class Action(ABC):
         for dict_path, idx in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
-
             for key in dict_path[:-1]:
                 d = d[key]
 
@@ -310,7 +309,7 @@ class Action(ABC):
                 d[key][0].update({time: self.values[idx]})
 
     def get_mapping(self) -> dict[tuple[str, ...], int]:
-        """Get the mapping of configuration dictionary paths to action parameter indices.
+        """Get the mapping of configuration dictionary paths to action indices.
 
         Returns:
             dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
@@ -438,7 +437,7 @@ class ActionHandler:
         )
 
     def _validate_action_handler(self) -> None:
-        """Validates the action handler to ensure action parameters are unique and mutually exclusive.
+        """Validates the action handler.
 
         This function performs two main checks:
         1. It verifies that no duplicate parameters exist across all actions.

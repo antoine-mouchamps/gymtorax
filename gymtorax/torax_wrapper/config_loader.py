@@ -198,7 +198,7 @@ class ConfigLoader:
             ):
                 raise ValueError(
                     "Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it."
-                    +" that TORAX considers it."
+                    + " that TORAX considers it."
                 )
 
         self.action_handler.update_actions(action)

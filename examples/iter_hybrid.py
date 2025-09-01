@@ -2,9 +2,12 @@ import numpy as np
 
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
-from gymtorax import BaseAgent, BaseEnv
 
 # fmt: off
+import gymtorax.rendering.visualization as viz
+from gymtorax import BaseAgent, BaseEnv
+from gymtorax.rendering.plots import main_prop_fig
+
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
 
 ITER hybrid scenario based (roughly) on van Mulders Nucl. Fusion 2021.
@@ -190,8 +193,13 @@ class IterHybridAgent(BaseAgent):  # noqa: D101
 
 
 class IterHybridEnv(BaseEnv):  # noqa: D101
-    def __init__(self):  # noqa: D107
-        super().__init__(render_mode=None, log_level="debug", store_state_history=True)
+    def __init__(self, render_mode, fig, store_state_history):  # noqa: D107
+        super().__init__(
+            render_mode=render_mode,
+            log_level="debug",
+            fig=fig,
+            store_state_history=store_state_history,
+        )
 
     def define_actions(self):  # noqa: D102
         actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
@@ -213,30 +221,27 @@ if __name__ == "__main__":
     import cProfile
 
     profiler = cProfile.Profile()
-
-    env = IterHybridEnv()
+    fig_plot = main_prop_fig
+    env = IterHybridEnv(render_mode=None, fig=fig_plot, store_state_history=True)
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
     terminated = False
 
+    i = 0
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-        # print(observation["profiles"]["T_e"])
-        # if agent.time > 90:
+        i += 1
+        if i % 10 == 0:
+            env.render()
 
-    env.save_file("tmp/output.nc")
-    from torax.plotting.configs.default_plot_config import (
-        PLOT_CONFIG as SIMPLE_PLOT_CONFIG,
+    env.save_file("tmp/outputs_iter_torax.nc")
+    # env.save_gif(filename="tmp/iter_hybrid.gif", interval=200, frame_step=7)
+    viz.save_gif_from_nc(
+        "tmp/outputs_iter_torax.nc",
+        fig_properties=fig_plot,
+        filename="tmp/output_torax.gif",
+        interval=200,
+        frame_step=5,
     )
-
-    from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
-
-    plot_run_to_gif(
-        plot_config=SIMPLE_PLOT_CONFIG,
-        outfile="tmp/output.nc",
-        gif_filename="tmp/test.gif",
-        duration=500,
-    )
-    # break
