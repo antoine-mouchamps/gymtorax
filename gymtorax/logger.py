@@ -45,7 +45,7 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
         external_libs = [
             'jax', 'torax', 'tensorflow', 'tf', 'numpy', 'matplotlib', 
             'h5netcdf', 'h5py', 'xarray', 'scipy', 'sklearn', 'pandas',
-            'absl', 'etils', 'chex', 'optax', 'flax'
+            'absl', 'etils', 'chex', 'optax', 'flax', 'PIL', 
         ]
         for lib in external_libs:
             logging.getLogger(lib).setLevel(logging.WARNING)
