@@ -13,13 +13,41 @@ packages = [{include = "gymtorax"}]
 python = "^3.10"
 gymnasium = "^1.0.0"
 torax = "^1.0.0"
-numpy = "^1.20.0"
+numpy = "^2.0.0"
 matplotlib = "^3.0.0"
-xarray = "^2020.0.0"
+xarray = "*"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
+pytest-cov = "*"
+ruff = "*"
+pre-commit = "*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings  
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming conventions
+    "UP",  # pyupgrade
+    "D",   # pydocstyle (docstring conventions)
+    "T20", # flake8-print (print statements)
+]
+
+# Ignore specific rules if needed
+ignore = [
+    "D100", # Missing docstring in public module
+    "D104", # Missing docstring in public package
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # Use Google docstring style
