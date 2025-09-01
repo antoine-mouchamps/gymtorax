@@ -74,7 +74,7 @@ class ConfigLoader:
         """
         try:
             t_final = self.config_dict["numerics"]["t_final"]
-            if not isinstance(t_final, (int, float)):
+            if not isinstance(t_final, int | float):
                 raise TypeError("t_final must be a number")
             return float(t_final)
         except KeyError as e:
@@ -93,7 +93,7 @@ class ConfigLoader:
             KeyError: If the configuration doesn't contain the required keys
             TypeError: If the value is not a number
         """
-        if not isinstance(time, (int, float)):
+        if not isinstance(time, int | float):
             raise TypeError("t_final must be a number")
         try:
             self.config_dict["numerics"]["t_final"] = float(time)
@@ -123,7 +123,7 @@ class ConfigLoader:
         else:
             t_initial = self.config_dict["restart"]["time"]
 
-        if not isinstance(t_initial, (int, float)):
+        if not isinstance(t_initial, int | float):
             raise TypeError("t_initial must be a number")
 
         return float(t_initial)
@@ -143,7 +143,7 @@ class ConfigLoader:
         """
         try:
             fixed_dt = self.config_dict["numerics"]["fixed_dt"]
-            if not isinstance(fixed_dt, (int, float)):
+            if not isinstance(fixed_dt, int | float):
                 raise TypeError("fixed_dt must be a number")
             return float(fixed_dt)
         except KeyError as e:
@@ -171,32 +171,34 @@ class ConfigLoader:
         else:
             return 25
 
-    def update_config(
-        self, action, current_time: float, final_time: float, delta_t_a: float
-    ) -> None:
-        """Update the configuration of the simulation based on the provided action. This
-        method updates the configuration dictionary with new values for sources and
-        profile conditions. It also prepares the restart file if necessary.
+    def update_config(self, action, current_time: float, delta_t_a: float) -> None:
+        """Update the simulation configuration with new timing and action parameters.
+
+        This method updates the TORAX configuration with new time boundaries and
+        applies the provided action through the action handler. It handles time
+        stepping and rebuilds the TORAX config.
 
         Args:
-            action: A dictionary containing the new configuration values for sources and profile conditions.
+            action: Action values to be applied through the action handler.
+            current_time: The current simulation time in seconds.
+            delta_t_a: The action duration/time step in seconds.
 
-        Returns:
-            The updated configuration dictionary.
+        Raises:
+            ValueError: If Ip control is requested but Ip_from_parameters is False.
         """
         self.config_dict["numerics"]["t_initial"] = current_time
         self.config_dict["numerics"]["t_final"] = current_time + delta_t_a
-        if self.config_dict["numerics"]["t_final"] > final_time:
-            self.config_dict["numerics"]["t_final"] = final_time
 
+        # TODO: why is this here ???
         # Allow the control of Ip after initialization
         if "Ip" in self.action_handler.get_action_variables():
             if (
                 "Ip_from_parameters" in self.config_dict["geometry"]
-                and self.config_dict["geometry"]["Ip_from_parameters"] == False
+                and self.config_dict["geometry"]["Ip_from_parameters"] is False
             ):
                 raise ValueError(
                     "Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it."
+                    +" that TORAX considers it."
                 )
 
         self.action_handler.update_actions(action)
@@ -239,6 +241,7 @@ class ConfigLoader:
                 ):
                     raise ValueError(
                         "calculator_type must be set to 'fixed' for fixed discretization."
+                        " for fixed discretization."
                     )
         elif discretization_torax == "auto":
             if "calculator_type" in self.config_dict["time_step_calculator"]:
@@ -248,6 +251,7 @@ class ConfigLoader:
                 ):
                     raise ValueError(
                         "calculator_type must not be set to 'fixed' for auto discretization."
+                        " for auto discretization."
                     )
         else:
             raise ValueError("Invalid discretization_torax setting.")

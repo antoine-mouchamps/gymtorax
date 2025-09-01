@@ -34,7 +34,7 @@ class ToraxApp:
     Attributes:
         config (ConfigLoader): Current configuration loader instance
         initial_config (ConfigLoader): Original configuration for resetting
-        delta_t_a (float): Action timestep - simulation advances by this amount per run()
+        delta_t_a (float): Action timestep - simulation duration per run()
         store_history (bool): Whether to store complete simulation history
         current_sim_state (ToraxSimState): Current simulation state
         current_sim_output (PostProcessedOutputs): Current post-processed outputs
@@ -385,7 +385,6 @@ class ToraxApp:
             self.config.update_config(
                 action,
                 self.t_current,  # Start time for this step
-                self.t_final,  # Episode end time
                 self.delta_t_a,
             )  # Action timestep duration
         except ValueError as e:
@@ -403,24 +402,6 @@ class ToraxApp:
             )
         )
 
-    # def render_gif(self, plot_configs: dict, gif_name: str)-> None:
-    #     """Renders the simulation results using the provided plot configurations and saves them in a gif file.
-    #     Args:
-    #         plot_configs: A dictionary containing the plot configurations.
-    #             Possible keys are 'default', 'simple', 'sources', 'global_params'.
-    #             corresponding values are default_plot_config, simple_plot_config, sources_plot_config, global_params_plot_config.
-    #         gif_name: The name of the GIF file to save the plots.
-    #     """
-    #     self.save_in_file()
-    #     for plot_config in plot_configs:
-    #         logger.debug(f" plotting with configuration: {plot_config}")
-    #         torax_plot_extensions.plot_run_to_gif(
-    #             plot_config=plot_configs[plot_config],
-    #             outfile='WIP',
-    #             frame_skip=5,
-    #             gif_filename=f"tmp/{gif_name}_{plot_config}.gif",
-    #         )
-
     def save_output_file(self, file_name):
         """Save complete simulation history to NetCDF file.
 
@@ -437,8 +418,8 @@ class ToraxApp:
         if self.store_history is False:
             raise RuntimeError()
 
-        state_history = [l[0] for l in self.history_list]
-        post_processed_outputs_history = [l[1] for l in self.history_list]
+        state_history = [output[0] for output in self.history_list]
+        post_processed_outputs_history = [output[1] for output in self.history_list]
 
         state_history = output.StateHistory(
             state_history=state_history,

@@ -157,12 +157,12 @@ CONFIG = {
 # fmt: on
 
 
-class IterHybridAgent(BaseAgent):
-    def __init__(self, action_space):
+class IterHybridAgent(BaseAgent):  # noqa: D101
+    def __init__(self, action_space):  # noqa: D107
         super().__init__(action_space=action_space)
         self.time = 0
 
-    def act(self, observation) -> dict:
+    def act(self, observation) -> dict:  # noqa: D102
         action = {
             "Ip": [3e6],
             "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
@@ -189,19 +189,19 @@ class IterHybridAgent(BaseAgent):
         return action
 
 
-class IterHybridEnv(BaseEnv):
-    def __init__(self):
+class IterHybridEnv(BaseEnv):  # noqa: D101
+    def __init__(self):  # noqa: D107
         super().__init__(render_mode=None, log_level="debug", store_state_history=True)
 
-    def define_actions(self):
+    def define_actions(self):  # noqa: D102
         actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
 
         return actions
 
-    def define_observation(self):
+    def define_observation(self):  # noqa: D102
         return oh.AllObservation()
 
-    def get_torax_config(self):
+    def get_torax_config(self):  # noqa: D102
         return {
             "config": CONFIG,
             "discretization": "fixed",
@@ -228,13 +228,13 @@ if __name__ == "__main__":
 
     env.save_file("tmp/output.nc")
     from torax.plotting.configs.default_plot_config import (
-        PLOT_CONFIG as simple_plot_config,
+        PLOT_CONFIG as SIMPLE_PLOT_CONFIG,
     )
 
     from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
 
     plot_run_to_gif(
-        plot_config=simple_plot_config,
+        plot_config=SIMPLE_PLOT_CONFIG,
         outfile="tmp/output.nc",
         gif_filename="tmp/test.gif",
         duration=500,

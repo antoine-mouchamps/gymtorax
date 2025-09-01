@@ -1,4 +1,4 @@
-"""Enhanced TORAX Plotting Functions - PNG and GIF Generation
+"""Enhanced TORAX Plotting Functions - PNG and GIF Generation.
 
 This module provides functions similar to plotruns_lib.plot_run() but for generating
 PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use("Agg")  # Non-interactive backend
 import inspect
 import io
-import os
+import logging
 from os import path
 from typing import Any
 
@@ -20,6 +20,9 @@ import numpy as np
 from PIL import Image
 from torax._src.plotting import plotruns_lib
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 # Font scaling constants
 FONT_SCALE_BASE = 1.0  # Base scaling factor
 FONT_SCALE_PER_ROW = 0.5  # Additional scaling per row
@@ -28,8 +31,7 @@ MIN_FONT_SCALE = 0.5  # Minimum font scale to maintain readability
 
 
 def create_figure(plot_config: plotruns_lib.FigureProperties):
-    """Create figure without slider subplot (modified version of
-    plotruns_lib.create_figure).
+    """Create figure without slider subplot.
 
     Returns only fig and axes, no slider_ax.
     """
@@ -77,91 +79,6 @@ def create_figure(plot_config: plotruns_lib.FigureProperties):
     return fig, axes
 
 
-def plot_run_to_png(
-    plot_config: plotruns_lib.FigureProperties,
-    outfile: str,
-    time_indices: list[int] | None = None,
-    output_dir: str = "png_plots",
-) -> list[str]:
-    """Generate PNG images from TORAX simulation data, using EXACT same logic as
-    plot_run().
-
-    Args:
-        plot_config: FigureProperties object defining the plot layout and content
-        outfile: Path to the TORAX simulation output file (.nc)
-        time_indices: List of time indices to plot. If None, plots 5 representative times
-        output_dir: Directory to save PNG files
-
-    Returns:
-        List of generated PNG file paths
-    """
-    # EXACT same validation as plot_run()
-    if not path.exists(outfile):
-        raise ValueError(f"File {outfile} does not exist.")
-
-    plotdata1 = plotruns_lib.load_data(outfile)
-    plotdata2 = None  # No comparison for PNG generation
-
-    # EXACT same attribute validation as plot_run()
-    plotdata_fields = set(plotdata1.__dataclass_fields__)
-    plotdata_properties = {
-        name
-        for name, _ in inspect.getmembers(
-            type(plotdata1), lambda o: isinstance(o, property)
-        )
-    }
-    plotdata_attrs = plotdata_fields.union(plotdata_properties)
-    for cfg in plot_config.axes:
-        for attr in cfg.attrs:
-            if attr not in plotdata_attrs:
-                raise ValueError(
-                    f"Attribute '{attr}' in plot_config does not exist in PlotData"
-                )
-
-    # Select time indices if not provided
-    if time_indices is None:
-        n_times = len(plotdata1.t)
-        time_indices = [0, n_times // 4, n_times // 2, 3 * n_times // 4, n_times - 1]
-
-    # Create output directory
-    os.makedirs(output_dir, exist_ok=True)
-
-    png_files = []
-
-    print(f"📊 Creating {len(time_indices)} PNG plots...")
-
-    for i, time_idx in enumerate(time_indices):
-        if time_idx >= len(plotdata1.t):
-            print(f"Warning: time_idx {time_idx} exceeds data length, skipping")
-            continue
-
-        time_val = plotdata1.t[time_idx]
-
-        # Create figure without slider using our custom function
-        fig, axes = create_figure(plot_config)
-
-        # EXACT same title handling as plot_run()
-        title_lines = [f"(1)={outfile} - t = {time_val:.3f} s"]
-        fig.suptitle("\n".join(title_lines))
-
-        # EXACT same line generation as plot_run(), but at specific time
-        lines1 = _get_lines_at_time(plot_config, plotdata1, axes, time_idx)
-
-        # EXACT same plot formatting as plot_run()
-        plotruns_lib.format_plots(plot_config, plotdata1, plotdata2, axes)
-
-        # Save PNG
-        filename = f"{output_dir}/torax_t_{time_val:.3f}s_{i + 1:02d}.png"
-        plt.savefig(filename, dpi=150, bbox_inches="tight", facecolor="white")
-        png_files.append(filename)
-        plt.close(fig)
-
-        print(f"  ✅ Saved: {filename}")
-
-    print(f"✅ Generated {len(png_files)} PNG files in '{output_dir}/' directory")
-    return png_files
-
-
 def plot_run_to_gif(
     plot_config: plotruns_lib.FigureProperties,
     outfile: str,
@@ -172,8 +89,7 @@ def plot_run_to_gif(
     optimize: bool = True,
     frame_skip: int = 1,
 ) -> str:
-    """Generate animated GIF from TORAX simulation data, using EXACT same logic as
-    plot_run().
+    """Generate animated GIF from TORAX simulation data.
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
@@ -188,8 +104,7 @@ def plot_run_to_gif(
     Returns:
         Path to the generated GIF file
     """
-    # EXACT same validation as plot_run()
-    name, ext = path.splitext(outfile)
+    _, ext = path.splitext(outfile)
     if ext != "":
         if ext.lower() != ".nc":
             raise ValueError(f"Expected .nc file, got {ext} in {outfile}")
@@ -236,8 +151,9 @@ def plot_run_to_gif(
         )
         time_indices = [available_indices[i] for i in selected_indices]
 
-    print(
-        f"🎬 Creating animated GIF with {actual_frames} frames (frame_skip={frame_skip})..."
+    logger.info(
+        f"🎬 Creating animated GIF with {actual_frames} frames"
+        + f"(frame_skip={frame_skip})..."
     )
 
     frames = []
@@ -255,9 +171,9 @@ def plot_run_to_gif(
         fig.suptitle("\n".join(title_lines))
 
         # EXACT same line generation as plot_run(), but at specific time
-        lines1 = _get_lines_at_time(plot_config, plotdata1, axes, time_idx)
+        _ = _get_lines_at_time(plot_config, plotdata1, axes, time_idx)
         if plotdata2:
-            lines2 = _get_lines_at_time(
+            _ = _get_lines_at_time(
                 plot_config, plotdata2, axes, time_idx, comp_plot=True
             )
 
@@ -280,11 +196,11 @@ def plot_run_to_gif(
 
         # Progress indicator
         if (frame_idx + 1) % 2 == 0:
-            print(f"  📸 Generated {frame_idx + 1}/{actual_frames} frames", end="\r")
-    print()
+            logger.info(f"  📸 Generated {frame_idx + 1}/{actual_frames} frames")
+    logger.info()
 
     # Save animated GIF
-    print(f"🎥 Saving animated GIF: {gif_filename}")
+    logger.info(f"🎥 Saving animated GIF: {gif_filename}")
 
     frames[0].save(
         gif_filename,
@@ -295,14 +211,13 @@ def plot_run_to_gif(
         optimize=optimize,
     )
 
-    print(f"✅ Animated GIF saved: {gif_filename}")
+    logger.info(f"✅ Animated GIF saved: {gif_filename}")
     return gif_filename
 
 
 def _apply_font_scaling_to_config(plot_config: plotruns_lib.FigureProperties):
     """Apply font scaling to legend_fontsize in each plot config."""
     rows = plot_config.rows
-    cols = plot_config.cols
 
     font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
     font_scale = max(font_scale, MIN_FONT_SCALE)
@@ -323,8 +238,7 @@ def _get_lines_at_time(
     time_idx: int,
     comp_plot: bool = False,
 ) -> list[Any]:
-    """Generate lines at specific time index using EXACT same logic as get_lines() from
-    plot_run.
+    """Generate lines at specific time index in the same way as in TORAX native.
 
     This replicates the exact behavior of plotruns_lib.get_lines() but for a specific
     time.

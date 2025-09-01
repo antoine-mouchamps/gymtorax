@@ -345,7 +345,7 @@ class Observation(ABC):
                 raise ValueError(
                     f"Custom bounds for variable '{var}' must be a tuple of (min, max)."
                 )
-            if not all(isinstance(b, (int, float)) for b in bounds):
+            if not all(isinstance(b, int | float) for b in bounds):
                 raise ValueError(f"Custom bounds for variable '{var}' must be numeric.")
             if bounds[0] >= bounds[1]:
                 raise ValueError(
@@ -542,7 +542,8 @@ class Observation(ABC):
             for category, var_list in self.variables_to_include.items():
                 if category not in ["profiles", "scalars"]:
                     raise ValueError(
-                        f"Variable category '{category}' not recognized. Use 'profiles' or 'scalars'."
+                        f"""Variable category '{category}' not recognized. Use
+                        'profiles' or 'scalars'."""
                     )
                 for var in var_list:
                     if var not in all_state_variables:
@@ -568,18 +569,21 @@ class Observation(ABC):
         for var, _ in self.custom_bounds.items():
             if var not in all_state_variables:
                 raise ValueError(
-                    f"Custom bound variable '{var}' not found in available state variables."
+                    f"""Custom bound variable '{var}' not found in available state
+                    variables."""
                 )
 
         # Ensure action variables have been set
         if self.action_variables is None:
-            raise ValueError("""Action variables must be set before building observation space.
-                             Call set_action_variables() first.""")
+            raise ValueError("""Action variables must be set before building
+                             observation space. Call set_action_variables()
+                             first.""")
 
         # Ensure grid points have been set
         if self._sizes is None:
-            raise ValueError("""Number of radial grid points (n_rho) must be set before 
-                             building observation space. Call set_n_grid_points(n_rho) first.""")
+            raise ValueError("""Number of radial grid points (n_rho) must be set before
+                             building observation space. Call set_n_grid_points(n_rho)
+                             first.""")
 
     def set_action_variables(self, variables: dict[str, list[str]]) -> None:
         """Set the variables that are controlled by actions.
@@ -629,7 +633,7 @@ class Observation(ABC):
             datatree: TORAX simulation output containing profiles and scalars datasets.
 
         Returns:
-            tuple containing:
+            tuple:
             - state (dict): Complete state with all available TORAX variables
                 Format: {"profiles": {var: ndarray}, "scalars": {var: scalar}}
             - observation (dict): Filtered state with only selected observation variables
@@ -687,11 +691,13 @@ class Observation(ABC):
         for cat, var_list in self.action_variables.items():
             if cat not in self.observation_variables:
                 raise KeyError(
-                    f"Variable category '{cat}' not recognized. Use 'profiles' or 'scalars'."
+                    f"""Variable category '{cat}' not recognized. Use 'profiles' or
+                    'scalars'."""
                 )
             for var in var_list:
-                # Skip variables that aren't present in current observation variables
-                # This handles cases where action variables may not be in the selected observation set
+                # Skip variables that are not present in current observation variables
+                # This handles cases where action variables may not be in the selected
+                # observation set
                 if (
                     var not in self.observation_variables[cat]
                     or var not in self.bounds[cat]
@@ -718,8 +724,8 @@ class Observation(ABC):
 
         Raises:
             RuntimeError: If called multiple times (observation variables already set).
-            ValueError: If required setup methods (set_n_grid_points, set_action_variables,
-                set_state_variables) haven't been called first.
+            ValueError: If required setup methods (set_n_grid_points,
+                set_action_variables, set_state_variables) have not been called first.
 
         Note:
             This method can only be called once per instance. The setup methods
@@ -750,8 +756,7 @@ class Observation(ABC):
         )
 
     def _make_box(self, var_name: str) -> spaces.Box:
-        """Create a Gymnasium Box space for a single variable with appropriate bounds
-        and shape.
+        """Create a Gymnasium Box space with appropriate bounds and shape.
 
         This method creates the actual Box space that will be used in the observation
         space dictionary. It handles both profile variables (with array shapes) and
@@ -792,7 +797,7 @@ class Observation(ABC):
         dictionary format that can be easily processed by other methods.
 
         Args:
-            datatree: TORAX simulation output DataTree with /profiles/ and /scalars/ datasets.
+            datatree: TORAX simulation output DataTree.
 
         Returns:
             dict: Structured dictionary with format:

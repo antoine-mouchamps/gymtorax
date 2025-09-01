@@ -101,6 +101,8 @@ class BaseEnv(gym.Env, ABC):
             log_level: Logging level for environment operations. Options: "debug", "info",
                 "warning", "error", "critical". Default: "warning".
             logfile: Path to log file for writing log messages. If None, logs to console.
+            store_state_history: Whether to store simulation history for later saving.
+                Set to True if you plan to use save_file() method. Default: False.
 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
@@ -366,12 +368,25 @@ class BaseEnv(gym.Env, ABC):
         """
         if self.render_mode == "human":
             pass
-        if self.render_mode == "rgb_array" or self.render_mode == None:
+        if self.render_mode == "rgb_array" or self.render_mode is None:
             pass
         return None
 
     def save_file(self, file_name):
-        """"""
+        """Save the simulation output data to a file.
+
+        This method saves the complete simulation history to a specified file.
+        The simulation must have been initialized with store_history=True for
+        this method to work properly.
+
+        Args:
+            file_name (str): The path and filename where the output should be saved.
+                The file format is typically NetCDF (.nc extension).
+
+        Raises:
+            ArgumentError: If the environment was created without store_history=True.
+            RuntimeError: If there was an error during the save operation.
+        """
         try:
             self.torax_app.save_output_file(file_name)
         except RuntimeError as e:

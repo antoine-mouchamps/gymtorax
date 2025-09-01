@@ -285,12 +285,12 @@ class Action(ABC):
             if time == "init":
                 # Check if there is no value associated to the existing key
                 if d[key] != {}:
-                    if isinstance(d[key], (float, int)):
+                    if isinstance(d[key], float | int):
                         self.values[idx] = d[key]
                     elif isinstance(d[key], dict):
                         self.values[idx] = d[key][0]
                     elif isinstance(d[key], tuple) and 0 in d[key][0]:
-                        if isinstance(d[key][0], (list, tuple)):
+                        if isinstance(d[key][0], list | tuple):
                             pos = d[key][0].index(0)
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
@@ -310,8 +310,7 @@ class Action(ABC):
                 d[key][0].update({time: self.values[idx]})
 
     def get_mapping(self) -> dict[tuple[str, ...], int]:
-        """Get the mapping of configuration dictionary paths to action parameter
-        indices.
+        """Get the mapping of configuration dictionary paths to action parameter indices.
 
         Returns:
             dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
@@ -390,8 +389,18 @@ class ActionHandler:
     def update_actions(self, actions: spaces.Dict) -> None:
         """Update the current values of all managed actions.
 
+        This method validates that all provided actions exist in the handler,
+        then updates each action internal values using the action set_values
+        method. The update counter is incremented after successful processing.
+
         Args:
-            action: The action to perform.
+            actions (spaces.Dict): Dictionary mapping action names to their new values.
+                Keys must correspond to existing action names in this handler.
+                Values must be compatible with each action expected format and bounds.
+
+        Raises:
+            ValueError: If any action name in the actions dict does not exist
+                in this handler's managed actions.
         """
         for action_name, _ in actions.items():
             if action_name not in self._actions_names:
@@ -429,8 +438,7 @@ class ActionHandler:
         )
 
     def _validate_action_handler(self) -> None:
-        """Validates the action handler to ensure action parameters are unique and
-        mutually exclusive.
+        """Validates the action handler to ensure action parameters are unique and mutually exclusive.
 
         This function performs two main checks:
         1. It verifies that no duplicate parameters exist across all actions.
