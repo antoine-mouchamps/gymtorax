@@ -1,21 +1,25 @@
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[project]
+[tool.poetry]
 name = "gymtorax"
 version = "0.1.0"
 description = "A Gymnasium environment for Torax simulations"
 authors = [
-    { name = "Antoine Mouchamps", email = "antoine.mouchamps@gmail.com" },
-    { name = "Arthur Malherbe", email = "arthur.m222004@gmail.com" }
+    "Antoine Mouchamps <antoine.mouchamps@gmail.com>",
+    "Arthur Malherbe <arthur.m222004@gmail.com>"
 ]
 readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "gymnasium",
-    "torax",
-]
+packages = [{include = "gymtorax"}]
 
-[tool.setuptools]
-packages = ["gymtorax"]
+[tool.poetry.dependencies]
+python = "^3.10"
+gymnasium = "^1.0.0"
+torax = "^1.0.0"
+numpy = "^1.20.0"
+matplotlib = "^3.0.0"
+xarray = "^2020.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
