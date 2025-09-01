@@ -162,17 +162,17 @@ class TestEnv(BaseEnv):
                          log_level='debug',
                          store_state_history=True)
     
-    def _actions(self):
+    def define_actions(self):
         actions = [
             ah.IpAction(),
         ]
         
         return actions
 
-    def _observation(self):
+    def define_observation(self):
         return oh.AllObservation()
     
-    def _torax_config(self):
+    def get_torax_config(self):
         return {'config': CONFIG,
                 'discretization': 'auto',
                 'delta_t_a': 1.0}

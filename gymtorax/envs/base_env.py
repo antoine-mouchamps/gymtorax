@@ -20,13 +20,13 @@ Example:
     Create a custom environment by extending BaseEnv:
     
     >>> class PlasmaControlEnv(BaseEnv):
-    ...     def _observation(self):
+    ...     def define_observation(self):
     ...         return AllObservation(exclude=["n_impurity"])
     ...     
-    ...     def _actions(self):
+    ...     def define_actions(self):
     ...         return [IpAction(), EcrhAction()]
     ...     
-    ...     def reward(self, state, next_state, action):
+    ...     def define_reward(self, state, next_state, action):
     ...         # Custom reward logic
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
@@ -81,9 +81,9 @@ class BaseEnv(gym.Env, ABC):
         truncated (bool): Episode truncation flag
     
     Abstract Methods:
-        _observation(): Define observation space variables
-        _actions(): Define available control actions
-        reward(): Compute reward signal (optional override)
+        define_observation(): Define observation space variables
+        define_actions(): Define available control actions
+        define_reward(): Define reward signal (optional override)
     """
     
     # Gymnasium metadata for rendering configuration
@@ -110,20 +110,20 @@ class BaseEnv(gym.Env, ABC):
             TypeError: If discretization_torax is not "auto" or "fixed".
             
         Note:
-            The environment must implement _observation() and 
-            _actions() abstract methods to define the observation and action spaces.
+            The environment must implement define_observation() and 
+            define_actions() abstract methods to define the observation and action spaces.
             Logging is set up during initialization and applies to all environment operations.
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
         
         try:
-            config = self._torax_config()['config']
-            discretization_torax = self._torax_config()['discretization']
+            config = self.get_torax_config()['config']
+            discretization_torax = self.get_torax_config()['discretization']
         except KeyError as e:
             raise KeyError(f"Missing key in TORAX config: {e}")
 
         # Initialize action handler using abstract method
-        self.action_handler = ActionHandler(self._actions())
+        self.action_handler = ActionHandler(self.define_actions())
         
         # Initialize state tracking
         self.state: dict[str, Any]|None = None  # Plasma state
@@ -139,15 +139,15 @@ class BaseEnv(gym.Env, ABC):
         # Configure time discretization based on chosen method
         if discretization_torax == "auto":
             # Use explicit action timestep timing
-            if self._torax_config()['delta_t_a'] is None:
+            if self.get_torax_config()['delta_t_a'] is None:
                 raise ValueError("delta_t_a must be provided for auto discretization")
-            self.delta_t_a: float = self._torax_config()['delta_t_a']  # Time between actions [s]
+            self.delta_t_a: float = self.get_torax_config()['delta_t_a']  # Time between actions [s]
         elif discretization_torax == "fixed":
             # Use ratio-based timing relative to simulation timesteps
-            if self._torax_config()['ratio_a_sim'] is None:
+            if self.get_torax_config()['ratio_a_sim'] is None:
                 raise ValueError("ratio_a_sim must be provided for fixed discretization")
             delta_t_sim: float = self.config.get_simulation_timestep()  # TORAX internal timestep [s]
-            self.delta_t_a: float = self._torax_config()['ratio_a_sim'] * delta_t_sim  # Action interval [s]
+            self.delta_t_a: float = self.get_torax_config()['ratio_a_sim'] * delta_t_sim  # Action interval [s]
         else:
             raise TypeError(f"Invalid discretization method: {discretization_torax}. Use 'auto' or 'fixed'.")
 
@@ -165,7 +165,7 @@ class BaseEnv(gym.Env, ABC):
         self.torax_app.start()
 
         # Initialize observation handler
-        self.observation_handler = self._observation()
+        self.observation_handler = self.define_observation()
 
         # Set variables appearing in the actual simulation states
         self.observation_handler.set_state_variables(self.torax_app.get_state_data())
@@ -286,7 +286,7 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = next_state, observation
 
         # Compute reward based on state transition
-        reward = self.reward(state, next_state, action)
+        reward = self.define_reward(state, next_state, action)
         
         # Update time tracking
         self.current_time += self.delta_t_a
@@ -302,14 +302,14 @@ class BaseEnv(gym.Env, ABC):
         
         return observation, reward, self.terminated, truncated, info 
 
-    def reward(
+    def define_reward(
         self, 
         state: dict[str, Any], 
         next_state: dict[str, Any], 
         action: NDArray[np.floating]
     ) -> float:
         """
-        Compute the reward signal for a state transition.
+        Define the reward signal for a state transition.
         
         This method should be overridden by concrete subclasses to implement
         task-specific reward functions. The default implementation returns 0.0.
@@ -325,7 +325,7 @@ class BaseEnv(gym.Env, ABC):
             float: Reward value for this state transition.
             
         Example:
-            >>> def reward(self, state, next_state, action):
+            >>> def define_reward(self, state, next_state, action):
             ...     # Reward based on proximity to target beta_N
             ...     target_beta = 2.0
             ...     current_beta = next_state["scalars"]["beta_N"]
@@ -382,7 +382,7 @@ class BaseEnv(gym.Env, ABC):
     # =============================================================================
 
     @abstractmethod
-    def _observation(self) -> Observation:
+    def define_observation(self) -> Observation:
         """
         Define the observation space variables for this environment.
         
@@ -394,7 +394,7 @@ class BaseEnv(gym.Env, ABC):
                 plasma state variables are visible to the RL agent.
                 
         Example:
-            >>> def _observation(self):
+            >>> def define_observation(self):
             ...     return AllObservation(
             ...         exclude=["n_impurity", "Z_impurity"],
             ...         custom_bounds={
@@ -406,7 +406,7 @@ class BaseEnv(gym.Env, ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def _actions(self) -> list[Action]:
+    def define_actions(self) -> list[Action]:
         """
         Define the available control actions for this environment.
         
@@ -418,7 +418,7 @@ class BaseEnv(gym.Env, ABC):
                 parameters with their bounds and TORAX configuration mappings.
                 
         Example:
-            >>> def _actions(self):
+            >>> def define_actions(self):
             ...     return [
             ...         IpAction(min=[0.5e6], max=[2.0e6]),      # Plasma current
             ...         EcrhAction(                               # ECRH heating
@@ -431,8 +431,8 @@ class BaseEnv(gym.Env, ABC):
         raise NotImplementedError
          
     @abstractmethod
-    def _torax_config(self) -> dict[str, Any]:
-        """Configure the TORAX simulation.
+    def get_torax_config(self) -> dict[str, Any]:
+        """Get the TORAX simulation configuration.
 
         This abstract method must be implemented by concrete subclasses 
         which provides the necessary parameters for the TORAX simulation, 
@@ -450,3 +450,4 @@ class BaseEnv(gym.Env, ABC):
                 - "delta_t_a" (float, optional): The time interval between actions
                     in seconds. Required if 'discretisation_torax' is "auto".
         """
+        raise NotImplementedError

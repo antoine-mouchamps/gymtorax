@@ -194,7 +194,7 @@ class IterHybridEnv(BaseEnv):
                          store_state_history=True
                          )
 
-    def _actions(self):
+    def define_actions(self):
         actions = [
             ah.IpAction(),
             ah.NbiAction(),
@@ -203,10 +203,10 @@ class IterHybridEnv(BaseEnv):
 
         return actions
 
-    def _observation(self):
+    def define_observation(self):
         return oh.AllObservation()
     
-    def _torax_config(self):
+    def get_torax_config(self):
         return {'config': CONFIG,
                 'discretization': "fixed",
                 'ratio_a_sim': 1,
