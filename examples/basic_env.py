@@ -4,7 +4,7 @@ import numpy as np
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
 
-
+# ruff: noqa: start
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
 
 ITER hybrid scenario based (roughly) on van Mulders Nucl. Fusion 2021.
@@ -154,6 +154,7 @@ CONFIG = {
         'calculator_type': 'chi',
     },
 }
+# ruff: noqa: end
 
 
 class TestEnv(BaseEnv):

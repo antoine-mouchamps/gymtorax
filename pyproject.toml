@@ -30,6 +30,11 @@ build-backend = "poetry.core.masonry.api"
 [tool.ruff]
 line-length = 88
 target-version = "py310"
+exclude = [
+    "tmp/",
+    "__pycache__/",
+    "*.egg-info/",
+]
 
 [tool.ruff.lint]
 select = [
