@@ -156,6 +156,7 @@ CONFIG = {
 }
 # fmt: on
 
+
 class IterHybridAgent(BaseAgent):
     def __init__(self, action_space):
         super().__init__(action_space=action_space)
@@ -168,18 +169,18 @@ class IterHybridAgent(BaseAgent):
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
-        if(self.time == 98):
+        if self.time == 98:
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
             action["NBI"][1] = nbi_cd[1]
 
-        if(self.time >= 99):
+        if self.time >= 99:
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
             action["NBI"][1] = nbi_cd[2]
 
-        if(self.time < 99):
-            action["Ip"][0] = 3e6 + (self.time+1)*(12.5e6-3e6)/100
+        if self.time < 99:
+            action["Ip"][0] = 3e6 + (self.time + 1) * (12.5e6 - 3e6) / 100
         else:
             action["Ip"][0] = 12.5e6
 
@@ -190,32 +191,27 @@ class IterHybridAgent(BaseAgent):
 
 class IterHybridEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None,
-                         log_level="debug",
-                         store_state_history=True
-                         )
+        super().__init__(render_mode=None, log_level="debug", store_state_history=True)
 
     def define_actions(self):
-        actions = [
-            ah.IpAction(),
-            ah.NbiAction(),
-            ah.EcrhAction()
-        ]
+        actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
 
         return actions
 
     def define_observation(self):
         return oh.AllObservation()
-    
+
     def get_torax_config(self):
-        return {'config': CONFIG,
-                'discretization': "fixed",
-                'ratio_a_sim': 1,
-                }
+        return {
+            "config": CONFIG,
+            "discretization": "fixed",
+            "ratio_a_sim": 1,
+        }
 
 
 if __name__ == "__main__":
     import cProfile, pstats
+
     profiler = cProfile.Profile()
 
     env = IterHybridEnv()
@@ -230,14 +226,16 @@ if __name__ == "__main__":
         # print(observation["profiles"]["T_e"])
         # if agent.time > 90:
 
-    env.save_file('tmp/output.nc')
+    env.save_file("tmp/output.nc")
     from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
-    from torax.plotting.configs.default_plot_config import PLOT_CONFIG as simple_plot_config
+    from torax.plotting.configs.default_plot_config import (
+        PLOT_CONFIG as simple_plot_config,
+    )
+
     plot_run_to_gif(
-            plot_config=simple_plot_config,
-            outfile='tmp/output.nc',
-            gif_filename=f"tmp/test.gif",
-            duration=500
-        )
-            # break
-    
+        plot_config=simple_plot_config,
+        outfile="tmp/output.nc",
+        gif_filename=f"tmp/test.gif",
+        duration=500,
+    )
+    # break

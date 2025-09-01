@@ -13,21 +13,24 @@ from typing import Any
 
 import gymtorax.action_handler as act
 
+
 class ConfigLoader:
     """
     A wrapper class for TORAX configuration management.
-    
+
     This class handles the conversion between Python dictionaries and TORAX's
     internal configuration format, providing convenient access to simulation
     parameters commonly needed in Gymnasium environments.
     """
-    
-    def __init__(self, config: dict[str, Any],
-                 action_handler: act.ActionHandler,
+
+    def __init__(
+        self,
+        config: dict[str, Any],
+        action_handler: act.ActionHandler,
     ):
         """
         Initialize the configuration loader.
-        
+
         Args:
             config: Dictionary containing TORAX configuration parameters.
             action_handler: An optional ActionHandler instance for managing actions.
@@ -44,19 +47,22 @@ class ConfigLoader:
         self.config_dict: dict[str, Any] = config
         self._validate()
         try:
-            self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(self.config_dict)
+            self.config_torax: ToraxConfig = torax.ToraxConfig.from_dict(
+                self.config_dict
+            )
         except Exception as e:
             raise ValueError(f"Invalid TORAX configuration: {e}")
-        
-        
+
     def get_dict(self) -> dict[str, Any]:
         """
         Get the raw configuration dictionary.
-        
+
         Returns:
             The original configuration dictionary
         """
-        return self.config_dict.copy()  # Return a copy to prevent external modifications
+        return (
+            self.config_dict.copy()
+        )  # Return a copy to prevent external modifications
 
     def get_total_simulation_time(self) -> float:
         """
@@ -64,10 +70,10 @@ class ConfigLoader:
 
         This extracts the :code:`t_final` parameter from the numerics section,
         which defines how long the plasma simulation should run.
-        
+
         Returns:
             Total simulation time in seconds
-            
+
         Raises:
             KeyError: If the configuration doesn't contain the required keys
             TypeError: If the value is not a number
@@ -86,7 +92,7 @@ class ConfigLoader:
 
         This updates the :code:`t_final` parameter in the numerics section,
         which defines how long the plasma simulation should run.
-        
+
         Args:
             time: Total simulation time in seconds
 
@@ -95,11 +101,11 @@ class ConfigLoader:
             TypeError: If the value is not a number
         """
         if not isinstance(time, (int, float)):
-                raise TypeError("t_final must be a number")
+            raise TypeError("t_final must be a number")
         try:
             self.config_dict["numerics"]["t_final"] = float(time)
             self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
-            
+
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
@@ -109,16 +115,16 @@ class ConfigLoader:
 
         This extracts the :code:`t_initial` parameter from the numerics section,
         which defines the initial time for the plasma simulation.
-        
+
         Returns:
             Total simulation time in seconds
-            
+
         Raises:
             KeyError: If the configuration doesn't contain the required keys
             TypeError: If the value is not a number
         """
         if reset is False:
-            if 't_initial' not in self.config_dict["numerics"]:
+            if "t_initial" not in self.config_dict["numerics"]:
                 t_initial = 0.0
             else:
                 t_initial = self.config_dict["numerics"]["t_initial"]
@@ -136,10 +142,10 @@ class ConfigLoader:
 
         This extracts the :code:`fixed_dt` parameter from the numerics section,
         which defines the time step used in the numerical integration.
-        
+
         Returns:
             Simulation timestep in seconds
-            
+
         Raises:
             KeyError: If the configuration doesn't contain the required keys
             TypeError: If the value is not a number
@@ -174,29 +180,33 @@ class ConfigLoader:
             return n_rho
         else:
             return 25
-        
 
-    def update_config(self, action, current_time: float, final_time: float, delta_t_a: float) -> None:
+    def update_config(
+        self, action, current_time: float, final_time: float, delta_t_a: float
+    ) -> None:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
-        It also prepares the restart file if necessary. 
+        It also prepares the restart file if necessary.
         Args:
             action: A dictionary containing the new configuration values for sources and profile conditions.
         Returns:
             The updated configuration dictionary.
         """
-        
-        self.config_dict['numerics']['t_initial'] = current_time
-        self.config_dict['numerics']['t_final'] = current_time + delta_t_a
-        if self.config_dict['numerics']['t_final'] > final_time:
-            self.config_dict['numerics']['t_final'] = final_time
+
+        self.config_dict["numerics"]["t_initial"] = current_time
+        self.config_dict["numerics"]["t_final"] = current_time + delta_t_a
+        if self.config_dict["numerics"]["t_final"] > final_time:
+            self.config_dict["numerics"]["t_final"] = final_time
 
         # Allow the control of Ip after initialization
-        if("Ip" in self.action_handler.get_action_variables()):
-            if ('Ip_from_parameters' in self.config_dict['geometry']
-                and self.config_dict['geometry']['Ip_from_parameters'] == False
-                ):
-                raise ValueError("Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it.")
+        if "Ip" in self.action_handler.get_action_variables():
+            if (
+                "Ip_from_parameters" in self.config_dict["geometry"]
+                and self.config_dict["geometry"]["Ip_from_parameters"] == False
+            ):
+                raise ValueError(
+                    "Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it."
+                )
 
         self.action_handler.update_actions(action)
         actions = self.action_handler.get_actions()
@@ -206,22 +216,21 @@ class ConfigLoader:
 
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
-    
+
     def _validate(self) -> None:
         """
         Validate the configuration dictionary.
-        
+
         This method checks that the configuration contains all required keys
         and that their values are of the expected types for a Gym-TORAX
         environment.
-        
+
         Raises:
             ValueError: If the configuration is invalid
         """
         action_list = self.action_handler.get_actions()
         for a in action_list:
             a.init_dict(self.config_dict)
-
 
     def validate_discretization(self, discretization_torax: str) -> None:
         """
@@ -234,12 +243,22 @@ class ConfigLoader:
             ValueError: If the discretization settings are invalid
         """
         if discretization_torax == "fixed":
-            if 'calculator_type' in self.config_dict['time_step_calculator']:
-                if self.config_dict['time_step_calculator']['calculator_type'] != 'fixed':
-                    raise ValueError("calculator_type must be set to 'fixed' for fixed discretization.")
+            if "calculator_type" in self.config_dict["time_step_calculator"]:
+                if (
+                    self.config_dict["time_step_calculator"]["calculator_type"]
+                    != "fixed"
+                ):
+                    raise ValueError(
+                        "calculator_type must be set to 'fixed' for fixed discretization."
+                    )
         elif discretization_torax == "auto":
-            if 'calculator_type' in self.config_dict['time_step_calculator']:
-                if self.config_dict['time_step_calculator']['calculator_type'] == 'fixed':
-                    raise ValueError("calculator_type must not be set to 'fixed' for auto discretization.")
+            if "calculator_type" in self.config_dict["time_step_calculator"]:
+                if (
+                    self.config_dict["time_step_calculator"]["calculator_type"]
+                    == "fixed"
+                ):
+                    raise ValueError(
+                        "calculator_type must not be set to 'fixed' for auto discretization."
+                    )
         else:
             raise ValueError("Invalid discretization_torax setting.")

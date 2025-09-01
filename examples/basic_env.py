@@ -159,31 +159,28 @@ CONFIG = {
 
 class TestEnv(BaseEnv):
     def __init__(self):
-        super().__init__(render_mode=None,
-                         log_level='debug',
-                         store_state_history=True)
-    
+        super().__init__(render_mode=None, log_level="debug", store_state_history=True)
+
     def define_actions(self):
         actions = [
             ah.IpAction(),
         ]
-        
+
         return actions
 
     def define_observation(self):
         return oh.AllObservation()
-    
+
     def get_torax_config(self):
-        return {'config': CONFIG,
-                'discretization': 'auto',
-                'delta_t_a': 1.0}
+        return {"config": CONFIG, "discretization": "auto", "delta_t_a": 1.0}
+
 
 if __name__ == "__main__":
     import cProfile, pstats, atexit
 
     profiler = cProfile.Profile()
     env = TestEnv()
-    env.reset()    
+    env.reset()
 
     for i in range(10):
         if i == 4:
@@ -191,4 +188,3 @@ if __name__ == "__main__":
         env.step({"Ip": [3e6]})
 
     profiler.disable()
-
