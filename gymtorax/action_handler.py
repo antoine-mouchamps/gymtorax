@@ -272,7 +272,6 @@ class Action(ABC):
         for dict_path, idx in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
-            
             for key in dict_path[:-1]:
                 d = d[key]
 

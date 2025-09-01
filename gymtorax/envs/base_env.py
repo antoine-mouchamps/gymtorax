@@ -44,6 +44,7 @@ from ..action_handler import Action, ActionHandler
 from ..observation_handler import Observation
 from ..torax_wrapper import ToraxApp, ConfigLoader
 from ..logger import setup_logging
+import gymtorax.rendering.visualization as viz
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ class BaseEnv(gym.Env, ABC):
         render_mode: str|None = None, 
         log_level="warning",
         logfile=None,
+        fig: viz.FigureProperties|None = None,
         store_state_history=False,
     ) -> None:
         """
@@ -132,7 +134,7 @@ class BaseEnv(gym.Env, ABC):
         # Load and validate TORAX configuration
         self.config: ConfigLoader = ConfigLoader(config, self.action_handler)
         self.config.validate_discretization(discretization_torax)
-        
+    
         # Get total simulation time from configuration
         self.T: float = self.config.get_total_simulation_time()  # [seconds]
         
@@ -185,7 +187,8 @@ class BaseEnv(gym.Env, ABC):
         # Validate and set rendering mode
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-
+        self.plotter = viz.ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
+        
         # Initialize rendering components (will be set up when needed)
         self.window = None
         self.clock = None
@@ -218,17 +221,22 @@ class BaseEnv(gym.Env, ABC):
         self.timestep = 0
         self.current_time = 0.0
         
+        # Initialize last_action_dict for storing last actions
+        self.last_action_dict = {}
+        self.plotter.reset()
+        
         # Initialize TORAX simulation
         self.torax_app.reset()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
+
+        self.current_time = torax_state["/"]["time"][0].item()
+        # Update last_action_dict with initial state
+        self._update_last_action_dict(torax_state)
         
         # Extract initial observation
         self.state, self.observation = self.observation_handler.extract_state_observation(torax_state)
 
-        # Render initial state if in human mode
-        if self.render_mode == "human":
-            self._render_frame()
-
+        self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
         logger.debug(" environment reset complete.")
 
         return self.observation, {}
@@ -282,6 +290,10 @@ class BaseEnv(gym.Env, ABC):
 
         # Extract new state and observation after simulation step
         next_torax_state = self.torax_app.get_state_data()
+        
+        # Update last_action_dict with new state
+        self._update_last_action_dict(next_torax_state)
+        
         next_state, observation = self.observation_handler.extract_state_observation(next_torax_state)
         self.state, self.observation = next_state, observation
 
@@ -291,16 +303,12 @@ class BaseEnv(gym.Env, ABC):
         # Update time tracking
         self.current_time += self.delta_t_a
         self.timestep += 1
-
-        # If simulation reached final time, terminate the environment
-        if(self.current_time > self.T):
+        if self.current_time > self.T:
             self.terminated = True
 
-        # Render frame if in human mode
-        if self.render_mode == "human":
-            self._render_frame()
-        
-        return observation, reward, self.terminated, truncated, info 
+        self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
+
+        return observation, reward, self.terminated, truncated, info
 
     def define_reward(
         self, 
@@ -343,29 +351,23 @@ class BaseEnv(gym.Env, ABC):
         """
         # Close TORAX simulation
         self.torax_app.close()
-        
-        # Clean up rendering resources
-        if self.window is not None:
-            # TODO: Add pygame cleanup when rendering is implemented
-            # pygame.display.quit()
-            # pygame.quit()
-            pass
+        if self.plotter is not None:
+            self.plotter.close()
     
-    def render(self):
+    def render(self) -> None:
         """
-        Render the current environment state.
+        Render the current environment state following Gymnasium convention.
         
         Returns:
-            NDArray or None: RGB array if render_mode is "rgb_array", else None.
-            
+            np.ndarray or None: RGB array if render_mode is "rgb_array", else None.
+        
         Note:
-            Currently not fully implemented. Returns None for all modes.
+            - For 'human' mode, this calls the plotter's update method for live visualization.
+            - For 'rgb_array' mode, this calls the plotter's get_rgb_array() method (which must be implemented by the plotter).
+            - Subclasses must provide a plotter compatible with these calls.
         """
-        if self.render_mode == "human":
-            pass
-        if self.render_mode == "rgb_array" or self.render_mode == None:
-            pass 
-        return None
+        if self.render_mode == "human" and self.plotter is not None:
+            self.plotter.render_frame(t=self.current_time)
 
     def save_file(self, file_name):
         """"""
@@ -377,6 +379,44 @@ class BaseEnv(gym.Env, ABC):
         logger.debug(f"Saved simulation history to {file_name}")
 
 
+    def save_gif(self, filename: str = "torax_output.gif", interval: int = 200, frame_step: int = 2) -> None:
+        """
+        Save the data as a GIF file.
+        Args:
+            filename: Path to save the GIF file. 
+                If it does not end with ".gif", the suffix will be added.
+            interval: Delay between frames in ms.
+            frame_step: Save every Nth frame (default 2 = all frames).
+                The last frame is always included.
+        """
+        if self.plotter is not None:
+            # verify that the suffix is correct
+            if not filename.endswith(".gif"):
+                filename += ".gif"
+            self.plotter.save_gif(filename, interval=interval, frame_step=frame_step)
+        else:
+            logger.warning("No plotter available to save GIF.")
+
+    def _update_last_action_dict(self, state):
+        """
+        Update self.last_action_dict as a nested dict: {'scalars': {...}, 'profiles': {...}}
+        Only initialize the structure if the dict is empty, otherwise just update values.
+        """
+        action_vars = self.action_handler.get_action_variables()
+        # Initialize structure only if empty
+        if not self.last_action_dict:
+            self.last_action_dict = {"scalars": {}, "profiles": {}}
+            for cat, var_list in action_vars.items():
+                if cat not in self.last_action_dict:
+                    self.last_action_dict[cat] = {}
+                for var in var_list:
+                    self.last_action_dict[cat][var] = None
+        # Update values
+        for cat, var_list in action_vars.items():
+            for var in var_list:
+                value = state.get(cat, {}).get(var, None)
+                self.last_action_dict[cat][var] = value
+                
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================
@@ -429,7 +469,7 @@ class BaseEnv(gym.Env, ABC):
             ...     ]
         """
         raise NotImplementedError
-         
+    
     @abstractmethod
     def get_torax_config(self) -> dict[str, Any]:
         """Get the TORAX simulation configuration.
