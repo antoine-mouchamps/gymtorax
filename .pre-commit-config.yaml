@@ -5,3 +5,13 @@ repos:
       - id: ruff
         args: [--fix]
       - id: ruff-format
+  
+  - repo: local
+    hooks:
+      - id: docformatter
+        name: docformatter
+        entry: docformatter
+        language: python
+        additional_dependencies: [docformatter==1.7.5]
+        args: [--wrap-summaries, "88", --wrap-descriptions, "88", --in-place]
+        types: [python]

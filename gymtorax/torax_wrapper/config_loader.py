@@ -1,8 +1,8 @@
 """Configuration loader for TORAX simulation package.
 
-This module provides a wrapper around TORAX configuration dictionaries,
-offering convenient access to common simulation parameters and configuration
-management for Gymnasium environments.
+This module provides a wrapper around TORAX configuration dictionaries, offering
+convenient access to common simulation parameters and configuration management for
+Gymnasium environments.
 """
 
 from typing import Any
@@ -16,9 +16,9 @@ import gymtorax.action_handler as act
 class ConfigLoader:
     """A wrapper class for TORAX configuration management.
 
-    This class handles the conversion between Python dictionaries and TORAX's
-    internal configuration format, providing convenient access to simulation
-    parameters commonly needed in Gymnasium environments.
+    This class handles the conversion between Python dictionaries and TORAX's internal
+    configuration format, providing convenient access to simulation parameters commonly
+    needed in Gymnasium environments.
     """
 
     def __init__(
@@ -174,9 +174,9 @@ class ConfigLoader:
     def update_config(
         self, action, current_time: float, final_time: float, delta_t_a: float
     ) -> None:
-        """Update the configuration of the simulation based on the provided action.
-        This method updates the configuration dictionary with new values for sources and profile conditions.
-        It also prepares the restart file if necessary.
+        """Update the configuration of the simulation based on the provided action. This
+        method updates the configuration dictionary with new values for sources and
+        profile conditions. It also prepares the restart file if necessary.
 
         Args:
             action: A dictionary containing the new configuration values for sources and profile conditions.

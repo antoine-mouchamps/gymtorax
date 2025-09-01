@@ -1,7 +1,7 @@
 """Test suite for the ConfigLoader class.
 
-This module contains comprehensive tests for the TORAX configuration loader,
-covering normal operation, edge cases, and error conditions.
+This module contains comprehensive tests for the TORAX configuration loader, covering
+normal operation, edge cases, and error conditions.
 """
 
 from typing import Any
@@ -18,8 +18,8 @@ class TestConfigLoader:
     def valid_config(self) -> dict[str, Any]:
         """Provide a valid TORAX configuration for testing.
 
-        This is a simplified version of the full TORAX config that contains
-        the essential fields needed for testing the ConfigLoader functionality.
+        This is a simplified version of the full TORAX config that contains the
+        essential fields needed for testing the ConfigLoader functionality.
         """
         return {
             "profile_conditions": {},  # use default profile conditions

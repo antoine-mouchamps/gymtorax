@@ -342,9 +342,8 @@ class BaseEnv(gym.Env, ABC):
     def close(self) -> None:
         """Clean up environment resources.
 
-        This method properly closes the TORAX simulation and releases any
-        rendering resources. Should be called when the environment is no
-        longer needed.
+        This method properly closes the TORAX simulation and releases any rendering
+        resources. Should be called when the environment is no longer needed.
         """
         # Close TORAX simulation
         self.torax_app.close()

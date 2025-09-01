@@ -28,7 +28,9 @@ MIN_FONT_SCALE = 0.5  # Minimum font scale to maintain readability
 
 
 def create_figure(plot_config: plotruns_lib.FigureProperties):
-    """Create figure without slider subplot (modified version of plotruns_lib.create_figure).
+    """Create figure without slider subplot (modified version of
+    plotruns_lib.create_figure).
+
     Returns only fig and axes, no slider_ax.
     """
     # Calculate font scaling based on rows and columns
@@ -81,7 +83,8 @@ def plot_run_to_png(
     time_indices: list[int] | None = None,
     output_dir: str = "png_plots",
 ) -> list[str]:
-    """Generate PNG images from TORAX simulation data, using EXACT same logic as plot_run().
+    """Generate PNG images from TORAX simulation data, using EXACT same logic as
+    plot_run().
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
@@ -169,7 +172,8 @@ def plot_run_to_gif(
     optimize: bool = True,
     frame_skip: int = 1,
 ) -> str:
-    """Generate animated GIF from TORAX simulation data, using EXACT same logic as plot_run().
+    """Generate animated GIF from TORAX simulation data, using EXACT same logic as
+    plot_run().
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
@@ -319,8 +323,11 @@ def _get_lines_at_time(
     time_idx: int,
     comp_plot: bool = False,
 ) -> list[Any]:
-    """Generate lines at specific time index using EXACT same logic as get_lines() from plot_run.
-    This replicates the exact behavior of plotruns_lib.get_lines() but for a specific time.
+    """Generate lines at specific time index using EXACT same logic as get_lines() from
+    plot_run.
+
+    This replicates the exact behavior of plotruns_lib.get_lines() but for a specific
+    time.
     """
     lines = []
     # Same logic as get_lines() - handle comparison plot suffix and dashing

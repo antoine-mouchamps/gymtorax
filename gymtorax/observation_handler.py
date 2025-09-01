@@ -750,7 +750,8 @@ class Observation(ABC):
         )
 
     def _make_box(self, var_name: str) -> spaces.Box:
-        """Create a Gymnasium Box space for a single variable with appropriate bounds and shape.
+        """Create a Gymnasium Box space for a single variable with appropriate bounds
+        and shape.
 
         This method creates the actual Box space that will be used in the observation
         space dictionary. It handles both profile variables (with array shapes) and
