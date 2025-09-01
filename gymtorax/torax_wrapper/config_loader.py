@@ -1,22 +1,20 @@
-"""
-Configuration loader for TORAX simulation package.
+"""Configuration loader for TORAX simulation package.
 
 This module provides a wrapper around TORAX configuration dictionaries,
 offering convenient access to common simulation parameters and configuration
 management for Gymnasium environments.
 """
 
-import torax
-
-from torax import ToraxConfig
 from typing import Any
+
+import torax
+from torax import ToraxConfig
 
 import gymtorax.action_handler as act
 
 
 class ConfigLoader:
-    """
-    A wrapper class for TORAX configuration management.
+    """A wrapper class for TORAX configuration management.
 
     This class handles the conversion between Python dictionaries and TORAX's
     internal configuration format, providing convenient access to simulation
@@ -28,8 +26,7 @@ class ConfigLoader:
         config: dict[str, Any],
         action_handler: act.ActionHandler,
     ):
-        """
-        Initialize the configuration loader.
+        """Initialize the configuration loader.
 
         Args:
             config: Dictionary containing TORAX configuration parameters.
@@ -39,7 +36,6 @@ class ConfigLoader:
             ValueError: If the configuration dictionary is invalid
             TypeError: If config is not a dictionary
         """
-
         if not isinstance(config, dict):
             raise TypeError("Configuration must be a dictionary")
         self.action_handler = action_handler
@@ -54,8 +50,7 @@ class ConfigLoader:
             raise ValueError(f"Invalid TORAX configuration: {e}")
 
     def get_dict(self) -> dict[str, Any]:
-        """
-        Get the raw configuration dictionary.
+        """Get the raw configuration dictionary.
 
         Returns:
             The original configuration dictionary
@@ -65,8 +60,7 @@ class ConfigLoader:
         )  # Return a copy to prevent external modifications
 
     def get_total_simulation_time(self) -> float:
-        """
-        Get the total simulation time in seconds.
+        """Get the total simulation time in seconds.
 
         This extracts the :code:`t_final` parameter from the numerics section,
         which defines how long the plasma simulation should run.
@@ -87,8 +81,7 @@ class ConfigLoader:
             raise KeyError(f"Missing required configuration key: {e}")
 
     def set_total_simulation_time(self, time: float) -> None:
-        """
-        Set the total simulation time in seconds.
+        """Set the total simulation time in seconds.
 
         This updates the :code:`t_final` parameter in the numerics section,
         which defines how long the plasma simulation should run.
@@ -110,8 +103,7 @@ class ConfigLoader:
             raise KeyError(f"Missing required configuration key: {e}")
 
     def get_initial_simulation_time(self, reset=False) -> float:
-        """
-        Get the initial simulation time in seconds.
+        """Get the initial simulation time in seconds.
 
         This extracts the :code:`t_initial` parameter from the numerics section,
         which defines the initial time for the plasma simulation.
@@ -137,8 +129,7 @@ class ConfigLoader:
         return float(t_initial)
 
     def get_simulation_timestep(self) -> float:
-        """
-        Get the simulation timestep in seconds.
+        """Get the simulation timestep in seconds.
 
         This extracts the :code:`fixed_dt` parameter from the numerics section,
         which defines the time step used in the numerical integration.
@@ -159,8 +150,7 @@ class ConfigLoader:
             raise KeyError(f"Missing required configuration key: {e}")
 
     def get_n_grid_points(self) -> int:
-        """
-        Get the number of radial grid points (rho) in the simulation.
+        """Get the number of radial grid points (rho) in the simulation.
 
         This extracts the :code:`n_rho` parameter from the geometry section,
         which defines the number of radial grid points in the simulation. If
@@ -187,12 +177,13 @@ class ConfigLoader:
         """Update the configuration of the simulation based on the provided action.
         This method updates the configuration dictionary with new values for sources and profile conditions.
         It also prepares the restart file if necessary.
+
         Args:
             action: A dictionary containing the new configuration values for sources and profile conditions.
+
         Returns:
             The updated configuration dictionary.
         """
-
         self.config_dict["numerics"]["t_initial"] = current_time
         self.config_dict["numerics"]["t_final"] = current_time + delta_t_a
         if self.config_dict["numerics"]["t_final"] > final_time:
@@ -218,8 +209,7 @@ class ConfigLoader:
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
 
     def _validate(self) -> None:
-        """
-        Validate the configuration dictionary.
+        """Validate the configuration dictionary.
 
         This method checks that the configuration contains all required keys
         and that their values are of the expected types for a Gym-TORAX
@@ -233,8 +223,7 @@ class ConfigLoader:
             a.init_dict(self.config_dict)
 
     def validate_discretization(self, discretization_torax: str) -> None:
-        """
-        Validate the discretization settings.
+        """Validate the discretization settings.
 
         This method checks that the discretization settings are consistent
         and valid for the simulation.

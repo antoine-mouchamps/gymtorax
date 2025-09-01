@@ -2,8 +2,7 @@ import logging
 
 
 def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
-    """
-    Setup global logging configuration with optional external library suppression.
+    """Setup global logging configuration with optional external library suppression.
 
     When using DEBUG level, external libraries (JAX, TORAX, etc.) can generate
     overwhelming amounts of log messages. This function allows you to debug your
@@ -27,7 +26,6 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
         # Normal usage (unchanged behavior)
         setup_logging(level=logging.WARNING)
     """
-
     handlers = [logging.StreamHandler()]
     if logfile is not None:
         handlers.append(logging.FileHandler(logfile, mode="w"))

@@ -1,5 +1,4 @@
-"""
-TORAX Base Environment Module.
+"""TORAX Base Environment Module.
 
 This module provides the abstract base class for TORAX plasma simulation environments
 compatible with the Gymnasium reinforcement learning framework. It integrates TORAX
@@ -31,27 +30,26 @@ Example:
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
 
+import logging
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
 from typing import Any
+
+import gymnasium as gym
+import numpy as np
 from numpy._typing._array_like import NDArray
 
-import numpy as np
-import gymnasium as gym
-import logging
-
 from ..action_handler import Action, ActionHandler
-from ..observation_handler import Observation
-from ..torax_wrapper import ToraxApp, ConfigLoader
 from ..logger import setup_logging
+from ..observation_handler import Observation
+from ..torax_wrapper import ConfigLoader, ToraxApp
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
 
 class BaseEnv(gym.Env, ABC):
-    """
-    Abstract base class for TORAX plasma simulation environments.
+    """Abstract base class for TORAX plasma simulation environments.
 
     This class integrates TORAX physics simulations with the Gymnasium reinforcement
     learning framework, providing a standardized interface for plasma control tasks.
@@ -96,8 +94,7 @@ class BaseEnv(gym.Env, ABC):
         logfile=None,
         store_state_history=False,
     ) -> None:
-        """
-        Initialize the TORAX gymnasium environment.
+        """Initialize the TORAX gymnasium environment.
 
         Args:
             render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
@@ -205,8 +202,7 @@ class BaseEnv(gym.Env, ABC):
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], dict[str, Any]]:
-        """
-        Reset the environment to its initial state for a new episode.
+        """Reset the environment to its initial state for a new episode.
 
         This method initializes a new simulation episode by:
         1. Resetting internal counters and flags
@@ -247,8 +243,7 @@ class BaseEnv(gym.Env, ABC):
     def step(
         self, action: NDArray[np.floating]
     ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
-        """
-        Execute one environment step with the given action.
+        """Execute one environment step with the given action.
 
         This method implements the core RL interaction by:
         1. Capturing the current state before action
@@ -320,8 +315,7 @@ class BaseEnv(gym.Env, ABC):
         next_state: dict[str, Any],
         action: NDArray[np.floating],
     ) -> float:
-        """
-        Define the reward signal for a state transition.
+        """Define the reward signal for a state transition.
 
         This method should be overridden by concrete subclasses to implement
         task-specific reward functions. The default implementation returns 0.0.
@@ -346,8 +340,7 @@ class BaseEnv(gym.Env, ABC):
         return 0.0
 
     def close(self) -> None:
-        """
-        Clean up environment resources.
+        """Clean up environment resources.
 
         This method properly closes the TORAX simulation and releases any
         rendering resources. Should be called when the environment is no
@@ -364,8 +357,7 @@ class BaseEnv(gym.Env, ABC):
             pass
 
     def render(self):
-        """
-        Render the current environment state.
+        """Render the current environment state.
 
         Returns:
             NDArray or None: RGB array if render_mode is "rgb_array", else None.
@@ -396,8 +388,7 @@ class BaseEnv(gym.Env, ABC):
 
     @abstractmethod
     def define_observation(self) -> Observation:
-        """
-        Define the observation space variables for this environment.
+        """Define the observation space variables for this environment.
 
         This method must be implemented by concrete subclasses to specify
         which TORAX variables should be included in the observation space.
@@ -420,8 +411,7 @@ class BaseEnv(gym.Env, ABC):
 
     @abstractmethod
     def define_actions(self) -> list[Action]:
-        """
-        Define the available control actions for this environment.
+        """Define the available control actions for this environment.
 
         This method must be implemented by concrete subclasses to specify
         which plasma parameters can be controlled by the RL agent.

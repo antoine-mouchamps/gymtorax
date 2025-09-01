@@ -1,5 +1,4 @@
-"""
-TORAX Observation Handler Module.
+"""TORAX Observation Handler Module.
 
 This module provides an abstract framework for handling observations from TORAX
 plasma simulation outputs. Observations represent the current state of the plasma
@@ -24,22 +23,21 @@ Classes:
     AllObservation: Example implementation that includes all available variables
 """
 
+import copy
+import logging
 from abc import ABC
 from typing import Any
-from gymnasium import spaces
-from xarray import DataTree, Dataset
 
-import copy
 import numpy as np
-import logging
+from gymnasium import spaces
+from xarray import Dataset, DataTree
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
 
 class Observation(ABC):
-    """
-    Abstract base class for building observation spaces from TORAX DataTree outputs.
+    """Abstract base class for building observation spaces from TORAX DataTree outputs.
 
     This class provides the foundation for converting TORAX simulation outputs into
     structured observation spaces suitable for reinforcement learning environments.
@@ -290,8 +288,7 @@ class Observation(ABC):
         exclude: list[str] | None = None,
         dtype: np.dtype = np.float64,
     ) -> None:
-        """
-        Initialize an Observation handler.
+        """Initialize an Observation handler.
 
         This constructor sets up the basic configuration for the observation handler
         but does not finalize the observation space. The actual space construction
@@ -374,8 +371,7 @@ class Observation(ABC):
         self.first_state = True
 
     def set_n_grid_points(self, n_rho: int) -> None:
-        """
-        Set the number of radial grid points and update array sizes accordingly.
+        """Set the number of radial grid points and update array sizes accordingly.
 
         This method must be called before building the observation space, as it
         determines the array dimensions for spatially-resolved variables.
@@ -410,8 +406,7 @@ class Observation(ABC):
         }
 
     def _validate_and_filter_variables(self) -> None:
-        """
-        Validate configuration and finalize variable selection and bounds.
+        """Validate configuration and finalize variable selection and bounds.
 
         This method performs the complete setup of the observation handler by:
         1. Validating all configuration via _validate()
@@ -493,8 +488,7 @@ class Observation(ABC):
             )
 
     def _validate(self) -> None:
-        """
-        Validate all observation handler configuration before building spaces.
+        """Validate all observation handler configuration before building spaces.
 
         This method performs comprehensive validation of:
         - State variables have been set via set_state_variables()
@@ -588,8 +582,7 @@ class Observation(ABC):
                              building observation space. Call set_n_grid_points(n_rho) first.""")
 
     def set_action_variables(self, variables: dict[str, list[str]]) -> None:
-        """
-        Set the variables that are controlled by actions.
+        """Set the variables that are controlled by actions.
 
         Action variables will be automatically removed from the state and
         observation space to prevent redundancy between controllable parameters
@@ -609,8 +602,7 @@ class Observation(ABC):
         self.action_variables = variables
 
     def set_state_variables(self, state: DataTree) -> None:
-        """
-        Set the state variables available from TORAX simulation output.
+        """Set the state variables available from TORAX simulation output.
 
         Args:
             state: TORAX DataTree containing the complete simulation output structure.
@@ -627,8 +619,7 @@ class Observation(ABC):
     def extract_state_observation(
         self, datatree: DataTree
     ) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, dict[str, np.ndarray]]]:
-        """
-        Extract complete state and filtered observation from TORAX DataTree output.
+        """Extract complete state and filtered observation from TORAX DataTree output.
 
         This method processes the TORAX simulation output and returns both the
         complete state (all variables present in the TORAX output) and the
@@ -679,8 +670,7 @@ class Observation(ABC):
         return state, observation
 
     def _remove_action_variables(self) -> None:
-        """
-        Remove action variables from the observation handler.
+        """Remove action variables from the observation handler.
 
         This method removes variables that are controlled by actions from both
         the variables list and bounds dictionary. This prevents action variables
@@ -712,8 +702,7 @@ class Observation(ABC):
                 self.observation_variables[cat].remove(var)
 
     def build_observation_space(self) -> spaces.Dict:
-        """
-        Build a Gymnasium observation space for the selected variables.
+        """Build a Gymnasium observation space for the selected variables.
 
         This method creates a nested dict space structure matching the observation
         format, with Box spaces for each variable using the configured bounds.
@@ -737,7 +726,6 @@ class Observation(ABC):
             set_n_grid_points(), set_action_variables(), and set_state_variables()
             must be called before this method.
         """
-
         if self.first_state is True:
             self._validate_and_filter_variables()
             self.first_state = False
@@ -762,8 +750,7 @@ class Observation(ABC):
         )
 
     def _make_box(self, var_name: str) -> spaces.Box:
-        """
-        Create a Gymnasium Box space for a single variable with appropriate bounds and shape.
+        """Create a Gymnasium Box space for a single variable with appropriate bounds and shape.
 
         This method creates the actual Box space that will be used in the observation
         space dictionary. It handles both profile variables (with array shapes) and
@@ -798,8 +785,7 @@ class Observation(ABC):
         return spaces.Box(low=low_arr, high=high_arr, dtype=self.dtype)
 
     def _get_state_as_dict(self, datatree: DataTree) -> dict[str, dict[str, Any]]:
-        """
-        Process the DataTree into a structured dictionary format.
+        """Process the DataTree into a structured dictionary format.
 
         This method converts the TORAX DataTree structure into a standardized
         dictionary format that can be easily processed by other methods.
@@ -839,8 +825,7 @@ class Observation(ABC):
 
 
 class AllObservation(Observation):
-    """
-    Example observation handler that includes all available TORAX variables.
+    """Example observation handler that includes all available TORAX variables.
 
     The observation space will contain all profile and scalar variables available
     in TORAX output, providing complete visibility into the plasma state.
@@ -862,8 +847,7 @@ class AllObservation(Observation):
         exclude: list[str] = None,
         dtype: np.dtype = np.float64,
     ) -> None:
-        """
-        Initialize AllObservation with all variables (minus exclusions).
+        """Initialize AllObservation with all variables (minus exclusions).
 
         Args:
             custom_bounds: dictionary of custom bounds for specific variables,

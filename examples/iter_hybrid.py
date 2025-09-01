@@ -1,8 +1,8 @@
-from gymtorax import BaseEnv, BaseAgent
-
 import numpy as np
+
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
+from gymtorax import BaseAgent, BaseEnv
 
 # fmt: off
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
@@ -210,7 +210,7 @@ class IterHybridEnv(BaseEnv):
 
 
 if __name__ == "__main__":
-    import cProfile, pstats
+    import cProfile
 
     profiler = cProfile.Profile()
 
@@ -227,15 +227,16 @@ if __name__ == "__main__":
         # if agent.time > 90:
 
     env.save_file("tmp/output.nc")
-    from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
     from torax.plotting.configs.default_plot_config import (
         PLOT_CONFIG as simple_plot_config,
     )
 
+    from gymtorax.torax_wrapper.torax_plot_extensions import plot_run_to_gif
+
     plot_run_to_gif(
         plot_config=simple_plot_config,
         outfile="tmp/output.nc",
-        gif_filename=f"tmp/test.gif",
+        gif_filename="tmp/test.gif",
         duration=500,
     )
     # break

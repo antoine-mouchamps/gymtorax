@@ -1,5 +1,4 @@
-"""
-Enhanced TORAX Plotting Functions - PNG and GIF Generation
+"""Enhanced TORAX Plotting Functions - PNG and GIF Generation
 
 This module provides functions similar to plotruns_lib.plot_run() but for generating
 PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
@@ -9,18 +8,17 @@ processing logic, spacing, and matplotlib configurations as the original.
 import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import numpy as np
-import os
-from PIL import Image
-import io
 import inspect
+import io
+import os
 from os import path
-from typing import Optional, List, Sequence, Any
+from typing import Any
 
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 from torax._src.plotting import plotruns_lib
-
 
 # Font scaling constants
 FONT_SCALE_BASE = 1.0  # Base scaling factor
@@ -30,8 +28,7 @@ MIN_FONT_SCALE = 0.5  # Minimum font scale to maintain readability
 
 
 def create_figure(plot_config: plotruns_lib.FigureProperties):
-    """
-    Create figure without slider subplot (modified version of plotruns_lib.create_figure).
+    """Create figure without slider subplot (modified version of plotruns_lib.create_figure).
     Returns only fig and axes, no slider_ax.
     """
     # Calculate font scaling based on rows and columns
@@ -81,11 +78,10 @@ def create_figure(plot_config: plotruns_lib.FigureProperties):
 def plot_run_to_png(
     plot_config: plotruns_lib.FigureProperties,
     outfile: str,
-    time_indices: Optional[List[int]] = None,
+    time_indices: list[int] | None = None,
     output_dir: str = "png_plots",
-) -> List[str]:
-    """
-    Generate PNG images from TORAX simulation data, using EXACT same logic as plot_run().
+) -> list[str]:
+    """Generate PNG images from TORAX simulation data, using EXACT same logic as plot_run().
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
@@ -173,8 +169,7 @@ def plot_run_to_gif(
     optimize: bool = True,
     frame_skip: int = 1,
 ) -> str:
-    """
-    Generate animated GIF from TORAX simulation data, using EXACT same logic as plot_run().
+    """Generate animated GIF from TORAX simulation data, using EXACT same logic as plot_run().
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
@@ -320,12 +315,11 @@ def _apply_font_scaling_to_config(plot_config: plotruns_lib.FigureProperties):
 def _get_lines_at_time(
     plot_config: plotruns_lib.FigureProperties,
     plotdata1: plotruns_lib.PlotData,
-    axes: List[Any],
+    axes: list[Any],
     time_idx: int,
     comp_plot: bool = False,
-) -> List[Any]:
-    """
-    Generate lines at specific time index using EXACT same logic as get_lines() from plot_run.
+) -> list[Any]:
+    """Generate lines at specific time index using EXACT same logic as get_lines() from plot_run.
     This replicates the exact behavior of plotruns_lib.get_lines() but for a specific time.
     """
     lines = []

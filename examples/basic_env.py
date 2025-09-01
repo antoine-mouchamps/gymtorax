@@ -1,8 +1,8 @@
-from gymtorax import BaseEnv
 import numpy as np
 
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
+from gymtorax import BaseEnv
 
 # fmt: off
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
@@ -176,7 +176,7 @@ class TestEnv(BaseEnv):
 
 
 if __name__ == "__main__":
-    import cProfile, pstats, atexit
+    import cProfile
 
     profiler = cProfile.Profile()
     env = TestEnv()

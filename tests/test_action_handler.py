@@ -1,16 +1,15 @@
-import pytest
 import numpy as np
+import pytest
+from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
 from gymtorax.action_handler import (
     Action,
     ActionHandler,
-    IpAction,
-    VloopAction,
     EcrhAction,
+    IpAction,
     NbiAction,
+    VloopAction,
 )
-from torax._src.config.profile_conditions import _MIN_IP_AMPS
-
 
 # ------------------------
 # Custom Actions for testing

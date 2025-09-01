@@ -1,5 +1,4 @@
-"""
-TORAX Action Handler Module.
+"""TORAX Action Handler Module.
 
 This module provides an abstract framework for defining and managing actions
 in TORAX plasma simulations. Actions represent controllable parameters that
@@ -38,14 +37,12 @@ Example:
     >>> ip_action.set_values([1.5e6])  # 1.5 MA plasma current
 """
 
+import logging
 from abc import ABC
 from typing import Any
-from numpy.typing import NDArray
-from gymnasium import spaces
 
 import numpy as np
-import logging
-
+from gymnasium import spaces
 from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
 # Set up logger for this module
@@ -53,8 +50,7 @@ logger = logging.getLogger(__name__)
 
 
 class Action(ABC):
-    """
-    Abstract base class for all TORAX simulation actions.
+    """Abstract base class for all TORAX simulation actions.
 
     An action represents a controllable parameter or set of parameters that can
     influence plasma behavior. Each action has bounds, current values, and knows
@@ -111,8 +107,7 @@ class Action(ABC):
         max: list[float] | None = None,
         dtype: np.dtype = np.float64,
     ) -> None:
-        """
-        Initialize an Action instance.
+        """Initialize an Action instance.
 
         Args:
             min: Custom minimum bounds for each parameter. If None, uses the
@@ -190,8 +185,7 @@ class Action(ABC):
 
     @property
     def min(self) -> list[float]:
-        """
-        Minimum bounds for this action parameters.
+        """Minimum bounds for this action parameters.
 
         Returns:
             list[float]: List of minimum values, one for each parameter
@@ -201,8 +195,7 @@ class Action(ABC):
 
     @property
     def max(self) -> list[float]:
-        """
-        Maximum bounds for this action parameters.
+        """Maximum bounds for this action parameters.
 
         Returns:
             list[float]: List of maximum values, one for each parameter
@@ -211,8 +204,7 @@ class Action(ABC):
         return self._max
 
     def set_values(self, values: list[float]) -> None:
-        """
-        Set the current parameter values for this action.
+        """Set the current parameter values for this action.
 
         Args:
             values (list[float]): The new parameter values to set.
@@ -225,8 +217,7 @@ class Action(ABC):
         self.values = values
 
     def init_dict(self, config_dict: dict[str, Any]) -> None:
-        """
-        Initialize a TORAX configuration dictionary with this action parameters.
+        """Initialize a TORAX configuration dictionary with this action parameters.
 
         This method sets up the configuration dictionary with the action current
         values at time=0, creating the proper time-dependent parameter structure
@@ -249,8 +240,7 @@ class Action(ABC):
             )
 
     def update_to_config(self, config_dict: dict[str, Any], time: float) -> None:
-        """
-        Update a TORAX configuration dictionary with new action values.
+        """Update a TORAX configuration dictionary with new action values.
 
         This method updates the time-dependent parameters in the configuration
         dictionary with the action current values at the specified time.
@@ -267,8 +257,7 @@ class Action(ABC):
         self._apply_mapping(config_dict, time=time)
 
     def _apply_mapping(self, config_dict: dict[str, Any], time: float | str) -> None:
-        """
-        Apply the action values to a TORAX configuration dictionary.
+        """Apply the action values to a TORAX configuration dictionary.
 
         This method traverses the configuration dictionary using the paths defined
         in config_mapping and sets the appropriate values. For time=0 (initialization),
@@ -322,8 +311,7 @@ class Action(ABC):
                 d[key][0].update({time: self.values[idx]})
 
     def get_mapping(self) -> dict[tuple[str, ...], int]:
-        """
-        Get the mapping of configuration dictionary paths to action parameter indices.
+        """Get the mapping of configuration dictionary paths to action parameter indices.
 
         Returns:
             dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
@@ -331,8 +319,7 @@ class Action(ABC):
         return self.config_mapping
 
     def get_state_variables(self) -> tuple[tuple[str]]:
-        """
-        Get the state variables modified by the action.
+        """Get the state variables modified by the action.
 
         Returns:
             tuple[tuple[str]]: A tuple of tuples, each containing the state variable
@@ -341,8 +328,7 @@ class Action(ABC):
         return self.state_var
 
     def __repr__(self) -> str:
-        """
-        Return a string representation of the action.
+        """Return a string representation of the action.
 
         Returns:
             str: String showing the action class name, current values, and bounds.
@@ -351,8 +337,7 @@ class Action(ABC):
 
 
 class ActionHandler:
-    """
-    Internal container and manager for multiple actions.
+    """Internal container and manager for multiple actions.
 
     This class is used internally by the gymtorax framework to manage collections
     of actions.
@@ -365,8 +350,7 @@ class ActionHandler:
     """
 
     def __init__(self, actions: list[Action]) -> None:
-        """
-        Initialize the ActionHandler with a list of actions.
+        """Initialize the ActionHandler with a list of actions.
 
         Args:
             actions: List of Action instances to manage.
@@ -378,8 +362,7 @@ class ActionHandler:
         self.number_of_updates = 0
 
     def get_actions(self) -> list[Action]:
-        """
-        Get the list of managed actions.
+        """Get the list of managed actions.
 
         Returns:
             list[Action]: List of Action instances managed by this handler.
@@ -387,8 +370,7 @@ class ActionHandler:
         return self._actions
 
     def get_action_variables(self) -> dict[str, list[str]]:
-        """
-        Get a dictionary of state variables modified by the managed actions.
+        """Get a dictionary of state variables modified by the managed actions.
 
         Returns:
             dict[str, list[str]]: Dictionary mapping variables categories to lists of
@@ -406,8 +388,7 @@ class ActionHandler:
         return variables
 
     def update_actions(self, actions: spaces.Dict) -> None:
-        """
-        Update the current values of all managed actions.
+        """Update the current values of all managed actions.
 
         Args:
             action: The action to perform.
@@ -425,8 +406,7 @@ class ActionHandler:
         self.number_of_updates += 1
 
     def build_action_space(self) -> spaces.Dict:
-        """
-        Build a Gymnasium Dict action space from all managed actions.
+        """Build a Gymnasium Dict action space from all managed actions.
 
         Creates a dictionary-based action space where each key corresponds to
         an action's name and each value is a Box space with the action's bounds
@@ -437,7 +417,6 @@ class ActionHandler:
                 Box spaces as values. Each Box space uses the action's min/max
                 bounds and dtype for proper numerical handling.
         """
-
         return spaces.Dict(
             {
                 action.name: spaces.Box(
@@ -450,8 +429,7 @@ class ActionHandler:
         )
 
     def _validate_action_handler(self) -> None:
-        """
-        Validates the action handler to ensure action parameters are unique
+        """Validates the action handler to ensure action parameters are unique
         and mutually exclusive.
 
         This function performs two main checks:
@@ -490,8 +468,7 @@ class ActionHandler:
 
 
 class IpAction(Action):
-    """
-    Example action for controlling plasma current (Ip).
+    """Example action for controlling plasma current (Ip).
 
     This action controls the plasma current parameter in TORAX simulations.
     It is a single-parameter action with non-negative bounds.
@@ -518,8 +495,7 @@ class IpAction(Action):
 
 
 class VloopAction(Action):
-    """
-    Example action for controlling loop voltage at the last closed flux surface.
+    """Example action for controlling loop voltage at the last closed flux surface.
 
     This action controls the loop voltage parameter (v_loop_lcfs) in TORAX
     simulations. It is a single-parameter action with non-negative bounds.
@@ -546,8 +522,7 @@ class VloopAction(Action):
 
 
 class EcrhAction(Action):
-    """
-    Example action for controlling Electron Cyclotron Resonance Heating (ECRH).
+    """Example action for controlling Electron Cyclotron Resonance Heating (ECRH).
 
     This action controls three ECRH parameters: total power, Gaussian location,
     and Gaussian width of the heating profile.
@@ -584,8 +559,7 @@ class EcrhAction(Action):
 
 
 class NbiAction(Action):
-    """
-    Example action for controlling Neutral Beam Injection (NBI).
+    """Example action for controlling Neutral Beam Injection (NBI).
 
     This action controls four NBI parameters: heating power, current drive power,
     Gaussian location, and Gaussian width. Both heating and current drive

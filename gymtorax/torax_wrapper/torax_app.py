@@ -1,31 +1,25 @@
-from torax._src.config import build_runtime_params
-from torax._src.orchestration import initial_state as initial_state_lib
-from torax._src.orchestration import run_loop
-from torax._src.orchestration import step_function
-from torax._src.orchestration.sim_state import ToraxSimState
-from torax._src.output_tools.post_processing import PostProcessedOutputs
-from torax._src.output_tools import output
-from torax._src.sources import source_models as source_models_lib
-from torax._src.torax_pydantic import model_config
-from torax._src.state import SimError
-from torax._src import state
-from xarray import DataTree
-from numpy.typing import NDArray
-
-from .config_loader import ConfigLoader
-from . import torax_plot_extensions
-
+import copy
 import logging
 import time
-import copy
+
+from torax._src import state
+from torax._src.config import build_runtime_params
+from torax._src.orchestration import initial_state as initial_state_lib
+from torax._src.orchestration import run_loop, step_function
+from torax._src.orchestration.sim_state import ToraxSimState
+from torax._src.output_tools import output
+from torax._src.output_tools.post_processing import PostProcessedOutputs
+from torax._src.sources import source_models as source_models_lib
+from torax._src.state import SimError
+
+from .config_loader import ConfigLoader
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
 
 class ToraxApp:
-    """
-    TORAX simulation application wrapper.
+    """TORAX simulation application wrapper.
 
     This class provides a high-level interface for running TORAX plasma simulations
     in an episodic manner, suitable for reinforcement learning environments. It manages
@@ -55,8 +49,7 @@ class ToraxApp:
     def __init__(
         self, config_loader: ConfigLoader, delta_t_a: float, store_history: bool = False
     ):
-        """
-        Initialize ToraxApp with configuration and simulation parameters.
+        """Initialize ToraxApp with configuration and simulation parameters.
 
         Args:
             config_loader: ConfigLoader instance containing TORAX configuration
@@ -94,8 +87,7 @@ class ToraxApp:
         self.is_started: bool = False
 
     def start(self):
-        """
-        Initialize TORAX simulation components.
+        """Initialize TORAX simulation components.
 
         This method sets up all the TORAX simulation infrastructure:
         - Transport and pedestal models
@@ -107,7 +99,6 @@ class ToraxApp:
 
         Called automatically by reset() if not already started.
         """
-
         # Build physics models for plasma simulation
         transport_model = (
             self.initial_config.config_torax.transport.build_transport_model()
@@ -208,8 +199,7 @@ class ToraxApp:
         logger.debug(" ToraxApp started.")
 
     def reset(self):
-        """
-        Reset the simulation to initial conditions for a new episode.
+        """Reset the simulation to initial conditions for a new episode.
 
         This method prepares the application for a new simulation episode by:
         - Initializing TORAX components if not already started
@@ -275,8 +265,7 @@ class ToraxApp:
         logger.debug(" ToraxApp reset.")
 
     def run(self) -> tuple[bool, bool]:
-        """
-        Execute one simulation step from t_current to t_current + delta_t_a.
+        """Execute one simulation step from t_current to t_current + delta_t_a.
 
         This method advances the TORAX simulation by one action timestep, which may
         involve multiple internal TORAX timesteps. It handles:
@@ -346,7 +335,7 @@ class ToraxApp:
         # Check if TORAX simulation encountered internal errors
         if sim_error != state.SimError.NO_ERROR:
             logger.warning(
-                f" simulation terminated with an error. The environment will reset"
+                " simulation terminated with an error. The environment will reset"
             )
             return False, False
 
@@ -379,8 +368,7 @@ class ToraxApp:
         return True, False
 
     def update_config(self, action) -> None:
-        """
-        Update simulation configuration with new action parameters.
+        """Update simulation configuration with new action parameters.
 
         This method applies new control parameters to the TORAX configuration
         for the next simulation step.
@@ -434,8 +422,7 @@ class ToraxApp:
     #         )
 
     def save_output_file(self, file_name):
-        """
-        Save complete simulation history to NetCDF file.
+        """Save complete simulation history to NetCDF file.
 
         This method saves the full simulation trajectory to a NetCDF file suitable
         for analysis and visualization. Requires store_history=True in constructor.
@@ -467,8 +454,7 @@ class ToraxApp:
             raise ValueError(f"An error occurred while saving: {e}")
 
     def get_state_data(self):
-        """
-        Get current simulation state as xarray DataTree.
+        """Get current simulation state as xarray DataTree.
 
         This method returns the current simulation state in xarray format,
         suitable for observation extraction and analysis.
