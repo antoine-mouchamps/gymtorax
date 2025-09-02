@@ -21,7 +21,6 @@ xarray = "*"
 pytest = "*"
 pytest-cov = "*"
 ruff = "*"
-pre-commit = "*"
 docformatter = "*"
 
 [build-system]
@@ -54,6 +53,7 @@ ignore = [
     "D100", # Missing docstring in public module
     "D104", # Missing docstring in public package
     "E501", # Line too long
+    "N806", # Variable in function should be lowercase
 ]
 
 [tool.ruff.lint.pydocstyle]

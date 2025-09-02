@@ -197,7 +197,7 @@ def plot_run_to_gif(
         # Progress indicator
         if (frame_idx + 1) % 2 == 0:
             logger.info(f"  📸 Generated {frame_idx + 1}/{actual_frames} frames")
-    logger.info()
+    logger.info("")
 
     # Save animated GIF
     logger.info(f"🎥 Saving animated GIF: {gif_filename}")
