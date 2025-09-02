@@ -9,10 +9,13 @@ import gymtorax.rewards as rw
 from gymtorax import BaseAgent, BaseEnv
 from gymtorax.rendering.plots import main_prop_fig
 
-"""Config for ITER hybrid scenario based parameters with nonlinear solver.
+"""
+ITER hybrid scenario configuration for GymTorax.
 
-ITER hybrid scenario based (roughly) on van Mulders Nucl. Fusion 2021.
-With Newton-Raphson solver and adaptive timestep (backtracking)
+This example sets up an ITER hybrid scenario (inspired by van Mulders Nucl. Fusion 2021)
+using a linear solver with Picard iteration and a fixed time step.
+The configuration includes detailed plasma composition, heating/current drive sources,
+geometry, transport, pedestal, and reward shaping for RL.
 """
 
 _NBI_W_TO_MA = 1/16e6 # rough estimate of NBI heating power to current drive
@@ -161,12 +164,24 @@ CONFIG = {
 # fmt: on
 
 
-class IterHybridAgent(BaseAgent):  # noqa: D101
-    def __init__(self, action_space):  # noqa: D107
+
+class IterHybridAgent(BaseAgent):
+    """Agent for the ITER hybrid scenario.
+
+    This agent produces a sequence of actions for the ITER hybrid scenario,
+    ramping up plasma current and heating sources according to the scenario timeline.
+    """
+    def __init__(self, action_space):
+        """Initialize the agent with the given action space."""
         super().__init__(action_space=action_space)
         self.time = 0
 
-    def act(self, observation) -> dict:  # noqa: D102
+    def act(self, observation) -> dict:
+        """Compute the next action based on the current observation and internal time.
+
+        Returns:
+            dict: Action dictionary for the environment.
+        """
         action = {
             "Ip": [3e6],
             "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
@@ -193,8 +208,15 @@ class IterHybridAgent(BaseAgent):  # noqa: D101
         return action
 
 
-class IterHybridEnv(BaseEnv):  # noqa: D101
-    def __init__(self, render_mode, fig, store_state_history):  # noqa: D107
+
+class IterHybridEnv(BaseEnv):
+    """GymTorax environment for the ITER hybrid scenario.
+
+    This environment sets up the ITER hybrid scenario configuration, action/observation spaces,
+    and reward function for reinforcement learning or simulation.
+    """
+    def __init__(self, render_mode, fig, store_state_history):
+        """Initialize the environment with rendering mode, figure, and state history option."""
         super().__init__(
             render_mode=render_mode,
             log_level="debug",
@@ -202,15 +224,29 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
             store_state_history=store_state_history,
         )
 
-    def define_actions(self):  # noqa: D102
-        actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
+    def define_actions(self):
+        """Define the list of available actions for the agent.
 
+        Returns:
+            list: List of action handler objects.
+        """
+        actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
         return actions
 
-    def define_observation(self):  # noqa: D102
+    def define_observation(self):
+        """Define the observation space for the environment.
+
+        Returns:
+            Observation handler object.
+        """
         return oh.AllObservation()
 
-    def get_torax_config(self):  # noqa: D102
+    def get_torax_config(self):
+        """Return the configuration dictionary for the underlying Torax simulation.
+
+        Returns:
+            dict: Torax configuration dictionary.
+        """
         return {
             "config": CONFIG,
             "discretization": "fixed",
@@ -218,25 +254,24 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
         }
 
     def define_reward(self, state, next_state, action):
-        """Compute the reward. The higher the reward, the more performance and stability of the plasma.
+        """Compute the reward for a transition in the ITER hybrid scenario.
 
-        The reward is a weighted sum of several factors:
-        - Fusion gain Q: we want to maximize it.
-        - Beta_N: we want to be as close as possible to the Troyon limit, but not exceed it too much.
-        - Energy confinement time tau_E: we want to maximize it.
-        - q_min: we want to avoid it to be below 1.
-        - q_edge: we want to avoid it to be below 3.
-        - Magnetic shear at rational surfaces: we want to avoid low shear at rational surfaces.
+        The reward is a weighted sum of plasma performance and stability metrics:
+        - Fusion gain Q (maximize)
+        - Beta_N (maximize, but penalize exceeding Troyon limit)
+        - Energy confinement time tau_E (maximize)
+        - q_min (penalize if below 1)
+        - q_edge (penalize if below 3)
+        - Magnetic shear at rational surfaces (penalize low shear)
+        - Current profile error (penalize deviation from ideal profile)
 
         Args:
-            state (dict[str, Any]): state at time t
-            next_state (dict[str, Any]): state at time t+1
-            action (NDArray[np.floating]): applied action at time t
-            gamma (float): discounted factor (0 < gamma <= 1)
-            n (int): number of steps since the beginning of the episode
+            state (dict): State at time t.
+            next_state (dict): State at time t+1.
+            action (dict): Action applied at time t.
 
         Returns:
-            float: reward associated to the transition (state, action, next_state)
+            float: Reward value for the transition (state, action, next_state).
         """
         Q = rw.get_fusion_gain(next_state)
         beta_N = rw.get_beta_N(next_state)
