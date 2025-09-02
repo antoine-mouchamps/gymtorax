@@ -87,4 +87,4 @@ def get_j_profile(state : dict) -> np.ndarray:
     Returns:
         np.ndarray: The current density profile j.
     """
-    return state["profiles"]["current_density"]
+    return state["profiles"]["j_total"]

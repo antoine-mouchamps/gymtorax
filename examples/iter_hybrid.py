@@ -306,13 +306,23 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
             Returns:
                 float: The error between the actual and ideal current density.
             """
-            j_ideal = 1e6 * 1.5/100 * self.current_time + 0.5e6
+            j_ideal = self._j_objectif()
             return abs(j_center - j_ideal)
 
         return weight_list[0]*Q + weight_list[1]*gaussian_beta() + weight_list[2]*tau_E \
                         + weight_list[3]*q_min_function() + weight_list[4]*q_edge_function() \
                         + weight_list[5]*s_function() - weight_list[6]*j_error()
 
+    def _j_objectif(self):
+        """Compute the objective function for the current density.
+
+        Returns:
+            float: The objective function value.
+        """
+        if self.current_time>100:
+            return 2e6
+        else:
+            return 1e6 * 1.5/100 * self.current_time + 0.4e6
 
 
 if __name__ == "__main__":
