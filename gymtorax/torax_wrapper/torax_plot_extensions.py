@@ -5,6 +5,7 @@ PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
 processing logic, spacing, and matplotlib configurations as the original.
 """
 
+from click import pause
 import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
@@ -26,9 +27,7 @@ logger = logging.getLogger(__name__)
 
 # Font scaling constants
 FONT_SCALE_BASE = 1.0  # Base scaling factor
-FONT_SCALE_PER_ROW = 0.5  # Additional scaling per row
-FONT_SCALE_PER_COL = 0.8  # Additional scaling per column
-MIN_FONT_SCALE = 0.5  # Minimum font scale to maintain readability
+FONT_SCALE_PER_ROW = 0.3  # Additional scaling per row
 
 
 def create_figure(plot_config: plotruns_lib.FigureProperties):
@@ -40,24 +39,7 @@ def create_figure(plot_config: plotruns_lib.FigureProperties):
     rows = plot_config.rows
     cols = plot_config.cols
 
-    font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
-
-    # EXACT same matplotlib RC settings as original, but with scaling
-    matplotlib.rc("xtick", labelsize=int(plot_config.tick_fontsize * font_scale))
-    matplotlib.rc("ytick", labelsize=int(plot_config.tick_fontsize * font_scale))
-    matplotlib.rc("axes", labelsize=int(plot_config.axes_fontsize * font_scale))
-    matplotlib.rc("figure", titlesize=int(plot_config.title_fontsize * font_scale))
-    matplotlib.rc(
-        "legend", fontsize=int(plot_config.default_legend_fontsize * font_scale)
-    )
-
-    # Additional settings for Agg backend compatibility
-    matplotlib.rc(
-        "font", size=int(plot_config.axes_fontsize * font_scale)
-    )  # Base font size
-
     # EXACT same figure size calculation as original
-
     fig = plt.figure(
         figsize=(
             cols * plot_config.figure_size_factor,
@@ -147,6 +129,23 @@ def plot_run_to_gif(
 
     frames = []
 
+    # Calculate font scaling based on rows
+    rows = plot_config.rows
+
+    font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
+
+    # EXACT same matplotlib RC settings as original, but with scaling
+    matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("ytick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("axes", labelsize=plot_config.axes_fontsize * font_scale)
+    matplotlib.rc("figure", titlesize=plot_config.title_fontsize * font_scale)
+
+    # Scale the font size of legend
+    plot_config.default_legend_fontsize *= font_scale
+    for ax_cfg in plot_config.axes:
+        if ax_cfg.legend_fontsize is not None:
+            ax_cfg.legend_fontsize *= font_scale
+
     for frame_idx, time_idx in enumerate(time_indices):
         time_val = plotdata1.t[time_idx]
 
@@ -171,6 +170,7 @@ def plot_run_to_gif(
 
         # Convert plot to image
         buf = io.BytesIO()
+        fig.canvas.draw()
         plt.savefig(
             buf,
             format="png",
