@@ -30,6 +30,7 @@ Example:
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
 
+import copy
 import logging
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
@@ -122,7 +123,7 @@ class BaseEnv(gym.Env, ABC):
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
         try:
-            config = self.get_torax_config()["config"]
+            config = copy.deepcopy(self.get_torax_config()["config"])
             discretization_torax = self.get_torax_config()["discretization"]
         except KeyError as e:
             raise KeyError(f"Missing key in TORAX config: {e}")
