@@ -1,6 +1,12 @@
 import numpy as np
-from iter_hybrid_pid import IterHybridEnvPid
 from scipy.optimize import minimize
+
+import gymtorax.action_handler as ah
+import gymtorax.observation_handler as oh
+
+import gymtorax.rendering.visualization as viz
+import gymtorax.rewards as rw
+from gymtorax import IterHybridEnv
 
 
 class PIDAgent:
@@ -97,6 +103,139 @@ class PIDAgent:
         self.time += 1
 
         return action
+
+
+class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
+    def __init__(self, render_mode, fig=None, store_state_history=False):  # noqa: D107
+        super().__init__(
+            render_mode=render_mode,
+            log_level="debug",
+            fig=fig,
+            store_state_history=store_state_history,
+        )
+
+    @property
+    def _define_actions(self):  # noqa: D102
+        actions = [ah.IpAction()]
+
+        return actions
+
+    def define_reward(self, state, next_state, action):
+        """Compute the reward. The higher the reward, the more performance and stability of the plasma.
+
+        The reward is a weighted sum of several factors:
+        - Fusion gain Q: we want to maximize it.
+        - Beta_N: we want to be as close as possible to the Troyon limit, but not exceed it too much.
+        - Energy confinement time tau_E: we want to maximize it.
+        - q_min: we want to avoid it to be below 1.
+        - q_edge: we want to avoid it to be below 3.
+        - Magnetic shear at rational surfaces: we want to avoid low shear at rational surfaces.
+
+        Args:
+            state (dict[str, Any]): state at time t
+            next_state (dict[str, Any]): state at time t+1
+            action (NDArray[np.floating]): applied action at time t
+            gamma (float): discounted factor (0 < gamma <= 1)
+            n (int): number of steps since the beginning of the episode
+
+        Returns:
+            float: reward associated to the transition (state, action, next_state)
+        """
+        Q = rw.get_fusion_gain(next_state)
+        beta_N = rw.get_beta_N(next_state)
+        tau_E = rw.get_tau_E(next_state)
+        q_profile = rw.get_q_profile(next_state)
+        q_min = rw.get_q_min(next_state)
+        q_95 = rw.get_q95(next_state)
+        s_profile = rw.get_s_profile(next_state)
+        j_center = rw.get_j_profile(next_state)[0]
+
+        # Customize weights and sigma as needed
+        weight_list = [1, 1, 1, 1, 1, 1, 1]
+        sigma = 0.5
+
+        def gaussian_beta():
+            """Compute the Gaussian weight for the beta_N value.
+
+            Beta_N is a measure of performance and instabilities in plasma physics.
+            We have to find a trade-off between stability and performance.
+            The Troyon limit is an empirical limit which can be used as a trade-off.
+            However, it can be exceeded in certain scenarios.
+            For this reason, we need a correlation to allow a slight excess.
+            That's why we use a Gaussian function.
+            """
+            Ip = action["Ip"][0] / 1e6  # We know that Ip is in action
+            beta_troyon = (
+                0.028
+                * Ip
+                / (next_state["scalars"]["a_minor"] * next_state["scalars"]["B_0"])
+            )
+            return np.exp(-0.5 * ((beta_N - beta_troyon) / sigma) ** 2)
+
+        def q_min_function():
+            if q_min <= 1:
+                return 0
+            elif q_min > 1:
+                return 1
+
+        def q_edge_function():
+            if q_95 <= 3:
+                return 0
+            else:
+                return 1
+
+        def s_function():
+            q_risk = [1, 4 / 3, 3 / 2, 5 / 3, 2, 5 / 2, 3]
+            weight = [-1, -1, -1, -1, -1, -1, -1]
+            s0 = 0.1  # Value to avoid a division by zero
+            sum_ = 0
+            q_max = max(q_profile)
+
+            for q_val, w_val in zip(q_risk, weight):
+                if not (q_min <= q_val <= q_max):
+                    continue
+
+                for i in range(len(q_profile) - 1):
+                    q1, q2 = q_profile[i], q_profile[i + 1]
+                    s1, s2 = s_profile[i], s_profile[i + 1]
+
+                    if (q1 <= q_val <= q2) or (q2 <= q_val <= q1):
+                        # interpolate s from the estimated position q
+                        s = np.interp(q_val, [q1, q2], [s1, s2])
+                        sum_ += w_val * 1 / (abs(s) + s0)
+            return sum_
+
+        def j_error():
+            """Compute the error between the actual and ideal current density.
+
+            The ideal current density is a linear function of time.
+
+            Returns:
+                float: The error between the actual and ideal current density.
+            """
+            j_ideal = self._j_objectif()
+            return abs(j_center - j_ideal)
+
+        return (
+            weight_list[0] * Q
+            + weight_list[1] * gaussian_beta()
+            + weight_list[2] * tau_E
+            + weight_list[3] * q_min_function()
+            + weight_list[4] * q_edge_function()
+            + weight_list[5] * s_function()
+            - weight_list[6] * j_error()
+        )
+
+    def _j_objectif(self):
+        """Compute the objective function for the current density.
+
+        Returns:
+            float: The objective function value.
+        """
+        if self.current_time > 100:
+            return 2e6
+        else:
+            return 1e6 * 1.5 / 100 * self.current_time + 0.4e6
 
 
 def simulate(env: IterHybridEnvPid, k):
