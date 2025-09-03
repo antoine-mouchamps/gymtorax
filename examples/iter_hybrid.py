@@ -164,13 +164,13 @@ CONFIG = {
 # fmt: on
 
 
-
 class IterHybridAgent(BaseAgent):
     """Agent for the ITER hybrid scenario.
 
     This agent produces a sequence of actions for the ITER hybrid scenario,
     ramping up plasma current and heating sources according to the scenario timeline.
     """
+
     def __init__(self, action_space):
         """Initialize the agent with the given action space."""
         super().__init__(action_space=action_space)
@@ -208,13 +208,13 @@ class IterHybridAgent(BaseAgent):
         return action
 
 
-
 class IterHybridEnv(BaseEnv):
     """GymTorax environment for the ITER hybrid scenario.
 
     This environment sets up the ITER hybrid scenario configuration, action/observation spaces,
     and reward function for reinforcement learning or simulation.
     """
+
     def __init__(self, render_mode, fig, store_state_history):
         """Initialize the environment with rendering mode, figure, and state history option."""
         super().__init__(
