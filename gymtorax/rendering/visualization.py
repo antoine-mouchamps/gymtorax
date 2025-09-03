@@ -413,6 +413,9 @@ def save_gif_from_nc(
         visualizations. The fig_properties should match the data structure in the
         NetCDF file (profiles vs scalars).
     """
+    if fig_properties is None:
+        logger.warning(" fig_properties is None, no gif will be created.")
+        return
     datatree = output.load_state_file(nc_path)
     # Get time from root dataset
     time = (

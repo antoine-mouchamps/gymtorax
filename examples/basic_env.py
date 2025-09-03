@@ -161,18 +161,23 @@ class TestEnv(BaseEnv):  # noqa: D101
     def __init__(self):  # noqa: D107
         super().__init__(render_mode=None, log_level="debug", store_state_history=True)
 
-    def define_actions(self):  # noqa: D102
+    @property
+    def _define_actions(self):  # noqa: D102
         actions = [
             ah.IpAction(),
         ]
-
         return actions
 
-    def define_observation(self):  # noqa: D102
+    @property
+    def _define_observation(self):  # noqa: D102
         return oh.AllObservation()
 
-    def get_torax_config(self):  # noqa: D102
+    @property
+    def _define_torax_config(self):  # noqa: D102
         return {"config": CONFIG, "discretization": "auto", "delta_t_a": 1.0}
+
+    def _define_reward(self, state, next_state, action):
+        return 0.0
 
 
 if __name__ == "__main__":

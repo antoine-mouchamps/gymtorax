@@ -83,10 +83,6 @@ def test_update_config_updates_config(torax_app_fixture):
     app = torax_app_fixture
     app.reset()
     action = np.array([1.0, 2.0])
-    old_geometry_provider = app.geometry_provider
-    old_dynamic_runtime_params_slice_provider = (
-        app.dynamic_runtime_params_slice_provider
-    )
     app.update_config(action)
     app.config.update_config.assert_called_once_with(
         action, app.t_current, app.t_final, app.delta_t_a
@@ -140,7 +136,6 @@ def test_get_state_data_returns_data(torax_app_fixture):
 
 def test_run_returns_false_on_sim_error():
     """Test run returns (False, False) if sim_error is not NO_ERROR."""
-
     with (
         patch("gymtorax.torax_wrapper.torax_app.build_runtime_params"),
         patch(
