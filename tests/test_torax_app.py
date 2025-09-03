@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import MagicMock, patch
-import numpy as np
 
-from gymtorax.torax_wrapper.torax_app import ToraxApp
+import numpy as np
+import pytest
+
 from gymtorax.torax_wrapper import torax_app
+from gymtorax.torax_wrapper.torax_app import ToraxApp
+
 
 # Dummy ConfigLoader for testing
 class DummyConfigLoader:
@@ -60,15 +62,13 @@ def test_update_config_updates_config(torax_app_fixture):
     app = torax_app_fixture
     app.reset()
     action = np.array([1.0, 2.0])
-    old_geometry_provider = app.geometry_provider
-    old_dynamic_runtime_params_slice_provider = app.dynamic_runtime_params_slice_provider
     app.update_config(action)
     app.config.update_config.assert_called_once_with(
         action, app.t_current, app.t_final, app.delta_t_a
     )
     assert app.geometry_provider is not None
     assert app.dynamic_runtime_params_slice_provider is not None
-    
+
 def test_run_successful(torax_app_fixture):
     """Test run executes a simulation step and returns (True, False) when not finished."""
     app = torax_app_fixture
@@ -77,7 +77,7 @@ def test_run_successful(torax_app_fixture):
     app.t_final = 1.0
     result, done = app.run()
     assert result is True
-    assert done == (app.t_current > app.t_final) 
+    assert done == (app.t_current > app.t_final)
 
 def test_run_without_reset_raises():
     """Test run raises RuntimeError if reset was not called."""
@@ -109,7 +109,6 @@ def test_get_state_data_returns_data(torax_app_fixture):
 
 def test_run_returns_false_on_sim_error():
     """Test run returns (False, False) if sim_error is not NO_ERROR."""
-    from gymtorax.torax_wrapper import torax_app
     with patch('gymtorax.torax_wrapper.torax_app.build_runtime_params'), \
          patch('gymtorax.torax_wrapper.torax_app.initial_state_lib.get_initial_state_and_post_processed_outputs', return_value=(MagicMock(), MagicMock())), \
          patch('gymtorax.torax_wrapper.torax_app.output.StateHistory') as MockStateHistory, \

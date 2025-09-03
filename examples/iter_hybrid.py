@@ -193,7 +193,7 @@ class IterHybridAgent(BaseAgent):  # noqa: D101
 
 
 class IterHybridEnv(BaseEnv):  # noqa: D101
-    def __init__(self, render_mode, fig, store_state_history):  # noqa: D107
+    def __init__(self, render_mode, fig = None, store_state_history = False):  # noqa: D107
         super().__init__(
             render_mode=render_mode,
             log_level="debug",
@@ -201,28 +201,34 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
             store_state_history=store_state_history,
         )
 
-    def define_actions(self):  # noqa: D102
+    @property
+    def _define_actions(self):  # noqa: D102
         actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
 
         return actions
 
-    def define_observation(self):  # noqa: D102
+    @property
+    def _define_observation(self):  # noqa: D102
         return oh.AllObservation()
 
-    def get_torax_config(self):  # noqa: D102
+    @property
+    def _define_torax_config(self):  # noqa: D102
         return {
             "config": CONFIG,
             "discretization": "fixed",
             "ratio_a_sim": 1,
         }
 
+    def _define_reward(self, state, next_state, action):  # noqa: D102
+        return 0.0
+
 
 if __name__ == "__main__":
     import cProfile
-
+    import pstats
     profiler = cProfile.Profile()
-    fig_plot = main_prop_fig
-    env = IterHybridEnv(render_mode=None, fig=fig_plot, store_state_history=True)
+    fig_plot = None
+    env = IterHybridEnv(render_mode=None, store_state_history=True)
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
