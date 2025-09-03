@@ -3,8 +3,7 @@ import cProfile
 import numpy as np
 
 import gymtorax.rendering.visualization as viz
-from gymtorax import BaseAgent
-from gymtorax.envs.IterHybridEnv import IterHybridEnv
+from gymtorax import IterHybridEnv
 
 _NBI_W_TO_MA = 1/16e6
 W_to_Ne_ratio = 0
@@ -19,7 +18,7 @@ el_heat_fraction = 0.66
 
 eccd_power = {0: 0, 99: 0, 100: 20.0e6}
 
-class IterHybridAgent(BaseAgent):  # noqa: D101
+class IterHybridAgent:  # noqa: D101
     """Rule-based agent for ITER hybrid scenarios."""
     def __init__(self, action_space):  # noqa: D107
         super().__init__(action_space=action_space)

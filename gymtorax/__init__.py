@@ -1,4 +1,3 @@
-from .agents import BaseAgent
-from .envs import BaseEnv
+from .envs import BaseEnv, IterHybridEnv
 
-__all__ = ["BaseEnv", "BaseAgent"]
+__all__ = ["BaseEnv", "IterHybridEnv"]
