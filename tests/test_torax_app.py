@@ -85,7 +85,7 @@ def test_update_config_updates_config(torax_app_fixture):
     action = np.array([1.0, 2.0])
     app.update_config(action)
     app.config.update_config.assert_called_once_with(
-        action, app.t_current, app.t_final, app.delta_t_a
+        action, app.t_current, app.delta_t_a
     )
     assert app.geometry_provider is not None
     assert app.dynamic_runtime_params_slice_provider is not None
