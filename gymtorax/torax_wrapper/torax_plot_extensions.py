@@ -11,13 +11,14 @@ matplotlib.use("Agg")  # Non-interactive backend
 import inspect
 import io
 import logging
-from os import path
 from typing import Any
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 from PIL import Image
+from torax._src.output_tools import output
 from torax._src.plotting import plotruns_lib
 
 # Set up logger for this module
@@ -81,8 +82,8 @@ def create_figure(plot_config: plotruns_lib.FigureProperties):
 
 def plot_run_to_gif(
     plot_config: plotruns_lib.FigureProperties,
-    outfile: str,
-    outfile2: str | None = None,
+    data_tree: xr.DataTree,
+    data_tree_2: xr.DataTree | None = None,
     gif_filename: str = "torax_evolution.gif",
     n_frames: int = 50,
     duration: int = 200,
@@ -104,20 +105,8 @@ def plot_run_to_gif(
     Returns:
         Path to the generated GIF file
     """
-    _, ext = path.splitext(outfile)
-    if ext != "":
-        if ext.lower() != ".nc":
-            raise ValueError(f"Expected .nc file, got {ext} in {outfile}")
-    else:
-        outfile += ".nc"  # Ensure .nc extension if missing
-    if not path.exists(outfile):
-        raise ValueError(f"File {outfile} does not exist.")
-
-    if outfile2 is not None and not path.exists(outfile2):
-        raise ValueError(f"File {outfile2} does not exist.")
-
-    plotdata1 = plotruns_lib.load_data(outfile)
-    plotdata2 = plotruns_lib.load_data(outfile2) if outfile2 else None
+    plotdata1 = _load_data(data_tree)
+    plotdata2 = _load_data(data_tree_2) if data_tree_2 else None
 
     # EXACT same attribute validation as plot_run()
     plotdata_fields = set(plotdata1.__dataclass_fields__)
@@ -165,9 +154,9 @@ def plot_run_to_gif(
         fig, axes = create_figure(plot_config)
 
         # EXACT same title handling as plot_run()
-        title_lines = [f"(1)={outfile} - t = {time_val:.3f} s"]
-        if outfile2:
-            title_lines.append(f"(2)={outfile2}")
+        title_lines = [f"(1)={''} - t = {time_val:.3f} s"]
+        if data_tree_2:
+            title_lines.append(f"(2)={''}")
         fig.suptitle("\n".join(title_lines))
 
         # EXACT same line generation as plot_run(), but at specific time
@@ -213,22 +202,6 @@ def plot_run_to_gif(
 
     logger.info(f"✅ Animated GIF saved: {gif_filename}")
     return gif_filename
-
-
-def _apply_font_scaling_to_config(plot_config: plotruns_lib.FigureProperties):
-    """Apply font scaling to legend_fontsize in each plot config."""
-    rows = plot_config.rows
-
-    font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
-    font_scale = max(font_scale, MIN_FONT_SCALE)
-
-    # Update legend_fontsize for each axis config
-    for cfg in plot_config.axes:
-        if cfg.legend_fontsize is not None:
-            cfg.legend_fontsize = int(cfg.legend_fontsize * font_scale)
-        else:
-            # Use default_legend_fontsize if legend_fontsize is None
-            cfg.legend_fontsize = int(plot_config.default_legend_fontsize * font_scale)
 
 
 def _get_lines_at_time(
@@ -288,3 +261,152 @@ def _get_lines_at_time(
             raise ValueError(f"Unknown plot type: {cfg.plot_type}")
 
     return lines
+
+
+# COPY PASTE FROM TORAX, but without the filename as argument
+def _load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
+    """Loads an xr.Dataset from a file, handling potential coordinate name changes."""
+    # Handle potential time coordinate name variations
+    time = data_tree[output.TIME].to_numpy()
+
+    def get_optional_data(ds, key, grid_type):
+        if grid_type.lower() not in ["cell", "face"]:
+            raise ValueError(
+                f'grid_type for {key} must be either "cell" or "face", got {grid_type}'
+            )
+        if key in ds:
+            return ds[key].to_numpy()
+        else:
+            return (
+                np.zeros((len(time), len(ds[output.RHO_CELL_NORM])))
+                if grid_type == "cell"
+                else np.zeros((len(time), len(ds[output.RHO_FACE_NORM].to_numpy())))
+            )
+
+    def _transform_data(ds: xr.Dataset):
+        """Transforms data in-place to the desired units."""
+        # TODO(b/414755419)
+        ds = ds.copy()
+
+        transformations = {
+            output.J_TOTAL: 1e6,  # A/m^2 to MA/m^2
+            output.J_OHMIC: 1e6,  # A/m^2 to MA/m^2
+            output.J_BOOTSTRAP: 1e6,  # A/m^2 to MA/m^2
+            output.J_EXTERNAL: 1e6,  # A/m^2 to MA/m^2
+            "j_generic_current": 1e6,  # A/m^2 to MA/m^2
+            output.I_BOOTSTRAP: 1e6,  # A to MA
+            output.IP_PROFILE: 1e6,  # A to MA
+            "j_ecrh": 1e6,  # A/m^2 to MA/m^2
+            "p_icrh_i": 1e6,  # W/m^3 to MW/m^3
+            "p_icrh_e": 1e6,  # W/m^3 to MW/m^3
+            "p_generic_heat_i": 1e6,  # W/m^3 to MW/m^3
+            "p_generic_heat_e": 1e6,  # W/m^3 to MW/m^3
+            "p_ecrh_e": 1e6,  # W/m^3 to MW/m^3
+            "p_alpha_i": 1e6,  # W/m^3 to MW/m^3
+            "p_alpha_e": 1e6,  # W/m^3 to MW/m^3
+            "p_ohmic_e": 1e6,  # W/m^3 to MW/m^3
+            "p_bremsstrahlung_e": 1e6,  # W/m^3 to MW/m^3
+            "p_cyclotron_radiation_e": 1e6,  # W/m^3 to MW/m^3
+            "p_impurity_radiation_e": 1e6,  # W/m^3 to MW/m^3
+            "ei_exchange": 1e6,  # W/m^3 to MW/m^3
+            "P_ohmic_e": 1e6,  # W to MW
+            "P_aux_total": 1e6,  # W to MW
+            "P_alpha_total": 1e6,  # W to MW
+            "P_bremsstrahlung_e": 1e6,  # W to MW
+            "P_cyclotron_e": 1e6,  # W to MW
+            "P_ecrh": 1e6,  # W to MW
+            "P_radiation_e": 1e6,  # W to MW
+            "I_ecrh": 1e6,  # A to MA
+            "I_aux_generic": 1e6,  # A to MA
+            "W_thermal_total": 1e6,  # J to MJ
+            output.N_E: 1e20,  # m^-3 to 10^{20} m^-3
+            output.N_I: 1e20,  # m^-3 to 10^{20} m^-3
+            output.N_IMPURITY: 1e20,  # m^-3 to 10^{20} m^-3
+        }
+
+        for var_name, scale in transformations.items():
+            if var_name in ds:
+                ds[var_name] /= scale
+
+        return ds
+
+    data_tree = xr.map_over_datasets(_transform_data, data_tree)
+    profiles_dataset = data_tree.children[output.PROFILES].dataset
+    scalars_dataset = data_tree.children[output.SCALARS].dataset
+    dataset = data_tree.dataset
+
+    return plotruns_lib.PlotData(
+        T_i=profiles_dataset[output.T_I].to_numpy(),
+        T_e=profiles_dataset[output.T_E].to_numpy(),
+        n_e=profiles_dataset[output.N_E].to_numpy(),
+        n_i=profiles_dataset[output.N_I].to_numpy(),
+        n_impurity=profiles_dataset[output.N_IMPURITY].to_numpy(),
+        Z_impurity=profiles_dataset[output.Z_IMPURITY].to_numpy(),
+        psi=profiles_dataset[output.PSI].to_numpy(),
+        v_loop=profiles_dataset[output.V_LOOP].to_numpy(),
+        j_total=profiles_dataset[output.J_TOTAL].to_numpy(),
+        j_ohmic=profiles_dataset[output.J_OHMIC].to_numpy(),
+        j_bootstrap=profiles_dataset[output.J_BOOTSTRAP].to_numpy(),
+        j_external=profiles_dataset[output.J_EXTERNAL].to_numpy(),
+        j_ecrh=get_optional_data(profiles_dataset, "j_ecrh", "cell"),
+        j_generic_current=get_optional_data(
+            profiles_dataset, "j_generic_current", "cell"
+        ),
+        q=profiles_dataset[output.Q].to_numpy(),
+        magnetic_shear=profiles_dataset[output.MAGNETIC_SHEAR].to_numpy(),
+        chi_turb_i=profiles_dataset[output.CHI_TURB_I].to_numpy(),
+        chi_turb_e=profiles_dataset[output.CHI_TURB_E].to_numpy(),
+        D_turb_e=profiles_dataset[output.D_TURB_E].to_numpy(),
+        V_turb_e=profiles_dataset[output.V_TURB_E].to_numpy(),
+        rho_norm=dataset[output.RHO_NORM].to_numpy(),
+        rho_cell_norm=dataset[output.RHO_CELL_NORM].to_numpy(),
+        rho_face_norm=dataset[output.RHO_FACE_NORM].to_numpy(),
+        p_icrh_i=get_optional_data(profiles_dataset, "p_icrh_i", "cell"),
+        p_icrh_e=get_optional_data(profiles_dataset, "p_icrh_e", "cell"),
+        p_generic_heat_i=get_optional_data(
+            profiles_dataset, "p_generic_heat_i", "cell"
+        ),
+        p_generic_heat_e=get_optional_data(
+            profiles_dataset, "p_generic_heat_e", "cell"
+        ),
+        p_ecrh_e=get_optional_data(profiles_dataset, "p_ecrh_e", "cell"),
+        p_alpha_i=get_optional_data(profiles_dataset, "p_alpha_i", "cell"),
+        p_alpha_e=get_optional_data(profiles_dataset, "p_alpha_e", "cell"),
+        p_ohmic_e=get_optional_data(profiles_dataset, "p_ohmic_e", "cell"),
+        p_bremsstrahlung_e=get_optional_data(
+            profiles_dataset, "p_bremsstrahlung_e", "cell"
+        ),
+        p_cyclotron_radiation_e=get_optional_data(
+            profiles_dataset, "p_cyclotron_radiation_e", "cell"
+        ),
+        p_impurity_radiation_e=get_optional_data(
+            profiles_dataset, "p_impurity_radiation_e", "cell"
+        ),
+        ei_exchange=profiles_dataset["ei_exchange"].to_numpy(),  # ion heating/sink
+        Q_fusion=scalars_dataset["Q_fusion"].to_numpy(),  # pylint: disable=invalid-name
+        s_gas_puff=get_optional_data(profiles_dataset, "s_gas_puff", "cell"),
+        s_generic_particle=get_optional_data(
+            profiles_dataset, "s_generic_particle", "cell"
+        ),
+        s_pellet=get_optional_data(profiles_dataset, "s_pellet", "cell"),
+        Ip_profile=profiles_dataset[output.IP_PROFILE].to_numpy()[:, -1],
+        I_bootstrap=scalars_dataset[output.I_BOOTSTRAP].to_numpy(),
+        I_aux_generic=scalars_dataset["I_aux_generic"].to_numpy(),
+        I_ecrh=scalars_dataset["I_ecrh"].to_numpy(),
+        P_ohmic_e=scalars_dataset["P_ohmic_e"].to_numpy(),
+        P_auxiliary=scalars_dataset["P_aux_total"].to_numpy(),
+        P_alpha_total=scalars_dataset["P_alpha_total"].to_numpy(),
+        P_sink=scalars_dataset["P_bremsstrahlung_e"].to_numpy()
+        + scalars_dataset["P_radiation_e"].to_numpy()
+        + scalars_dataset["P_cyclotron_e"].to_numpy(),
+        P_bremsstrahlung_e=scalars_dataset["P_bremsstrahlung_e"].to_numpy(),
+        P_radiation_e=scalars_dataset["P_radiation_e"].to_numpy(),
+        P_cyclotron_e=scalars_dataset["P_cyclotron_e"].to_numpy(),
+        T_e_volume_avg=scalars_dataset["T_e_volume_avg"].to_numpy(),
+        T_i_volume_avg=scalars_dataset["T_i_volume_avg"].to_numpy(),
+        n_e_volume_avg=scalars_dataset["n_e_volume_avg"].to_numpy(),
+        n_i_volume_avg=scalars_dataset["n_i_volume_avg"].to_numpy(),
+        W_thermal_total=scalars_dataset["W_thermal_total"].to_numpy(),
+        q95=scalars_dataset["q95"].to_numpy(),
+        t=time,
+    )

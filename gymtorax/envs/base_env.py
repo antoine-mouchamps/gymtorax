@@ -31,6 +31,7 @@ Example:
 """
 
 import copy
+import importlib
 import logging
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
@@ -45,7 +46,7 @@ import gymtorax.rendering.visualization as viz
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
-from ..torax_wrapper import ConfigLoader, ToraxApp
+from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -409,6 +410,62 @@ class BaseEnv(gym.Env, ABC):
             ) from e
 
         logger.debug(f"Saved simulation history to {file_name}")
+
+    def save_gif_torax(
+        self,
+        config_plot: str = "simple",
+        filename: str = "torax_evolution.gif",
+        interval: int = 200,
+        frame_skip: int = 2,
+        beginning: int = 0,
+        end: int = -1,
+    ) -> None:
+        """Generate and save an GIF of the simulation.
+
+        This method loads a plotting configuration by name, extracts the simulation history (optionally
+        selecting a time range), and generates an animated GIF visualizing the evolution of the simulation.
+        The plot configuration must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG`
+        attribute. The simulation must have been run with `store_state_history=True` for this to work.
+
+        Args:
+            config_plot (str): Name of the plot configuration to use (e.g., "simple").
+            filename (str): Output GIF filename.
+            interval (int): Delay between frames in milliseconds.
+            frame_skip (int): Save every Nth frame (default 2 = every other frame).
+            beginning (int): Start time for the GIF (inclusive).
+            end (int): End time for the GIF (inclusive, -1 for no upper limit).
+
+        Raises:
+            ImportError: If the plot configuration module cannot be found.
+            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
+            RuntimeError: If the simulation was not run with state history enabled.
+        """
+        try:
+            module = importlib.import_module(
+                f"torax.plotting.configs.{config_plot}_plot_config"
+            )
+        except ImportError:
+            logger.error(f"""Plot config: {config_plot} not found
+                         in `torax.plotting.configs`""")
+            return
+        try:
+            PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
+        except AttributeError:
+            logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
+                         in `torax.plotting.configs`""")
+            return
+
+        data_tree = self.torax_app.get_output_datatree(beginning, end)
+
+        torax_plot_extensions.plot_run_to_gif(
+            plot_config=PLOT_CONFIG,
+            data_tree=data_tree,
+            gif_filename=filename,
+            n_frames=50,
+            duration=interval,
+            optimize=False,
+            frame_skip=frame_skip,
+        )
 
     def save_gif(
         self,
