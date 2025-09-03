@@ -212,7 +212,9 @@ class BaseEnv(gym.Env, ABC):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         if fig is not None:
-            self.plotter = viz.ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
+            self.plotter = viz.ToraxStyleRealTimePlotter(
+                fig, render_mode=self.render_mode
+            )
         else:
             self.plotter = None
 
@@ -339,7 +341,11 @@ class BaseEnv(gym.Env, ABC):
             self.terminated = True
 
         if self.plotter is not None:
-            self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
+            self.plotter.update(
+                current_state=self.state,
+                action_input=self.last_action_dict,
+                t=self.current_time,
+            )
 
         return observation, reward, self.terminated, truncated, info
 
@@ -527,31 +533,31 @@ class BaseEnv(gym.Env, ABC):
 
     @abstractmethod
     def _define_reward(
-            self,
-            state: dict[str, Any],
-            next_state: dict[str, Any],
-            action: NDArray[np.floating],
-        ) -> float:
-            """Define the reward signal for a state transition.
+        self,
+        state: dict[str, Any],
+        next_state: dict[str, Any],
+        action: NDArray[np.floating],
+    ) -> float:
+        """Define the reward signal for a state transition.
 
-            This method should be overridden by concrete subclasses to implement
-            task-specific reward functions. The default implementation returns 0.0.
+        This method should be overridden by concrete subclasses to implement
+        task-specific reward functions. The default implementation returns 0.0.
 
-            Args:
-                state: Previous plasma state before action was applied.
-                    Contains complete state with "profiles" and "scalars" dictionaries.
-                next_state: New plasma state after action and simulation step.
-                    Same structure as state parameter.
-                action: Action array that was applied to cause this transition.
+        Args:
+            state: Previous plasma state before action was applied.
+                Contains complete state with "profiles" and "scalars" dictionaries.
+            next_state: New plasma state after action and simulation step.
+                Same structure as state parameter.
+            action: Action array that was applied to cause this transition.
 
-            Returns:
-                float: Reward value for this state transition.
+        Returns:
+            float: Reward value for this state transition.
 
-            Example:
-                >>> def _define_reward(self, state, next_state, action):
-                ...     # Reward based on proximity to target beta_N
-                ...     target_beta = 2.0
-                ...     current_beta = next_state["scalars"]["beta_N"]
-                ...     return -abs(current_beta - target_beta)
-            """
-            raise NotImplementedError
+        Example:
+            >>> def _define_reward(self, state, next_state, action):
+            ...     # Reward based on proximity to target beta_N
+            ...     target_beta = 2.0
+            ...     current_beta = next_state["scalars"]["beta_N"]
+            ...     return -abs(current_beta - target_beta)
+        """
+        raise NotImplementedError

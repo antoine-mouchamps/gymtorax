@@ -163,7 +163,9 @@ class TestEnv(BaseEnv):  # noqa: D101
 
     @property
     def _define_actions(self):  # noqa: D102
-        actions = [ah.IpAction(),]
+        actions = [
+            ah.IpAction(),
+        ]
         return actions
 
     @property
@@ -176,6 +178,7 @@ class TestEnv(BaseEnv):  # noqa: D101
 
     def _define_reward(self, state, next_state, action):
         return 0.0
+
 
 if __name__ == "__main__":
     import cProfile
