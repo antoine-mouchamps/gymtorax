@@ -17,27 +17,30 @@ from gymtorax.action_handler import (
 
 
 class CustomAction(Action):
+    name = "CustomAction"
     dimension = 2
     default_min = [0.0, -1.0]
     default_max = [10.0, 1.0]
     config_mapping = {("some_config", "param1"): 0, ("some_config", "param2"): 1}
-    state_var = ()
+    state_var = {"scalars": ["param1", "param2"]}
 
 
 class CustomAction1(Action):
+    name = "CustomAction1"
     dimension = 1
     default_min = [0.0]
     default_max = [1.0]
     config_mapping = {("some_config", "param1"): 0}
-    state_var = ()
+    state_var = {"scalars": ["param1"]}
 
 
 class CustomAction2(Action):
+    name = "CustomAction2"
     dimension = 1
     default_min = [0.0]
     default_max = [1.0]
     config_mapping = {("some_config", "param2"): 0}
-    state_var = ()
+    state_var = {"scalars": ["param2"]}
 
 
 # ------------------------
@@ -64,6 +67,7 @@ def test_action_init_custom_bounds():
 def test_action_invalid_dimension():
     # Test that Action with invalid dimension raises ValueError
     class BadAction(Action):
+        name = "BadAction"
         dimension = 0
         default_min = []
         default_max = []
@@ -76,6 +80,7 @@ def test_action_invalid_dimension():
 def test_action_invalid_min_length():
     # Test that Action with invalid default_min length raises ValueError
     class BadAction(Action):
+        name = "BadAction"
         dimension = 2
         default_min = [0.0]
         default_max = [1.0, 2.0]
@@ -88,6 +93,7 @@ def test_action_invalid_min_length():
 def test_action_invalid_max_length():
     # Test that Action with invalid default_max length raises ValueError
     class BadAction(Action):
+        name = "BadAction"
         dimension = 2
         default_min = [0.0, 1.0]
         default_max = [1.0]
@@ -145,18 +151,19 @@ def test_action_init_dict_and_update_to_config():
 
 
 def test_action_init_dict_keyerror():
-    # Test that init_dict raises KeyError for missing config structure
+    # Test that init_dict raises RuntimeError for missing config structure
     action = CustomAction()
     config = {}  # Missing structure
-    with pytest.raises(KeyError):
+    with pytest.raises(RuntimeError):
         action.init_dict(config)
 
 
 def test_action_get_state_variables():
-    # Test get_state_variables returns empty tuple for CustomAction
+    # Test state_var attribute returns the expected dict for CustomAction
     action = CustomAction()
-    # CustomAction does not define state_var, should be ()
-    assert action.get_state_variables() == ()
+    # CustomAction defines state_var as dict with scalars
+    expected = {"scalars": ["param1", "param2"]}
+    assert action.state_var == expected
 
 
 # ------------------------
@@ -178,30 +185,32 @@ def test_action_handler_update_actions():
     a1 = CustomAction1()
     a2 = CustomAction2()
     handler = ActionHandler([a1, a2])
-    arr = np.array([1.0, 2.0])
-    handler.update_actions(arr)
+    actions_dict = {"CustomAction1": np.array([1.0]), "CustomAction2": np.array([2.0])}
+    handler.update_actions(actions_dict)
     assert a1.values == [1.0]
     assert a2.values == [2.0]
 
 
 def test_action_handler_update_actions_invalid_length():
-    # Test that update_actions raises ValueError for wrong array length
+    # Test that update_actions raises ValueError for wrong action name
     a1 = CustomAction()
     handler = ActionHandler([a1])
-    arr = np.array([1.0])  # Should be length 2
+    actions_dict = {"WrongActionName": np.array([1.0, 2.0])}
     with pytest.raises(ValueError):
-        handler.update_actions(arr)
+        handler.update_actions(actions_dict)
 
 
 def test_action_handler_duplicate_keys():
     # Test that ActionHandler raises ValueError for duplicate config keys
     class A1(Action):
+        name = "A1"
         dimension = 1
         default_min = [0.0]
         default_max = [1.0]
         config_mapping = {("a",): 0}
 
     class A2(Action):
+        name = "A2"
         dimension = 1
         default_min = [0.0]
         default_max = [1.0]
@@ -231,8 +240,8 @@ def test_ip_action():
     assert ip.min == [_MIN_IP_AMPS]
     assert ip.max == [np.inf]
     assert list(ip.get_mapping().keys())[0] == ("profile_conditions", "Ip")
-    assert isinstance(ip.get_state_variables(), tuple)
-    assert ip.get_state_variables() == (("scalars", "Ip"))
+    assert isinstance(ip.state_var, dict)
+    assert ip.state_var == {"scalars": ["Ip"]}
 
 
 def test_vloop_action():
@@ -242,8 +251,8 @@ def test_vloop_action():
     assert vloop.min == [0.0]
     assert vloop.max == [np.inf]
     assert list(vloop.get_mapping().keys())[0] == ("profile_conditions", "v_loop_lcfs")
-    assert isinstance(vloop.get_state_variables(), tuple)
-    assert vloop.get_state_variables() == (("scalars", "v_loop_lcfs"))
+    assert isinstance(vloop.state_var, dict)
+    assert vloop.state_var == {"scalars": ["v_loop_lcfs"]}
 
 
 def test_ecrh_action():
@@ -256,9 +265,8 @@ def test_ecrh_action():
     assert ("sources", "ecrh", "P_total") in mapping
     assert ("sources", "ecrh", "gaussian_location") in mapping
     assert ("sources", "ecrh", "gaussian_width") in mapping
-    assert isinstance(ecrh.get_state_variables(), tuple)
-    assert ("scalars", "P_ecrh_e") in ecrh.get_state_variables()
-    assert ("profiles", "p_ecrh_e") in ecrh.get_state_variables()
+    assert isinstance(ecrh.state_var, dict)
+    assert ecrh.state_var == {"scalars": ["P_ecrh_e"]}
 
 
 def test_nbi_action():
@@ -274,10 +282,10 @@ def test_nbi_action():
     assert ("sources", "generic_heat", "gaussian_width") in mapping
     assert ("sources", "generic_current", "gaussian_location") in mapping
     assert ("sources", "generic_current", "gaussian_width") in mapping
-    assert isinstance(nbi.get_state_variables(), tuple)
-    # Should contain both scalars and profiles keys
-    assert any("scalars" in t for t in nbi.get_state_variables())
-    assert any("profiles" in t for t in nbi.get_state_variables())
+    assert isinstance(nbi.state_var, dict)
+    assert nbi.state_var == {
+        "scalars": ["P_aux_generic_total", "I_aux_generic"]
+    }
 
 
 def test_ecrh_action_init_dict_and_update():
