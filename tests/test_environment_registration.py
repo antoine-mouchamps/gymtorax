@@ -42,7 +42,7 @@ class TestEnvironmentRegistration:
         assert hasattr(env, "step")
 
         # Test that it's the correct type
-        from examples.basic_env import TestEnv
+        from examples.test_env import TestEnv
 
         assert isinstance(env.unwrapped, TestEnv)
 

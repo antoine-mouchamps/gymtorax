@@ -157,9 +157,48 @@ CONFIG = {
 # fmt: on
 
 
-class TestEnv(BaseEnv):  # noqa: D101
-    def __init__(self):  # noqa: D107
-        super().__init__(render_mode=None, log_level="debug", store_state_history=True)
+class TestEnv(BaseEnv):
+    """Test environment for ITER hybrid scenario with minimal control actions.
+
+    This is a simplified test environment based on the ITER hybrid scenario configuration.
+    It provides control over plasma current (Ip) only, making it suitable for basic testing
+    and development. The environment uses automatic time discretization with a fixed 1-second
+    action interval.
+
+    The environment is configured with debug logging and state history storage enabled
+    by default, making it ideal for testing and debugging purposes.
+
+    Example:
+        >>> # Basic usage
+        >>> env = TestEnv()
+        >>>
+        >>> # With custom parameters
+        >>> env = TestEnv(render_mode="human", log_level="info")
+
+    Note:
+        All initialization parameters are passed to the base class BaseEnv.
+        Refer to BaseEnv.__init__() documentation for detailed parameter descriptions.
+    """
+
+    def __init__(self, **kwargs):
+        """Initialize the test environment.
+
+        Args:
+            **kwargs: Keyword arguments passed to BaseEnv.__init__().
+                Common options include render_mode, log_level, logfile, fig,
+                and store_state_history. Refer to BaseEnv.__init__() documentation
+                for complete parameter list.
+
+        Note:
+            This environment sets the following defaults which can be overridden
+            via kwargs: render_mode=None, log_level="debug", store_state_history=True.
+        """
+        # Set environment-specific defaults
+        kwargs.setdefault("render_mode", None)
+        kwargs.setdefault("log_level", "debug")
+        kwargs.setdefault("store_state_history", True)
+
+        super().__init__(**kwargs)
 
     @property
     def _define_actions(self):  # noqa: D102

@@ -157,14 +157,53 @@ CONFIG = {
 # fmt: on
 
 
-class IterHybridEnv(BaseEnv):  # noqa: D101
-    def __init__(self, render_mode, fig=None, store_state_history=False):  # noqa: D107
-        super().__init__(
-            render_mode=render_mode,
-            log_level="debug",
-            fig=fig,
-            store_state_history=store_state_history,
-        )
+class IterHybridEnv(BaseEnv):
+    """ITER hybrid scenario plasma control environment.
+
+    This environment implements a plasma control task based on the ITER hybrid scenario,
+    roughly following van Mulders Nucl. Fusion 2021. It provides control over plasma
+    current (Ip), neutral beam injection (NBI), and electron cyclotron resonance heating
+    (ECRH) with a comprehensive observation space including all available plasma parameters.
+
+    The environment uses fixed time discretization with a configurable ratio between
+    action timesteps and simulation timesteps. By default, it operates in debug logging
+    mode for detailed monitoring of the simulation progress.
+
+    Example:
+        >>> # Basic usage with default parameters
+        >>> env = IterHybridEnv()
+        >>>
+        >>> # Custom configuration
+        >>> env = IterHybridEnv(
+        ...     render_mode="human",
+        ...     log_level="info",
+        ...     store_state_history=True,
+        ...     fig=custom_figure_properties
+        ... )
+
+    Note:
+        All initialization parameters are passed to the base class BaseEnv.
+        Refer to BaseEnv.__init__() documentation for detailed parameter descriptions.
+    """
+
+    def __init__(self, render_mode=None, **kwargs):
+        """Initialize the ITER hybrid scenario environment.
+
+        Args:
+            render_mode (str, optional): Rendering mode for visualization.
+                See BaseEnv documentation for details. Defaults to None.
+            **kwargs: Additional keyword arguments passed to BaseEnv.__init__().
+                Common options include log_level, logfile, fig, and store_state_history.
+                Refer to BaseEnv.__init__() documentation for complete parameter list.
+
+        Note:
+            This environment sets log_level to "debug" by default, which can be
+            overridden by explicitly passing log_level in kwargs.
+        """
+        # Set environment-specific defaults
+        kwargs.setdefault("log_level", "debug")
+
+        super().__init__(render_mode=render_mode, **kwargs)
 
     @property
     def _define_actions(self):  # noqa: D102

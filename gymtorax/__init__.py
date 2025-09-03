@@ -12,7 +12,7 @@ register(
 # Register the basic test environment for examples
 register(
     id="gymtorax/Test-v0",
-    entry_point="examples.basic_env:TestEnv",
+    entry_point="examples.test_env:TestEnv",
     kwargs={},
 )
 

@@ -19,6 +19,11 @@ Example:
     Create a custom environment by extending BaseEnv:
 
     >>> class PlasmaControlEnv(BaseEnv):
+    ...     def __init__(self, render_mode=None, **kwargs):
+    ...         # Set environment-specific defaults
+    ...         kwargs.setdefault("log_level", "info")
+    ...         super().__init__(render_mode=render_mode, **kwargs)
+    ...
     ...     @property
     ...     def _define_observation(self):
     ...         return AllObservation(exclude=["n_impurity"])
@@ -109,27 +114,38 @@ class BaseEnv(gym.Env, ABC):
     ) -> None:
         """Initialize the TORAX gymnasium environment.
 
+        This method sets up the complete simulation environment including TORAX configuration,
+        action/observation spaces, time discretization, and rendering components.
+
         Args:
-            render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
-            log_level: Logging level for environment operations. Options: "debug", "info",
-                "warning", "error", "critical". Default: "warning".
-            logfile: Path to log file for writing log messages. If None, logs to console.
-            fig: Figure properties for visualization configuration. Defines plot layout,
-                variables to display, and styling options for real-time plotting and GIF creation.
-                If None, default visualization settings will be used.
-            store_state_history: Whether to store simulation history for later saving.
-                Set to True if you plan to use save_file() method. Default: False.
+            render_mode (str, optional): Rendering mode for visualization.
+                Options: "human", "rgb_array", or None. Defaults to None.
+            log_level (str, optional): Logging level for environment operations.
+                Options: "debug", "info", "warning", "error", "critical".
+                Defaults to "warning".
+            logfile (str, optional): Path to log file for writing log messages.
+                If None, logs to console. Defaults to None.
+            fig (FigureProperties, optional): Figure properties for visualization
+                configuration. Defines plot layout, variables to display, and styling
+                options for real-time plotting and GIF creation. If None, default
+                visualization settings will be used. Defaults to None.
+            store_state_history (bool, optional): Whether to store simulation history
+                for later saving. Set to True if you plan to use save_file() method.
+                Defaults to False.
 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
             TypeError: If discretization_torax is not "auto" or "fixed".
+            KeyError: If required keys are missing from TORAX configuration.
 
         Note:
-            The environment must implement _define_observation, _define_actions and
-            _define_torax_config abstract properties to define the observation and action
-            spaces and TORAX configuration.
-            The environment must implement _define_reward() method to define the reward signal.
-            Logging is set up during initialization and applies to all environment operations.
+            Subclasses should use **kwargs to pass parameters to avoid explicit parameter
+            listing and maintain flexibility as the base class evolves. Environment-specific
+            defaults can be set using kwargs.setdefault() before calling super().__init__().
+
+            The environment must implement the abstract properties _define_observation,
+            _define_actions, and _define_torax_config, as well as the abstract method
+            _define_reward() to define the reward signal.
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
 

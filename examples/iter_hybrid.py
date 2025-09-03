@@ -28,7 +28,7 @@ class IterHybridAgent:  # noqa: D101
 
     def __init__(self, action_space):
         """Initialize the agent with the given action space."""
-        super().__init__(action_space=action_space)
+        self.action_space = action_space
         self.time = 0
 
     def act(self, observation) -> dict:
