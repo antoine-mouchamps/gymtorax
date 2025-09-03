@@ -215,6 +215,7 @@ class ToraxApp:
 
         # Store initial state in history if history tracking is enabled
         if self.store_history is True:
+            self.history_list: list = []
             self.history_list.append((self.initial_sim_state, self.initial_sim_output))
 
         # Reset current simulation state to initial conditions
