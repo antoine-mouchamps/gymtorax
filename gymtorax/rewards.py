@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_fusion_gain(state : dict) -> float:
+def get_fusion_gain(state: dict) -> float:
     """Get the fusion gain Q from the state dictionary.
 
     Args:
@@ -12,7 +12,8 @@ def get_fusion_gain(state : dict) -> float:
     """
     return state["scalars"]["Q_fusion"]
 
-def get_beta_N(state : dict) -> float:  # noqa: N802
+
+def get_beta_N(state: dict) -> float:  # noqa: N802
     """Get the normalized beta_N from the state dictionary.
 
     Args:
@@ -23,7 +24,8 @@ def get_beta_N(state : dict) -> float:  # noqa: N802
     """
     return state["scalars"]["beta_N"]
 
-def get_tau_E(state : dict) -> float:  # noqa: N802
+
+def get_tau_E(state: dict) -> float:  # noqa: N802
     """Get the energy confinement time tau_E from the state dictionary.
 
     Args:
@@ -34,7 +36,8 @@ def get_tau_E(state : dict) -> float:  # noqa: N802
     """
     return state["scalars"]["tau_E"]
 
-def get_q_profile(state : dict) -> np.ndarray:
+
+def get_q_profile(state: dict) -> np.ndarray:
     """Get the safety factor profile q from the state dictionary.
 
     Args:
@@ -45,7 +48,8 @@ def get_q_profile(state : dict) -> np.ndarray:
     """
     return state["profiles"]["q"]
 
-def get_q_min(state : dict) -> float:
+
+def get_q_min(state: dict) -> float:
     """Get the minimum safety factor q_min from the state dictionary.
 
     Args:
@@ -56,7 +60,8 @@ def get_q_min(state : dict) -> float:
     """
     return state["scalars"]["q_min"]
 
-def get_q95(state : dict) -> float:
+
+def get_q95(state: dict) -> float:
     """Get safety factor at 95% of the normalized poloidal flux coordinate.
 
     Args:
@@ -67,7 +72,8 @@ def get_q95(state : dict) -> float:
     """
     return state["scalars"]["q95"]
 
-def get_s_profile(state : dict) -> np.ndarray:
+
+def get_s_profile(state: dict) -> np.ndarray:
     """Get the magnetic shear profile s from the state dictionary.
 
     Args:
@@ -78,7 +84,8 @@ def get_s_profile(state : dict) -> np.ndarray:
     """
     return state["profiles"]["magnetic_shear"]
 
-def get_j_profile(state : dict) -> np.ndarray:
+
+def get_j_profile(state: dict) -> np.ndarray:
     """Get the current density profile j from the state dictionary.
 
     Args:

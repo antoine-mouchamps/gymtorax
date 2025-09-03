@@ -248,7 +248,7 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
         j_center = rw.get_j_profile(next_state)[0]
 
         # Customize weights and sigma as needed
-        weight_list = [1,1,1,1,1,1,1]
+        weight_list = [1, 1, 1, 1, 1, 1, 1]
         sigma = 0.5
 
         def gaussian_beta():
@@ -261,9 +261,13 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
             For this reason, we need a correlation to allow a slight excess.
             That's why we use a Gaussian function.
             """
-            Ip = action["Ip"][0]/1e6 # We know that Ip is in action
-            beta_troyon = 0.028*Ip/(next_state["scalars"]["a_minor"]*next_state["scalars"]["B_0"])
-            return np.exp(-0.5*((beta_N-beta_troyon)/sigma)**2)
+            Ip = action["Ip"][0] / 1e6  # We know that Ip is in action
+            beta_troyon = (
+                0.028
+                * Ip
+                / (next_state["scalars"]["a_minor"] * next_state["scalars"]["B_0"])
+            )
+            return np.exp(-0.5 * ((beta_N - beta_troyon) / sigma) ** 2)
 
         def q_min_function():
             if q_min <= 1:
@@ -278,9 +282,9 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
                 return 1
 
         def s_function():
-            q_risk = [1, 4/3, 3/2, 5/3, 2, 5/2, 3]
+            q_risk = [1, 4 / 3, 3 / 2, 5 / 3, 2, 5 / 2, 3]
             weight = [-1, -1, -1, -1, -1, -1, -1]
-            s0 = 0.1    #Value to avoid a division by zero
+            s0 = 0.1  # Value to avoid a division by zero
             sum_ = 0
             q_max = max(q_profile)
 
@@ -289,11 +293,11 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
                     continue
 
                 for i in range(len(q_profile) - 1):
-                    q1, q2 = q_profile[i], q_profile[i+1]
-                    s1, s2 = s_profile[i], s_profile[i+1]
+                    q1, q2 = q_profile[i], q_profile[i + 1]
+                    s1, s2 = s_profile[i], s_profile[i + 1]
 
                     if (q1 <= q_val <= q2) or (q2 <= q_val <= q1):
-                        #interpolate s from the estimated position q
+                        # interpolate s from the estimated position q
                         s = np.interp(q_val, [q1, q2], [s1, s2])
                         sum_ += w_val * 1 / (abs(s) + s0)
             return sum_
@@ -309,9 +313,15 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
             j_ideal = self._j_objectif()
             return abs(j_center - j_ideal)
 
-        return weight_list[0]*Q + weight_list[1]*gaussian_beta() + weight_list[2]*tau_E \
-                        + weight_list[3]*q_min_function() + weight_list[4]*q_edge_function() \
-                        + weight_list[5]*s_function() - weight_list[6]*j_error()
+        return (
+            weight_list[0] * Q
+            + weight_list[1] * gaussian_beta()
+            + weight_list[2] * tau_E
+            + weight_list[3] * q_min_function()
+            + weight_list[4] * q_edge_function()
+            + weight_list[5] * s_function()
+            - weight_list[6] * j_error()
+        )
 
     def _j_objectif(self):
         """Compute the objective function for the current density.
@@ -319,10 +329,10 @@ class IterHybridEnv(BaseEnv):  # noqa: D101
         Returns:
             float: The objective function value.
         """
-        if self.current_time>100:
+        if self.current_time > 100:
             return 2e6
         else:
-            return 1e6 * 1.5/100 * self.current_time + 0.4e6
+            return 1e6 * 1.5 / 100 * self.current_time + 0.4e6
 
 
 if __name__ == "__main__":
