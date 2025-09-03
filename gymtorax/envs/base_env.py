@@ -134,8 +134,8 @@ class BaseEnv(gym.Env, ABC):
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
         try:
-            config = copy.deepcopy(self.get_torax_config()["config"])
-            discretization_torax = self.get_torax_config()["discretization"]
+            config = copy.deepcopy(self._define_torax_config["config"])
+            discretization_torax = self._define_torax_config["discretization"]
         except KeyError as e:
             raise KeyError(f"Missing key in TORAX config: {e}")
 
@@ -357,8 +357,6 @@ class BaseEnv(gym.Env, ABC):
         This method properly closes the TORAX simulation and releases any rendering
         resources. Should be called when the environment is no longer needed.
         """
-        # Close TORAX simulation
-        self.torax_app.close()
         if self.plotter is not None:
             self.plotter.close()
 
