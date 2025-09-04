@@ -283,9 +283,7 @@ def test_nbi_action():
     assert ("sources", "generic_current", "gaussian_location") in mapping
     assert ("sources", "generic_current", "gaussian_width") in mapping
     assert isinstance(nbi.state_var, dict)
-    assert nbi.state_var == {
-        "scalars": ["P_aux_generic_total", "I_aux_generic"]
-    }
+    assert nbi.state_var == {"scalars": ["P_aux_generic_total", "I_aux_generic"]}
 
 
 def test_ecrh_action_init_dict_and_update():

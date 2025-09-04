@@ -316,7 +316,6 @@ class Action(ABC):
         """
         return self.config_mapping
 
-
     def __repr__(self) -> str:
         """Return a string representation of the action.
 

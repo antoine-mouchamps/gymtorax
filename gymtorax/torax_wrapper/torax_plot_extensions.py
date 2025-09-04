@@ -5,7 +5,6 @@ PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
 processing logic, spacing, and matplotlib configurations as the original.
 """
 
-from click import pause
 import matplotlib
 
 matplotlib.use("Agg")  # Non-interactive backend
