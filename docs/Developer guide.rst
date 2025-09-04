@@ -5,10 +5,7 @@ This section explains how the code is organized and how to contribute to the Gym
 
 .. toctree::
    :maxdepth: 1
-   :caption: Developer Guide Contents
 
    TORAX Wrapper
    Environment Design
    Other Modules
-
-yo

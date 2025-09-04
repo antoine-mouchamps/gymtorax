@@ -30,5 +30,5 @@ html_static_path = ['_static']
 numfig = True
 
 html_theme_options = {
-    'navigation_depth': 2,
+    'navigation_depth': 3,
 }

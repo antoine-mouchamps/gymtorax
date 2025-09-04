@@ -10,12 +10,12 @@ bounds, and knows how to map itself to TORAX configuration dictionaries and
 which state variables it affects.
 
 Classes:
-    Action: Abstract base class for all action types (user-extensible)
-    ActionHandler: Internal container and manager for multiple actions
-    IpAction: Action for plasma current control
-    VloopAction: Action for loop voltage control
-    EcrhAction: Action for electron cyclotron resonance heating
-    NbiAction: Action for neutral beam injection
+    - Action: Abstract base class for all action types (user-extensible)
+    - ActionHandler: Internal container and manager for multiple actions
+    - IpAction: Action for plasma current control
+    - VloopAction: Action for loop voltage control
+    - EcrhAction: Action for electron cyclotron resonance heating
+    - NbiAction: Action for neutral beam injection
 
 Example:
     Create a custom action by extending the Action class:
