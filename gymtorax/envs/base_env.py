@@ -350,7 +350,10 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = next_state, observation
 
         # Compute reward based on state transition
-        reward = self._define_reward(state, next_state, action)
+        if not success:
+            reward = -1000.0  # Large negative reward on failure
+        else:
+            reward = self._define_reward(state, next_state, action)
 
         # Update time tracking
         self.current_time += self.delta_t_a
