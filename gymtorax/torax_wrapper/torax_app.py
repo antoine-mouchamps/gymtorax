@@ -1,3 +1,13 @@
+"""High-level application interface for running TORAX plasma simulations.
+
+This module provides the :class:`ToraxApp` class, which wraps the TORAX simulator 
+into a Pythonic interface suitable for reinforcement learning and episodic 
+simulation workflows. It manages the simulation lifecycle, configuration updates, 
+state tracking, and output handling.
+
+This abstraction allows Gymnasium-style environments and control algorithms 
+to interact with TORAX without dealing with its low-level orchestration details.
+"""
 import copy
 import logging
 import time
