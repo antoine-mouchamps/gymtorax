@@ -37,6 +37,18 @@ def get_tau_E(state: dict) -> float:  # noqa: N802
     return state["scalars"]["tau_E"]
 
 
+def get_h98(state: dict) -> float:  # noqa: N802
+    """Get the H-mode confinement quality factor from the state dictionary.
+
+    Args:
+        state (dict): The state dictionary containing scalar values.
+
+    Returns:
+        float: The H98 factor.
+    """
+    return state["scalars"]["H98"]
+
+
 def get_q_profile(state: dict) -> np.ndarray:
     """Get the safety factor profile q from the state dictionary.
 
