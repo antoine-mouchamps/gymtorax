@@ -336,9 +336,10 @@ class ToraxApp:
 
         # Check if TORAX simulation encountered internal errors
         if sim_error != state.SimError.NO_ERROR:
-            logger.warning(
-                " simulation terminated with an error. The environment will reset"
-            )
+            logger.error("simulation terminated with an error.")
+            sim_error.log_error()
+            logger.error(" The environment will reset.")
+
             return False, False
 
         # Update current state to final state from simulation step
@@ -437,8 +438,10 @@ class ToraxApp:
         post_processed_outputs_history = [output[1] for output in self.history_list]
 
         state_history = output.StateHistory(
-            state_history=state_history,
-            post_processed_outputs_history=post_processed_outputs_history,
+            state_history=state_history[beginning:end],
+            post_processed_outputs_history=post_processed_outputs_history[
+                beginning:end
+            ],
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )
