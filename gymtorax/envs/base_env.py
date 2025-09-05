@@ -65,6 +65,7 @@ class BaseEnv(gym.Env, ABC):
     action/observation space construction.
 
     The environment operates by:
+
     1. Setting up logging configuration for debugging and monitoring
     2. Initializing TORAX configuration and simulation state
     3. Managing discrete time steps with configurable time intervals
@@ -87,9 +88,10 @@ class BaseEnv(gym.Env, ABC):
         truncated (bool): Episode truncation flag
 
     Abstract Properties:
-        _define_observation(): Define observation space variables
-        _define_actions(): Define available control actions
-        _define_torax_config(): Define TORAX configuration parameters
+        - _define_observation(): Define observation space variables
+        - _define_actions(): Define available control actions
+        - _define_torax_config(): Define TORAX configuration parameters
+
     Abstract Method:
         _define_reward(): Define reward signal (optional override)
     """
@@ -226,10 +228,10 @@ class BaseEnv(gym.Env, ABC):
         """Reset the environment to its initial state for a new episode.
 
         This method initializes a new simulation episode by:
-        1. Resetting internal counters and flags
-        2. Starting the TORAX simulation from initial conditions
-        3. Extracting the initial observation state
-        4. Optionally rendering the initial state
+          1. Resetting internal counters and flags
+          2. Starting the TORAX simulation from initial conditions
+          3. Extracting the initial observation state
+          4. Optionally rendering the initial state
 
         Returns:
             Tuple containing:
@@ -279,13 +281,13 @@ class BaseEnv(gym.Env, ABC):
         """Execute one environment step with the given action.
 
         This method implements the core RL interaction by:
-        1. Capturing the current state before action
-        2. Applying the action to update TORAX configuration
-        3. Running the simulation for one time interval
-        4. Extracting the new observation state
-        5. Computing the reward signal
-        6. Checking for episode termination
-        7. Updating time counters
+            1. Capturing the current state before action
+            2. Applying the action to update TORAX configuration
+            3. Running the simulation for one time interval
+            4. Extracting the new observation state
+            5. Computing the reward signal
+            6. Checking for episode termination
+            7. Updating time counters
 
         Args:
             action: Action array containing parameter values for all configured actions.
@@ -357,13 +359,8 @@ class BaseEnv(gym.Env, ABC):
     def render(self) -> None:
         """Render the current environment state following Gymnasium convention.
 
-        Returns:
-            np.ndarray or None: RGB array if render_mode is "rgb_array", else None.
-
         Note:
-            - For 'human' mode, this calls the plotter's update method for live visualization.
-            - For 'rgb_array' mode, this calls the plotter's get_rgb_array() method (which must be implemented by the plotter).
-            - Subclasses must provide a plotter compatible with these calls.
+            For 'human' mode, this calls the plotter's update method for live visualization.
         """
         if self.render_mode == "human" and self.plotter is not None:
             self.plotter.render_frame(t=self.current_time)
@@ -428,7 +425,7 @@ class BaseEnv(gym.Env, ABC):
 
         Args:
             state (dict): Current simulation state containing variable values
-                organized by category (scalars, profiles, etc.)
+            organized by category (scalars, profiles, etc.)
 
         Note:
             This method is called during reset() and step() to keep track of
@@ -463,7 +460,7 @@ class BaseEnv(gym.Env, ABC):
 
         Returns:
             Observation: Configured observation handler that defines which
-                plasma state variables are visible to the RL agent.
+            plasma state variables are visible to the RL agent.
 
         Example:
             >>> def _define_observation(self):
@@ -487,7 +484,7 @@ class BaseEnv(gym.Env, ABC):
 
         Returns:
             List[Action]: List of Action instances representing controllable
-                parameters with their bounds and TORAX configuration mappings.
+            parameters with their bounds and TORAX configuration mappings.
 
         Example:
             >>> def _define_actions(self):
@@ -515,13 +512,14 @@ class BaseEnv(gym.Env, ABC):
         Returns:
             Dict[str, Any]: A dictionary containing the TORAX configuration.
             The dictionary must have the following keys:
+
             - "config" (dict): A dictionary of TORAX configuration parameters.
             - "discretisation_torax" (str): The time discretization method.
-            Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
+              Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
             - "ratio_a_sim" (int, optional): The ratio of action timesteps to
-            simulation timesteps. Required if 'discretisation_torax' is "fixed".
+              simulation timesteps. Required if 'discretisation_torax' is "fixed".
             - "delta_t_a" (float, optional): The time interval between actions
-            in seconds. Required if 'discretisation_torax' is "auto".
+              in seconds. Required if 'discretisation_torax' is "auto".
 
 
         Example:

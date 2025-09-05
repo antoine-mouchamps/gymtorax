@@ -1,9 +1,13 @@
 RL Users
 ==============
+
+In a Nutshell
+----------------
+
 The **Gym-TORAX** package provides a flexible framework for developing reinforcement 
 learning (RL) agents in plasma physics, using the well-known Gymnasium interface. The 
 core implementation can be found in `gymtorax/envs/base_env` or :doc:`here <Environment Design>` 
-in the documentation. The main methods 
+in the documentation. The main methods are:
 
 - :py:meth:`reset()<gymtorax.envs.base_env.BaseEnv.reset>`: reset the environment to its initial state for a new episode.
 - :py:meth:`step(action)<gymtorax.envs.base_env.BaseEnv.step>`: execute one environment step with the given action. It returns the next observation,
@@ -36,3 +40,24 @@ Here is a simple example of how to use the Gym-TORAX package for reinforcement l
     env.save_file("output_data")
     env.save_gif("simulation.gif")
     env.close()
+
+In details
+----------------
+.. automethod:: gymtorax.envs.base_env.BaseEnv.reset
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.step
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.render
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.close
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.save_file
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.save_gif
+   :noindex:
+

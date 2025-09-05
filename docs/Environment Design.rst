@@ -2,6 +2,7 @@ Environment Design
 ===========================
 
 This section describes the implementation of the environment design modules.
+Some of them are mentioned in the :doc:`User Guide <User guide>`.
 
 Four main components are covered:
 

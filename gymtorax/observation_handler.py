@@ -53,23 +53,25 @@ class Observation(ABC):
 
     Class Attributes:
         DEFAULT_BOUNDS (dict): Master catalog of all TORAX variables with their
-            default bounds and size specifications. Variables are categorized as:
-            - "profiles": Spatially-resolved variables (functions of radius)
-            - "scalars": Global/integrated quantities (single values)
+        default bounds and size specifications.
+        Variables are categorized as:
+
+          - "profiles": Spatially-resolved variables (functions of radius)
+          - "scalars": Global/integrated quantities (single values)
 
         variables (dict): Selected variables for this observation space
         custom_bounds (dict): User-specified bounds overriding defaults
         dtype (np.dtype): Data type for observation arrays
 
         # Set by setup methods:
-        action_variables (dict|None): Variables controlled by actions (via set_action_variables)
-        state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
+          action_variables (dict|None): Variables controlled by actions (via set_action_variables)
+          state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
 
         # Internal processing attributes:
-        observation_variables (dict): Final observation variables after filtering
-        bounds (dict): Final bounds after applying custom overrides and sizing
-        first_state (bool): Flag to ensure build_observation_space() called only once
-        _sizes (dict|None): Mapping from symbolic to actual array sizes
+          observation_variables (dict): Final observation variables after filtering
+          bounds (dict): Final bounds after applying custom overrides and sizing
+          first_state (bool): Flag to ensure build_observation_space() called only once
+          _sizes (dict|None): Mapping from symbolic to actual array sizes
     """
 
     # This comprehensive dictionary contains all known TORAX output variables
@@ -178,9 +180,9 @@ class Observation(ABC):
         determines the array dimensions for spatially-resolved variables.
 
         TORAX uses three different radial coordinate systems with different sizes:
-        - rho_norm: Cell centers with boundary conditions (n_rho + 2 points)
-        - rho_cell_norm: Cell centers for transport equations (n_rho points)
-        - rho_face_norm: Cell interfaces/faces (n_rho + 1 points)
+          - rho_norm: Cell centers with boundary conditions (n_rho + 2 points)
+          - rho_cell_norm: Cell centers for transport equations (n_rho points)
+          - rho_face_norm: Cell interfaces/faces (n_rho + 1 points)
 
         Args:
             n_rho: Number of radial transport cells in the simulation grid.
@@ -292,11 +294,11 @@ class Observation(ABC):
         """Validate all observation handler configuration before building spaces.
 
         This method performs comprehensive validation of:
-        - State variables have been set via set_state_variables()
-        - Action variables have been set via set_action_variables()
-        - Grid points have been set via set_n_grid_points()
-        - All specified variables exist in available state variables
-        - Custom bounds are properly specified for existing variables
+            - State variables have been set via set_state_variables()
+            - Action variables have been set via set_action_variables()
+            - Grid points have been set via set_n_grid_points()
+            - All specified variables exist in available state variables
+            - Custom bounds are properly specified for existing variables
 
         Automatically adds missing variables to DEFAULT_BOUNDS with infinite
         bounds and logs a warning.
@@ -519,8 +521,9 @@ class Observation(ABC):
         removes action variables.
 
         Returns:
-            spaces.Dict: Gymnasium observation space with the structure:
-                {"profiles": dict of Box spaces, "scalars": dict of Box spaces}
+            spaces.Dict:
+                Gymnasium observation space with the structure:
+                {"profiles": dict of Box spaces, "scalars": dict of Box spaces}.
                 Each Box space has bounds and shape appropriate for the variable.
 
         Raises:

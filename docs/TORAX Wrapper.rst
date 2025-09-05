@@ -1,7 +1,7 @@
 TORAX Wrapper
 ===========================
 
-This section describes the TORAX wrapper and its two components:
+This section describes the TORAX wrapper with its two components:
 
 .. contents::
     :local:

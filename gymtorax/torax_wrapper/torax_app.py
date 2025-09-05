@@ -36,10 +36,10 @@ class ToraxApp:
     the simulation lifecycle, state tracking, and configuration updates.
 
     The application follows a start/reset -> run -> update cycle:
-    1. Initialize with configuration and action timestep
-    2. Call reset() to prepare for a new episode
-    3. Call run() repeatedly to advance the simulation
-    4. Call update_config() between runs to update action parameters
+        1. Initialize with configuration and action timestep
+        2. Call reset() to prepare for a new episode
+        3. Call run() repeatedly to advance the simulation
+        4. Call update_config() between runs to update action parameters
 
     Attributes:
         config (ConfigLoader): Current configuration loader instance
@@ -100,12 +100,12 @@ class ToraxApp:
         """Initialize TORAX simulation components.
 
         This method sets up all the TORAX simulation infrastructure:
-        - Transport and pedestal models
-        - Geometry provider and source models
-        - Static and dynamic runtime parameters
-        - Solver and MHD models
-        - Step function for simulation advancement
-        - Initial simulation state and outputs
+            - Transport and pedestal models
+            - Geometry provider and source models
+            - Static and dynamic runtime parameters
+            - Solver and MHD models
+            - Step function for simulation advancement
+            - Initial simulation state and outputs
 
         Called automatically by reset() if not already started.
         """
@@ -212,11 +212,11 @@ class ToraxApp:
         """Reset the simulation to initial conditions for a new episode.
 
         This method prepares the application for a new simulation episode by:
-        - Initializing TORAX components if not already started
-        - Resetting simulation state to initial conditions
-        - Creating fresh state history
-        - Setting up time tracking (t_current=0, t_final from config)
-        - Configuring first action step duration
+            - Initializing TORAX components if not already started
+            - Resetting simulation state to initial conditions
+            - Creating fresh state history
+            - Setting up time tracking (t_current=0, t_final from config)
+            - Configuring first action step duration
         """
         # Initialize TORAX physics models if not already done
         if self.is_started is False:
@@ -279,6 +279,7 @@ class ToraxApp:
 
         This method advances the TORAX simulation by one action timestep, which may
         involve multiple internal TORAX timesteps. It handles:
+
         - Performance timing (if debug logging enabled)
         - TORAX run_loop execution with current configuration
         - State and output management
@@ -286,9 +287,10 @@ class ToraxApp:
         - Time progression tracking
 
         Returns:
-            bool: True if simulation step completed successfully, False if an error
-                occurred or simulation reached final time.
-            bool:  True if whole simulation is done
+            Tuple:
+            - (bool): True if simulation step completed successfully, False if an error
+              occurred or simulation reached final time.
+            - (bool): True if whole simulation is done
 
         Raises:
             RuntimeError: If reset() has not been called before running.
