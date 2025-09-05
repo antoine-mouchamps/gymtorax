@@ -317,14 +317,23 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
                 # Return relative error as a percentage (0-1 scale)
                 return abs(j_center - j_ideal) / abs(j_ideal)
 
+        def is_H_mode():
+            if (
+                next_state["profiles"]["T_e"][0] > 10
+                and next_state["profiles"]["T_i"][0] > 10
+            ):
+                return True
+            else:
+                return False
+
         # Calculate individual reward components
-        r_fusion_gain = weight_list[0] * fusion_gain
+        r_fusion_gain = weight_list[0] * fusion_gain if is_H_mode() else 0
         r_beta = weight_list[1] * gaussian_beta()
-        r_h98 = weight_list[2] * (h98 - 1)
+        r_h98 = weight_list[2] * (h98 - 1) if is_H_mode() else 0
         r_q_min = weight_list[3] * q_min_function()
         r_q_edge = weight_list[4] * q_edge_function()
         r_mag_shear = weight_list[5] * s_function()
-        r_j_error = -weight_list[6] * j_error()
+        r_j_error = -weight_list[6] * j_error() if not is_H_mode() else 0
 
         total_reward = (
             r_fusion_gain
