@@ -514,14 +514,24 @@ class BaseEnv(gym.Env, ABC):
 
         Returns:
             Dict[str, Any]: A dictionary containing the TORAX configuration.
-                The dictionary must have the following keys:
-                - "config" (dict): A dictionary of TORAX configuration parameters.
-                - "discretisation_torax" (str): The time discretization method.
-                    Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-                - "ratio_a_sim" (int, optional): The ratio of action timesteps to
-                    simulation timesteps. Required if 'discretisation_torax' is "fixed".
-                - "delta_t_a" (float, optional): The time interval between actions
-                    in seconds. Required if 'discretisation_torax' is "auto".
+            The dictionary must have the following keys:
+            - "config" (dict): A dictionary of TORAX configuration parameters.
+            - "discretisation_torax" (str): The time discretization method.
+            Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
+            - "ratio_a_sim" (int, optional): The ratio of action timesteps to
+            simulation timesteps. Required if 'discretisation_torax' is "fixed".
+            - "delta_t_a" (float, optional): The time interval between actions
+            in seconds. Required if 'discretisation_torax' is "auto".
+
+
+        Example:
+            >>> def _define_torax_config(self):
+            ...     return {
+            ...         "config": TORAX_CONFIG,
+            ...         "discretisation_torax": "auto",
+            ...         "delta_t_a": 0.05,  # 50 ms between actions
+            ...         # "ratio_a_sim": 10, # Only needed if using "fixed" discretization
+            ...     }
         """
         raise NotImplementedError
 
