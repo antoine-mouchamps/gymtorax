@@ -183,3 +183,5 @@ cython_debug/
 .cursorindexingignore
 *.gif
 *.json
+# Exceptions:
+!default_bounds.json
