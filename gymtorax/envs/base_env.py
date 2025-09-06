@@ -200,8 +200,6 @@ class BaseEnv(gym.Env, ABC):
             self.action_handler.get_action_variables()
         )
 
-        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
-
         # Build Gymnasium spaces
         # WARNING: At this stage, the observation space cannot be fully
         # determined. It is first set to the maximal possible space.
