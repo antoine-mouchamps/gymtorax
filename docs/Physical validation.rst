@@ -93,17 +93,29 @@ at selected times: 50s, 99s, 105s, and 150s.
 .. grid:: 2
 
     .. grid-item::
-        .. image:: Images/comparison_50.jpg
+        .. figure:: Images/comparison_50.jpg
+            :align: center
+
+            : t = 50s
 
     .. grid-item::
-        .. image:: Images/comparison_99.jpg
+        .. figure:: Images/comparison_99.jpg
+            :align: center
+
+            : t = 99s
 
     .. grid-item::
-        .. image:: Images/comparison_105.jpg
+        .. figure:: Images/comparison_105.jpg
+            :align: center
+
+            : t = 105s
 
     .. grid-item::
-        .. image:: Images/comparison_150.jpg
-    
+        .. figure:: Images/comparison_150.jpg
+            :align: center
+
+            : t = 150s
+
 *Snapshots of current density at different times (native TORAX: dashed lines, 
 Gym-TORAX: solid lines).*
 
