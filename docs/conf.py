@@ -17,6 +17,7 @@ release = '2025'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',  # Pour les formats Google/NumPy
+    'sphinx_design',
 ]
 
 templates_path = ['_templates']

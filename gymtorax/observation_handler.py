@@ -52,26 +52,26 @@ class Observation(ABC):
     needed.
 
     Class Attributes:
-        DEFAULT_BOUNDS (dict): Master catalog of all TORAX variables with their
-        default bounds and size specifications.
-        Variables are categorized as:
+          - DEFAULT_BOUNDS (dict): Master catalog of all TORAX variables with their
+            default bounds and size specifications.
+            Variables are categorized as:
 
-          - "profiles": Spatially-resolved variables (functions of radius)
-          - "scalars": Global/integrated quantities (single values)
+            - "profiles": Spatially-resolved variables (functions of radius)
+            - "scalars": Global/integrated quantities (single values)
 
-        variables (dict): Selected variables for this observation space
-        custom_bounds (dict): User-specified bounds overriding defaults
-        dtype (np.dtype): Data type for observation arrays
+          - variables (dict): Selected variables for this observation space
+          - custom_bounds (dict): User-specified bounds overriding defaults
+          - dtype (np.dtype): Data type for observation arrays
 
         # Set by setup methods:
-          action_variables (dict|None): Variables controlled by actions (via set_action_variables)
-          state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
+            - action_variables (dict|None): Variables controlled by actions (via set_action_variables)
+            - state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
 
         # Internal processing attributes:
-          observation_variables (dict): Final observation variables after filtering
-          bounds (dict): Final bounds after applying custom overrides and sizing
-          first_state (bool): Flag to ensure build_observation_space() called only once
-          _sizes (dict|None): Mapping from symbolic to actual array sizes
+            - observation_variables (dict): Final observation variables after filtering
+            - bounds (dict): Final bounds after applying custom overrides and sizing
+            - first_state (bool): Flag to ensure build_observation_space() called only once
+            - _sizes (dict|None): Mapping from symbolic to actual array sizes
     """
 
     # This comprehensive dictionary contains all known TORAX output variables
