@@ -10,7 +10,7 @@ def get_fusion_gain(state: dict) -> float:
     Returns:
         float: The fusion gain Q.
     """
-    return state["scalars"]["Q_fusion"]
+    return state["scalars"]["Q_fusion"][0]
 
 
 def get_beta_N(state: dict) -> float:  # noqa: N802
@@ -22,7 +22,7 @@ def get_beta_N(state: dict) -> float:  # noqa: N802
     Returns:
         float: The normalized beta_N.
     """
-    return state["scalars"]["beta_N"]
+    return state["scalars"]["beta_N"][0]
 
 
 def get_tau_E(state: dict) -> float:  # noqa: N802
@@ -34,7 +34,7 @@ def get_tau_E(state: dict) -> float:  # noqa: N802
     Returns:
         float: The energy confinement time tau_E.
     """
-    return state["scalars"]["tau_E"]
+    return state["scalars"]["tau_E"][0]
 
 
 def get_h98(state: dict) -> float:  # noqa: N802
@@ -46,7 +46,7 @@ def get_h98(state: dict) -> float:  # noqa: N802
     Returns:
         float: The H98 factor.
     """
-    return state["scalars"]["H98"]
+    return state["scalars"]["H98"][0]
 
 
 def get_q_profile(state: dict) -> np.ndarray:
@@ -70,7 +70,7 @@ def get_q_min(state: dict) -> float:
     Returns:
         float: The minimum safety factor q_min.
     """
-    return state["scalars"]["q_min"]
+    return state["scalars"]["q_min"][0]
 
 
 def get_q95(state: dict) -> float:
@@ -82,7 +82,7 @@ def get_q95(state: dict) -> float:
     Returns:
         float: The safety factor at 95% of the normalized poloidal flux coordinate.
     """
-    return state["scalars"]["q95"]
+    return state["scalars"]["q95"][0]
 
 
 def get_s_profile(state: dict) -> np.ndarray:

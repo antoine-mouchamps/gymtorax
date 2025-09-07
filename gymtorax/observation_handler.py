@@ -140,21 +140,22 @@ class Observation(ABC):
         for var in self.observation_variables["profiles"]:
             if var in self.custom_bounds["profiles"]:
                 self.bounds["profiles"][var] = {
-                    "min": self.custom_bounds["profiles"]["min"],
-                    "max": self.custom_bounds["profiles"]["max"],
-                    "size": len(self.state_variables["profiles"][var]["data"]),
+                    "min": self.custom_bounds["profiles"][var]["min"],
+                    "max": self.custom_bounds["profiles"][var]["max"],
+                    "size": len(self.state_variables["profiles"][var]["data"][0]),
                 }
             else:
                 self.bounds["profiles"][var] = {
                     "min": -np.inf,
                     "max": np.inf,
-                    "size": len(self.state_variables["profiles"][var]["data"]),
+                    "size": len(self.state_variables["profiles"][var]["data"][0]),
                 }
+
         for var in self.observation_variables["scalars"]:
             if var in self.custom_bounds["scalars"]:
                 self.bounds["scalars"][var] = {
-                    "min": self.custom_bounds["scalars"]["min"],
-                    "max": self.custom_bounds["scalars"]["max"],
+                    "min": self.custom_bounds["scalars"][var]["min"],
+                    "max": self.custom_bounds["scalars"][var]["max"],
                     "size": 1,
                 }
             else:
@@ -169,10 +170,20 @@ class Observation(ABC):
             total_dim = 0
             for cat, vars_ in self.observation_variables.items():
                 total_dim += sum(self.bounds[cat][var]["size"] for var in vars_)
+            total_obs_bounded = 0
+            for cat, vars_ in self.observation_variables.items():
+                total_obs_bounded += sum(
+                    1 * self.bounds[cat][var]["size"]
+                    for var in vars_
+                    if self.bounds[cat][var]["min"] > -np.inf
+                    or self.bounds[cat][var]["max"] < np.inf
+                )
             logger.debug(
-                f"Observation space configured: {len(self.observation_variables['profiles'])} "
-                f"profiles, {len(self.observation_variables['scalars'])} scalars, "
-                f"{total_dim} total dimensions"
+                f"Observation space configured:\n"
+                f" - Profiles: {len(self.observation_variables['profiles'])}\n"
+                f" - Scalars: {len(self.observation_variables['scalars'])}\n"
+                f" - Total dimensions: {total_dim}\n"
+                f" - Bounded variables: {total_obs_bounded / total_dim:.2%}"
             )
 
     def _validate(self) -> None:
@@ -274,9 +285,9 @@ class Observation(ABC):
             },
             "scalars": {
                 var: (
-                    state["scalars"][var]["data"][0]
+                    [state["scalars"][var]["data"][0]]
                     if isinstance(state["scalars"][var]["data"], list)
-                    else state["scalars"][var]["data"]
+                    else [state["scalars"][var]["data"]]
                 )
                 for var in self.state_variables["scalars"]
             },
@@ -464,7 +475,7 @@ class AllObservation(Observation):
         >>> obs = AllObservation(custom_bounds_filename="bounds.json")
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, exclude=None, custom_bounds_file=None) -> None:
         """Initialize AllObservation with all available TORAX variables.
 
         Creates an observation handler that includes all available TORAX variables
@@ -481,8 +492,7 @@ class AllObservation(Observation):
             >>> obs = AllObservation()
             >>> obs = AllObservation(exclude={"profiles": ["psi"]})
         """
-        # Log configuration
-        logger.info(f"Initializing AllObservation with kwargs: {kwargs}")
-
         # Call parent constructor with all variables included by default
-        super().__init__(variables=None, **kwargs)
+        super().__init__(
+            variables=None, exclude=exclude, custom_bounds_filename=custom_bounds_file
+        )

@@ -1,0 +1,614 @@
+{
+    "profiles": {
+        "area": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_bohm_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_bohm_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_gyrobohm_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_gyrobohm_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_turb_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "chi_turb_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "delta": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "delta_lower": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "delta_upper": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "D_turb_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "ei_exchange": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "elongation": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "F": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "FFprime": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g0": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g0_over_vpr": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g1": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g1_over_vpr": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g1_over_vpr2": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g2": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g2g3_over_rhon": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "g3": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Ip_profile": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Ip_profile_from_geo": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_bootstrap": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_ecrh": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_external": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_generic_current": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_ohmic": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "j_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "magnetic_shear": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_impurity": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_alpha_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_alpha_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_cyclotron_radiation_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_ecrh_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_generic_heat_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_generic_heat_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_icrh_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_icrh_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_impurity_radiation_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "p_ohmic_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Phi": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "pprime": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "pressure_thermal_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "pressure_thermal_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "pressure_thermal_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "psi": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "psi_from_geo": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "psi_from_Ip": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "psi_norm": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "q": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "R_in": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "r_mid": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "R_out": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "s_gas_puff": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "s_generic_particle": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "s_pellet": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "sigma_parallel": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "spr": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "T_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "T_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "v_loop": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "V_turb_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "volume": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "vpr": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Z_eff": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Z_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Z_impurity": {
+            "min": "-inf",
+            "max": "inf"
+        }
+    },
+    "scalars": {
+        "a_minor": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "A_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "A_impurity": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "B_0": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "beta_N": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "beta_pol": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "beta_tor": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "dW_thermal_dt": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "drho": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "drho_norm": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "E_aux": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "E_fusion": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "fgw_n_e_line_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "fgw_n_e_volume_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "H20": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "H89P": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "H97L": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "H98": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "I_aux_generic": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "I_bootstrap": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "I_ecrh": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Ip": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "li3": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_e_line_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_e_min_P_LH": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_e_volume_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_i_line_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "n_i_volume_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_alpha_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_alpha_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_alpha_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_generic_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_generic_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_generic_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_aux_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_bremsstrahlung_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_cyclotron_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_ecrh_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_ei_exchange_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_ei_exchange_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_external_injected": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_icrh_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_icrh_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_icrh_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_LH": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_LH_high_density": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_LH_min": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_ohmic_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_radiation_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_SOL_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_SOL_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "P_SOL_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Phi_b": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Phi_b_dot": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "q95": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "Q_fusion": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "q_min": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "R_major": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_b": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_2_1_first": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_2_1_second": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_3_1_first": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_3_1_second": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_3_2_first": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_3_2_second": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "rho_q_min": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "S_gas_puff": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "S_generic_particle": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "S_pellet": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "S_total": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "T_e_volume_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "T_i_volume_avg": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "tau_E": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "v_loop_lcfs": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "W_pol": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "W_thermal_e": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "W_thermal_i": {
+            "min": "-inf",
+            "max": "inf"
+        },
+        "W_thermal_total": {
+            "min": "-inf",
+            "max": "inf"
+        }
+    }
+}
