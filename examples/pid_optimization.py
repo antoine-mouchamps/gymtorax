@@ -14,13 +14,13 @@ from gymtorax import IterHybridEnv
 logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
-iteration = [0]  # Use a mutable object to track iteration count
-
-
-def _print_callback(xk):
-    iteration[0] += 1
-    print(f"Iteration {iteration[0]}: kp={xk[0]:.4e}, ki={xk[1]:.4e}")
-
+plt.rcParams.update({"font.size": 25})
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "serif",
+    }
+)
 
 class PIDAgent:
     def __init__(self, action_space, kp, ki, kd):
@@ -143,69 +143,90 @@ class PIDAgent:
 
         return action
 
-    def plot_j_evolution(self, filename=None, show_plot=True):
+    def plot_j_evolution(self, filename):
         """Plot the evolution of j_target and j_actual over time.
 
         Args:
             filename (str, optional): If provided, save the plot to this file
-            show_plot (bool): Whether to display the plot (default: True)
         """
-        if not self.time_history:
-            print("No data to plot - agent hasn't been used yet")
-            return
+        fig, ax = plt.subplots()
 
-        # Find index for t=100 (or end of data if less than 100)
-        end_idx = min(100, len(self.time_history))
-
-        plt.figure(figsize=(12, 8))
+        j_target_ma = np.array(self.j_target_history) / 1e6
+        j_actual_ma = np.array(self.j_actual_history) / 1e6
 
         # Plot j_target and j_actual
-        plt.subplot(2, 1, 1)
-        plt.plot(
+        ax.plot(
             self.time_history,
-            np.array(self.j_target_history) / 1e6,
-            "r--",
-            label="j_target",
-            linewidth=2,
-        )
-        plt.plot(
-            self.time_history,
-            np.array(self.j_actual_history) / 1e6,
+            j_actual_ma,
             "b-",
-            label="j_actual",
+            label=r"$j_{actual}$",
             linewidth=2,
         )
-        plt.xlabel("Time (s)")
-        plt.ylabel("Current Density (MA/m²)")
-        plt.title(f"Current Density Evolution (kp={self.kp:.2e}, ki={self.ki:.2e})")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
 
-        # Plot error evolution
-        if self.error_history:
-            error_end_idx = min(end_idx, len(self.error_history))
-            plt.subplot(2, 1, 2)
-            plt.plot(
-                self.time_history,
-                np.array(self.action_history) / 1e6,
-                "g-",
-                linewidth=2,
-            )
-            plt.xlabel("Time (s)")
-            plt.ylabel("Ip (MA)")
-            plt.title("Tracking Error (j_target - j_actual)")
-            plt.grid(True, alpha=0.3)
+        ax.plot(
+            self.time_history[:100],
+            j_target_ma[:100],
+            "r--",
+            label=r"$j_{target}$",
+            linewidth=1.5,
+        )
 
-        plt.tight_layout()
+        # Add ±10% relative error lines
+        j_target_plus_10 = j_target_ma * 1.1
+        j_target_minus_10 = j_target_ma * 0.9
 
-        if filename:
-            plt.savefig(filename, dpi=150, bbox_inches="tight")
-            print(f"Plot saved to {filename}")
+        ax.plot(
+            self.time_history[:100],
+            j_target_plus_10[:100],
+            "r:",
+            label=r"$\pm$ $10\,\%$",
+            linewidth=1,
+        )
+        ax.plot(
+            self.time_history[:100],
+            j_target_minus_10[:100],
+            "r:",
+            linewidth=1,
+        )
 
-        if show_plot:
-            plt.show()
-        else:
-            plt.close()
+        # Add vertical line at t=100 with LH transition text
+        ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
+        ax.text(
+            105,
+            (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.05 + ax.get_ylim()[0],
+            "LH transition",
+            fontsize=20,
+        )
+
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Current density (MA/m²)")
+        ax.legend(prop={"size": 20})
+
+        fig.savefig(f"{filename}_error.pdf", bbox_inches="tight")
+
+        fig, ax = plt.subplots()
+        ax.plot(
+            self.time_history,
+            np.array(self.action_history) / 1e6,
+            linewidth=2,
+            color="blue",
+            label=r"$I_p$",
+        )
+
+        # Add vertical line at t=100 with LH transition text for Ip plot too
+        ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
+        ax.text(
+            105,
+            (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.05 + ax.get_ylim()[0],
+            "LH transition",
+            fontsize=20,
+        )
+
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Total current (MA)")
+        ax.legend(prop={"size": 20})
+
+        fig.savefig(f"{filename}_ip.pdf", bbox_inches="tight")
 
 
 class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
@@ -363,13 +384,12 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
         )
 
 
-def simulate(env: IterHybridEnvPid, k, plot_j_evolution=False, save_plot_as=None):
+def simulate(env: IterHybridEnvPid, k, save_plot_as=None):
     """Simulate the environment with given PID parameters and return a cost.
 
     Args:
         env: The environment to simulate
         k: PID parameters [kp, ki]
-        plot_j_evolution: Whether to plot j_target vs j_actual evolution
         save_plot_as: Filename to save the plot (if plotting is enabled)
 
     Returns:
@@ -426,8 +446,9 @@ def simulate(env: IterHybridEnvPid, k, plot_j_evolution=False, save_plot_as=None
         print()  # Empty line for readability
 
     # Plot j evolution if requested
-    if plot_j_evolution:
-        agent.plot_j_evolution(filename=save_plot_as, show_plot=not save_plot_as)
+    if save_plot_as:
+        agent.plot_j_evolution(filename=save_plot_as)
+        print("plots saved !")
 
     return -cumulative_reward
 
@@ -474,7 +495,6 @@ def optimize(function, grid_search_space, bounds):
             method="Powell",
             options={"xtol": 1e-3, "ftol": 1e-3, "maxfev": 50},
             bounds=bounds,
-            callback=_print_callback,
         )
         print("Optimization result:", res.x, res.fun)
         if res.fun < best_val:
@@ -503,7 +523,6 @@ if __name__ == "__main__":
     #     lambda k: simulate(env, k),
     #     x0=[10, 10],
     #     method="Powell",
-    #     callback=_print_callback,
     #     options={
     #         "disp": True,  # Display convergence messages
     #     },
@@ -515,25 +534,24 @@ if __name__ == "__main__":
     # print(f"Optimization completed in {opt_time:.2f}s")
 
     # Example 2: Grid search + local optimization with built-in timing
-    res = optimize(
-        lambda k: simulate(env, k),
-        grid_search_space=(
-            np.linspace(0, 25, 5),  # Kp values
-            np.linspace(0, 25, 5),  # Ki values
-        ),
-        bounds=[(0, 25), (0, 25)],
-    )
+    # res = optimize(
+    #     lambda k: simulate(env, k),
+    #     grid_search_space=(
+    #         np.linspace(0, 25, 5),  # Kp values
+    #         np.linspace(0, 25, 5),  # Ki values
+    #     ),
+    #     bounds=[(0, 25), (0, 25)],
+    # )
 
-    kp, ki = res.x
+    # kp, ki = res.x
 
-    # kp, ki = 0, 0
+    kp, ki = 0.20176247, 19.09879356
 
     main_start_time = time.time()
     simulate(
         env,
         [kp, ki],
-        plot_j_evolution=True,
-        save_plot_as="tmp/j_evolution_test.png",
+        save_plot_as="tmp/pid_optimization",
     )
     main_time = time.time() - main_start_time
     print(f"Main execution completed in {main_time:.2f}s")
