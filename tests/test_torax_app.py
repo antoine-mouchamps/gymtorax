@@ -147,7 +147,7 @@ def test_run_returns_false_on_sim_error():
         ) as MockStateHistory,
         patch(
             "gymtorax.torax_wrapper.torax_app.run_loop.run_loop",
-            return_value=([MagicMock()], [MagicMock()], 999),
+            return_value=([MagicMock()], [MagicMock()], torax_app.state.SimError.NAN_DETECTED),
         ),
         patch("gymtorax.torax_wrapper.torax_app.DataTree"),
     ):
@@ -211,13 +211,12 @@ def test_get_state_data_raises_if_state_none():
 
 
 def test_history_list_appends_on_reset(torax_app_fixture):
-    """Test that reset appends to history_list if store_history is True."""
+    """Test that history_list is re-initialized to length 1 after each reset."""
     app = torax_app_fixture
     app.reset()
-    before = len(app.history_list)
+    assert len(app.history_list) == 1
     app.reset()
-    after = len(app.history_list)
-    assert after == before + 1
+    assert len(app.history_list) == 1
 
 
 def test_reset_with_restart_true():
@@ -252,3 +251,20 @@ def test_reset_with_restart_true():
         app = ToraxApp(dummy, delta_t_a=0.1, store_history=True)
         app.reset()
         # If no error, test passes
+
+def test_get_output_datatree_returns_datatree(torax_app_fixture):
+    """Test get_output_datatree returns a DataTree when store_history is True."""
+    app = torax_app_fixture
+    app.reset()
+    app.history_list = [[MagicMock(), MagicMock()], [MagicMock(), MagicMock()]]
+    with patch("gymtorax.torax_wrapper.torax_app.output.StateHistory") as MockStateHistory:
+        instance = MockStateHistory.return_value
+        instance.simulation_output_to_xr.return_value = "datatree"
+        result = app.get_output_datatree()
+        assert result == "datatree"
+
+def test_get_output_datatree_raises_if_store_history_false():
+    """Test get_output_datatree raises RuntimeError if store_history is False."""
+    app = ToraxApp(DummyConfigLoader(), delta_t_a=0.1, store_history=False)
+    with pytest.raises(RuntimeError):
+        app.get_output_datatree()

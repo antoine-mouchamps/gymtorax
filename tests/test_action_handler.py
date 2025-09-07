@@ -227,6 +227,26 @@ def test_action_handler_ip_vloop_exclusive():
     with pytest.raises(ValueError):
         ActionHandler([ip, vloop])
 
+def test_action_handler_get_action_variables():
+    a1 = CustomAction1()
+    a2 = CustomAction2()
+    handler = ActionHandler([a1, a2])
+    variables = handler.get_action_variables()
+    assert "scalars" in variables
+    assert "param1" in variables["scalars"]
+    assert "param2" in variables["scalars"]
+
+def test_action_handler_build_action_space():
+    a1 = CustomAction1()
+    a2 = CustomAction2()
+    handler = ActionHandler([a1, a2])
+    space = handler.build_action_space()
+    assert set(space.spaces.keys()) == {"CustomAction1", "CustomAction2"}
+    assert np.allclose(space.spaces["CustomAction1"].low, a1.min)
+    assert np.allclose(space.spaces["CustomAction1"].high, a1.max)
+    assert np.allclose(space.spaces["CustomAction2"].low, a2.min)
+    assert np.allclose(space.spaces["CustomAction2"].high, a2.max)
+
 
 # ------------------------
 # Pre-configured Action classes

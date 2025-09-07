@@ -30,7 +30,7 @@ class ConfigLoader:
 
         Args:
             config: Dictionary containing TORAX configuration parameters.
-            action_handler: An optional ActionHandler instance for managing actions.
+            action_handler: ActionHandler instance for managing actions.
 
         Raises:
             ValueError: If the configuration dictionary is invalid
