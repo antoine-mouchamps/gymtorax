@@ -348,8 +348,9 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = next_state, observation
 
         # Compute reward based on state transition
-        if not success:
+        if not success or not self.observation_space.contains(self.observation):
             reward = -1000.0  # Large negative reward on failure
+            self.terminated = True
         else:
             reward = self._define_reward(state, next_state, action)
 

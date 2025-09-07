@@ -1,10 +1,12 @@
 import logging
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
 import gymtorax.action_handler as ah
+import gymtorax.observation_handler as oh
 import gymtorax.rewards as rw
 from gymtorax import IterHybridEnv
 
@@ -48,6 +50,7 @@ class PIDAgent:
         self.j_actual_history = []
         self.time_history = []
         self.error_history = []
+        self.action_history = []
 
     def act(self, observation, j_target) -> dict:
         j_center = observation["profiles"]["j_total"][0]
@@ -60,7 +63,6 @@ class PIDAgent:
         if self.time >= 100:
             # keep the same self.ip_controlled after 100s
             pass
-
         else:
             # Calculate PID error (desired - actual)
             error = j_target - j_center
@@ -137,6 +139,7 @@ class PIDAgent:
         # Create action dictionary
         action = {"Ip": [self.ip_controlled]}
         self.time += 1
+        self.action_history.append(self.ip_controlled)
 
         return action
 
@@ -159,15 +162,15 @@ class PIDAgent:
         # Plot j_target and j_actual
         plt.subplot(2, 1, 1)
         plt.plot(
-            self.time_history[:end_idx],
-            np.array(self.j_target_history[:end_idx]) / 1e6,
+            self.time_history,
+            np.array(self.j_target_history) / 1e6,
             "r--",
             label="j_target",
             linewidth=2,
         )
         plt.plot(
-            self.time_history[:end_idx],
-            np.array(self.j_actual_history[:end_idx]) / 1e6,
+            self.time_history,
+            np.array(self.j_actual_history) / 1e6,
             "b-",
             label="j_actual",
             linewidth=2,
@@ -183,13 +186,13 @@ class PIDAgent:
             error_end_idx = min(end_idx, len(self.error_history))
             plt.subplot(2, 1, 2)
             plt.plot(
-                self.time_history[:error_end_idx],
-                np.array(self.error_history[:error_end_idx]) / 1e6,
+                self.time_history,
+                np.array(self.action_history) / 1e6,
                 "g-",
                 linewidth=2,
             )
             plt.xlabel("Time (s)")
-            plt.ylabel("Error (MA/m²)")
+            plt.ylabel("Ip (MA)")
             plt.title("Tracking Error (j_target - j_actual)")
             plt.grid(True, alpha=0.3)
 
@@ -214,6 +217,10 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
         actions = [ah.IpAction()]
 
         return actions
+
+    @property
+    def _define_observation(self):  # noqa: D102
+        return oh.AllObservation(custom_bounds_file="examples/iter_hybrid.json")
 
     def _define_reward(self, state, next_state, action):
         """Compute the reward. The higher the reward, the more performance and stability of the plasma.
@@ -246,7 +253,7 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
         j_center = rw.get_j_profile(next_state)[0]
 
         # Customize weights and sigma as needed
-        weight_list = [1, 1, 1, 0.5, 0.5, 1, 0.1]
+        weight_list = [2, 1, 2, 1, 1, 1]
         sigma = 0.5
 
         def gaussian_beta():
@@ -263,7 +270,10 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
             beta_troyon = (
                 0.028
                 * Ip
-                / (next_state["scalars"]["a_minor"] * next_state["scalars"]["B_0"])
+                / (
+                    next_state["scalars"]["a_minor"][0]
+                    * next_state["scalars"]["B_0"][0]
+                )
             )
             return np.exp(-0.5 * ((beta_N - beta_troyon) / sigma) ** 2)
 
@@ -300,23 +310,6 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
                         sum_ += w_val * 1 / (abs(s) + s0)
             return sum_
 
-        def j_error():
-            """Compute the relative error between the actual and ideal current density.
-
-            The ideal current density is a linear function of time.
-            Returns relative error as (|actual - ideal|) / |ideal| to normalize the scale.
-
-            Returns:
-                float: The relative error between the actual and ideal current density.
-            """
-            j_ideal = self._j_objectif()
-            if j_ideal == 0:
-                # Avoid division by zero; return absolute error if ideal is zero
-                return abs(j_center - j_ideal)
-            else:
-                # Return relative error as a percentage (0-1 scale)
-                return abs(j_center - j_ideal) / abs(j_ideal)
-
         def is_H_mode():
             if (
                 next_state["profiles"]["T_e"][0] > 10
@@ -327,23 +320,14 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
                 return False
 
         # Calculate individual reward components
-        r_fusion_gain = weight_list[0] * fusion_gain if is_H_mode() else 0
+        r_fusion_gain = weight_list[0] * fusion_gain / 50 if is_H_mode() else 0
         r_beta = weight_list[1] * gaussian_beta()
-        r_h98 = weight_list[2] * (h98 - 1) if is_H_mode() else 0
-        r_q_min = weight_list[3] * q_min_function()
-        r_q_edge = weight_list[4] * q_edge_function()
+        r_h98 = weight_list[2] * 1 / 50 if (is_H_mode() and h98 >= 1) else 0
+        r_q_min = weight_list[3] * q_min_function() / 150
+        r_q_edge = weight_list[4] * q_edge_function() / 150
         r_mag_shear = weight_list[5] * s_function()
-        r_j_error = -weight_list[6] * j_error() if not is_H_mode() else 0
 
-        total_reward = (
-            r_fusion_gain
-            # + r_beta
-            # + r_h98
-            + r_q_min
-            + r_q_edge
-            # + r_mag_shear
-            + r_j_error
-        )
+        total_reward = r_fusion_gain + r_h98 + r_q_min + r_q_edge
 
         # Store reward breakdown for logging (attach to environment if it has reward_breakdown attribute)
         if hasattr(self, "reward_breakdown"):
@@ -351,20 +335,18 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
                 self._reward_components = {
                     "fusion_gain": [],
                     # "beta_N": [],
-                    # "h98": [],
+                    "h98": [],
                     "q_min": [],
                     "q_edge": [],
                     # "s_function": [],
-                    "j_error": [],
                 }
 
             self._reward_components["fusion_gain"].append(r_fusion_gain)
             # self._reward_components["beta_N"].append(r_beta)
-            # self._reward_components["h98"].append(r_h98)
+            self._reward_components["h98"].append(r_h98)
             self._reward_components["q_min"].append(r_q_min)
             self._reward_components["q_edge"].append(r_q_edge)
             # self._reward_components["s_function"].append(r_mag_shear)
-            self._reward_components["j_error"].append(r_j_error)
 
         return total_reward
 
@@ -374,7 +356,11 @@ class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
         Returns:
             float: The objective function value.
         """
-        return 0.4e6 + 0.4e6 + 1e6 * 1.6 * self.current_time / 100
+        return (
+            0.2e6 + 0.4e6 + 1.4e6 * self.current_time / 100
+            if self.current_time <= 100
+            else 2e6
+        )
 
 
 def simulate(env: IterHybridEnvPid, k, plot_j_evolution=False, save_plot_as=None):
@@ -423,19 +409,21 @@ def simulate(env: IterHybridEnvPid, k, plot_j_evolution=False, save_plot_as=None
         pos_total_sum = sum(pos_component_totals.values())
 
         # print(f"Simulation completed with kp={kp:.4e}, ki={ki:.4e}")
-        # print(f"Total cumulative reward: {cumulative_reward:.4f}")
+        print(
+            f"Total cumulative reward: {cumulative_reward:.4f} with kp={kp:.4e}, ki={ki:.4e}"
+        )
         if env.reward_breakdown is True:
-            # print("Reward component breakdown:")
+            print("Reward component breakdown:")
 
             for name, total in pos_component_totals.items():
                 share = (total / pos_total_sum * 100) if pos_total_sum != 0 else 0
-                # print(f"  {name}: {total:.4f} ({share:.1f}%)")
-            j_error_tot = sum(env._reward_components["j_error"])
-            j_error_share = (
-                (-j_error_tot / pos_total_sum * 100) if pos_total_sum != 0 else 0
-            )
-        #     print(f"  j_error: {j_error_tot:.4f} ({j_error_share:.1f}%)")
-        # print()  # Empty line for readability
+                print(f"  {name}: {total:.4f} ({share:.1f}%)")
+            # j_error_tot = sum(env._reward_components["j_error"])
+            # j_error_share = (
+            #     (-j_error_tot / pos_total_sum * 100) if pos_total_sum != 0 else 0
+            # )
+            # print(f"  j_error: {j_error_tot:.4f} ({j_error_share:.1f}%)")
+        print()  # Empty line for readability
 
     # Plot j evolution if requested
     if plot_j_evolution:
@@ -445,6 +433,18 @@ def simulate(env: IterHybridEnvPid, k, plot_j_evolution=False, save_plot_as=None
 
 
 def optimize(function, grid_search_space, bounds):
+    """Optimize PID parameters using grid search followed by local optimization.
+
+    Args:
+        function: Objective function to minimize
+        grid_search_space: Tuple of (Kp_vals, Ki_vals) arrays for grid search
+        bounds: Bounds for local optimization
+
+    Returns:
+        scipy.optimize.OptimizeResult: Best optimization result
+    """
+    start_time = time.time()
+
     # coarse grid in bounds
     Kp_vals = grid_search_space[0]
     Ki_vals = grid_search_space[1]
@@ -452,16 +452,19 @@ def optimize(function, grid_search_space, bounds):
 
     # evaluate coarse grid
     scores = []
+    grid_start_time = time.time()
     print("Starting grid search...")
     for x in candidates:
         scores.append((function(np.array(x)), x))
     scores.sort()  # ascending (minimization of negative reward)
+    grid_time = time.time() - grid_start_time
 
-    print("Grid search done. Top scores:")
+    print(f"Grid search done in {grid_time:.2f}s. Top scores:")
     for val, (kp, ki) in scores[:5]:
         print(f"  Kp: {kp:.4e}, Ki: {ki:.4e}, Reward: {-val:.4f}")
 
     # start local optimization from top-N grid points
+    local_start_time = time.time()
     best = None
     best_val = np.inf
     for val, x0 in scores[:5]:  # refine top-5 starting points
@@ -469,14 +472,19 @@ def optimize(function, grid_search_space, bounds):
             function,
             np.array(x0),
             method="Powell",
-            options={"xatol": 1e-3, "fatol": 1e-3, "maxfev": 50},
+            options={"xtol": 1e-3, "ftol": 1e-3, "maxfev": 50},
             bounds=bounds,
             callback=_print_callback,
         )
+        print("Optimization result:", res.x, res.fun)
         if res.fun < best_val:
             best_val = res.fun
             best = res
+    local_time = time.time() - local_start_time
+    total_time = time.time() - start_time
 
+    print(f"Local optimization done in {local_time:.2f}s")
+    print(f"Total optimization time: {total_time:.2f}s")
     print("Best solution:", best.x, "reward:", -best.fun)
 
     return best
@@ -484,42 +492,51 @@ def optimize(function, grid_search_space, bounds):
 
 if __name__ == "__main__":
     env = IterHybridEnvPid(
-        render_mode=None, store_state_history=True, log_level="warning"
+        render_mode=None, store_state_history=True, log_level="error"
     )
 
     observation, _ = env.reset()
 
-    # from scipy.optimize import minimize
+    # Example 1: Direct scipy.optimize.minimize with timing
+    # opt_start_time = time.time()
     # res = minimize(
     #     lambda k: simulate(env, k),
-    #     x0=[2.0517e01, 0.14115e00],
+    #     x0=[10, 10],
     #     method="Powell",
     #     callback=_print_callback,
     #     options={
     #         "disp": True,  # Display convergence messages
     #     },
-    #     bounds=[(0, 100), (0, 5)],
+    #     bounds=[(0, 50), (0, 50)],
     # )
+    # opt_time = time.time() - opt_start_time
     # kp_opt, ki_opt = res.x
     # print(f"Optimal Kp, Ki: {kp_opt:.4e}, {ki_opt:.4e}, Value: {-res.fun}")
+    # print(f"Optimization completed in {opt_time:.2f}s")
 
-    # res = optimize(
-    #     lambda k: simulate(env, k),
-    #     grid_search_space=(
-    #         np.linspace(0, 60, 5),  # Kp values
-    #         np.linspace(0, 1, 5),  # Ki values
-    #     ),
-    #     bounds=[(0, 100), (0, 5)],
-    # )
+    # Example 2: Grid search + local optimization with built-in timing
+    res = optimize(
+        lambda k: simulate(env, k),
+        grid_search_space=(
+            np.linspace(0, 25, 5),  # Kp values
+            np.linspace(0, 25, 5),  # Ki values
+        ),
+        bounds=[(0, 25), (0, 25)],
+    )
 
-    # kp, ki = res.x
+    kp, ki = res.x
 
+    # kp, ki = 0, 0
+
+    main_start_time = time.time()
     simulate(
         env,
-        [81.04474445, 1.18040301],
+        [kp, ki],
         plot_j_evolution=True,
         save_plot_as="tmp/j_evolution_test.png",
     )
+    main_time = time.time() - main_start_time
+    print(f"Main execution completed in {main_time:.2f}s")
     """
     Only with j_error:
         Optimization terminated successfully.
@@ -556,5 +573,5 @@ if __name__ == "__main__":
         frame_skip=5,
         config_plot="default",
         beginning=0,
-        end=150,
+        end=-1,
     )
