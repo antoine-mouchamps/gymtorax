@@ -2,6 +2,8 @@ import numpy as np  # noqa: N999
 
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
+import gymtorax.rewards as rw
+
 
 from .base_env import BaseEnv
 
@@ -213,7 +215,7 @@ class IterHybridEnv(BaseEnv):
 
     @property
     def _define_observation(self):  # noqa: D102
-        return oh.AllObservation()
+        return oh.AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
 
     @property
     def _define_torax_config(self):  # noqa: D102
@@ -223,5 +225,91 @@ class IterHybridEnv(BaseEnv):
             "ratio_a_sim": 1,
         }
 
-    def _define_reward(self, state, next_state, action):  # noqa: D102
-        return 0.0
+    def _define_reward(self, state, next_state, action):
+        """Compute the reward. The higher the reward, the more performance and stability of the plasma.
+
+        The reward is a weighted sum of several factors:
+        - Fusion gain fusion_gain: we want to maximize it.
+        - Beta_N: we want to be as close as possible to the Troyon limit, but not exceed it too much.
+        - H-mode confinement quality factor h98: great if > 1
+        - q_min: we want to avoid it to be below 1.
+        - q_edge: we want to avoid it to be below 3.
+        - Magnetic shear at rational surfaces: we want to avoid low shear at rational surfaces.
+
+        Args:
+            state (dict[str, Any]): state at time t
+            next_state (dict[str, Any]): state at time t+1
+            action (NDArray[np.floating]): applied action at time t
+            gamma (float): discounted factor (0 < gamma <= 1)
+            n (int): number of steps since the beginning of the episode
+
+        Returns:
+            float: reward associated to the transition (state, action, next_state)
+        """
+        # Customize weights and sigma as needed
+        weight_list = [2, 1, 2, 1, 1, 1]
+
+        def _is_H_mode():
+            if (
+                next_state["profiles"]["T_e"][0] > 10
+                and next_state["profiles"]["T_i"][0] > 10
+            ):
+                return True
+            else:
+                return False
+
+        def _r_fusion_gain():
+            fusion_gain = rw.get_fusion_gain(next_state) / 10  # Normalize to [0, 1]
+            if _is_H_mode():
+                return fusion_gain
+            else:
+                return 0
+
+        def _r_h98():
+            h98 = rw.get_h98(next_state)
+            if _is_H_mode():
+                if h98 >= 1:
+                    return 1
+                else:
+                    return 0
+            else:
+                return 0
+
+        def _r_q_min():
+            q_min = rw.get_q_min(next_state)
+            if q_min <= 1:
+                return 0
+            elif q_min > 1:
+                return 1
+
+        def _r_q_95():
+            q_95 = rw.get_q95(next_state)
+            if q_95 <= 3:
+                return 0
+            else:
+                return 1
+
+        # Calculate individual reward components
+        r_fusion_gain = weight_list[0] * _r_fusion_gain() / 50
+        r_h98 = weight_list[2] * _r_h98() / 50
+        r_q_min = weight_list[3] * _r_q_min() / 150
+        r_q_95 = weight_list[4] * _r_q_95() / 150
+
+        total_reward = r_fusion_gain + r_h98 + r_q_min + r_q_95
+
+        # Store reward breakdown for logging (attach to environment if it has reward_breakdown attribute)
+        if hasattr(self, "reward_breakdown"):
+            if not hasattr(self, "_reward_components"):
+                self._reward_components = {
+                    "fusion_gain": [],
+                    "h98": [],
+                    "q_min": [],
+                    "q_edge": [],
+                }
+
+            self._reward_components["fusion_gain"].append(r_fusion_gain)
+            self._reward_components["h98"].append(r_h98)
+            self._reward_components["q_min"].append(r_q_min)
+            self._reward_components["q_edge"].append(r_q_95)
+
+        return total_reward

@@ -95,15 +95,3 @@ def get_s_profile(state: dict) -> np.ndarray:
         np.ndarray: The magnetic shear profile s.
     """
     return state["profiles"]["magnetic_shear"]
-
-
-def get_j_profile(state: dict) -> np.ndarray:
-    """Get the current density profile j from the state dictionary.
-
-    Args:
-        state (dict): The state dictionary containing profile values.
-
-    Returns:
-        np.ndarray: The current density profile j.
-    """
-    return state["profiles"]["j_total"]

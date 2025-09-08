@@ -7,7 +7,6 @@ from scipy.optimize import minimize
 
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
-import gymtorax.rewards as rw
 from gymtorax import IterHybridEnv
 
 # Set up logger for this module
@@ -21,6 +20,7 @@ plt.rcParams.update(
         "font.family": "serif",
     }
 )
+
 
 class PIDAgent:
     def __init__(self, action_space, kp, ki, kd):
@@ -52,8 +52,9 @@ class PIDAgent:
         self.error_history = []
         self.action_history = []
 
-    def act(self, observation, j_target) -> dict:
+    def act(self, observation) -> dict:
         j_center = observation["profiles"]["j_total"][0]
+        j_target = 0.2e6 + 0.4e6 + 1.4e6 * self.time / 100
 
         # Store values for tracking/plotting
         self.j_target_history.append(j_target)
@@ -85,18 +86,6 @@ class PIDAgent:
             # Calculate desired Ip current (baseline + PID correction)
             ip_baseline = 3.0e6
             ip_desired = ip_baseline + pid_output
-
-            # Debug prints
-            # if self.time % 5 == 0:  # Print every 10 time steps
-            #     print(
-            #         f"[PID DEBUG] t={self.time:3d}  j_obj={j_target:.3e}  j={j_center:.3e}  error={error:.3e}"
-            #     )
-            #     print(
-            #         f"            P={p_term:.3e}  I={i_term:.3e}  D={d_term:.3e}  PID_out={pid_output:.3e}  I_int={self.error_integral:.3e}"
-            #     )
-            #     print(
-            #         f"            Ip_ctrl={self.ip_controlled:.3e}  Ip_des={ip_desired:.3e}\n"
-            #     )
 
             # Then apply physical power limits
             ip_final = np.clip(ip_desired, self.ip_min, self.ip_max)
@@ -136,8 +125,32 @@ class PIDAgent:
             # Store current error for next derivative calculation
             self.previous_error = error
 
-        # Create action dictionary
-        action = {"Ip": [self.ip_controlled]}
+        _NBI_W_TO_MA = 1 / 16e6
+
+        nbi_powers = np.array([0, 0, 33e6])
+        nbi_cd = nbi_powers * _NBI_W_TO_MA
+
+        r_nbi = 0.25
+        w_nbi = 0.25
+
+        eccd_power = {0: 0, 99: 0, 100: 20.0e6}
+
+        action = {
+            "Ip": [self.ip_controlled],
+            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "ECRH": [eccd_power[0], 0.35, 0.05],
+        }
+
+        if self.time == 98:
+            action["ECRH"][0] = eccd_power[99]
+            action["NBI"][0] = nbi_powers[1]
+            action["NBI"][1] = nbi_cd[1]
+
+        if self.time >= 99:
+            action["ECRH"][0] = eccd_power[100]
+            action["NBI"][0] = nbi_powers[2]
+            action["NBI"][1] = nbi_cd[2]
+
         self.time += 1
         self.action_history.append(self.ip_controlled)
 
@@ -171,24 +184,6 @@ class PIDAgent:
             linewidth=1.5,
         )
 
-        # Add ±10% relative error lines
-        j_target_plus_10 = j_target_ma * 1.1
-        j_target_minus_10 = j_target_ma * 0.9
-
-        ax.plot(
-            self.time_history[:100],
-            j_target_plus_10[:100],
-            "r:",
-            label=r"$\pm$ $10\,\%$",
-            linewidth=1,
-        )
-        ax.plot(
-            self.time_history[:100],
-            j_target_minus_10[:100],
-            "r:",
-            linewidth=1,
-        )
-
         # Add vertical line at t=100 with LH transition text
         ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
         ax.text(
@@ -213,7 +208,7 @@ class PIDAgent:
             label=r"$I_p$",
         )
 
-        # Add vertical line at t=100 with LH transition text for Ip plot too
+        # Add vertical line at t=100 with LH transition text
         ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
         ax.text(
             105,
@@ -229,162 +224,7 @@ class PIDAgent:
         fig.savefig(f"{filename}_ip.pdf", bbox_inches="tight")
 
 
-class IterHybridEnvPid(IterHybridEnv):  # noqa: D101
-    def __init__(self, render_mode, **kwargs):  # noqa: D107
-        super().__init__(render_mode=render_mode, **kwargs)
-
-    @property
-    def _define_actions(self):  # noqa: D102
-        actions = [ah.IpAction()]
-
-        return actions
-
-    @property
-    def _define_observation(self):  # noqa: D102
-        return oh.AllObservation(custom_bounds_file="examples/iter_hybrid.json")
-
-    def _define_reward(self, state, next_state, action):
-        """Compute the reward. The higher the reward, the more performance and stability of the plasma.
-
-        The reward is a weighted sum of several factors:
-        - Fusion gain fusion_gain: we want to maximize it.
-        - Beta_N: we want to be as close as possible to the Troyon limit, but not exceed it too much.
-        - H-mode confinement quality factor h98: great if > 1
-        - q_min: we want to avoid it to be below 1.
-        - q_edge: we want to avoid it to be below 3.
-        - Magnetic shear at rational surfaces: we want to avoid low shear at rational surfaces.
-
-        Args:
-            state (dict[str, Any]): state at time t
-            next_state (dict[str, Any]): state at time t+1
-            action (NDArray[np.floating]): applied action at time t
-            gamma (float): discounted factor (0 < gamma <= 1)
-            n (int): number of steps since the beginning of the episode
-
-        Returns:
-            float: reward associated to the transition (state, action, next_state)
-        """
-        fusion_gain = rw.get_fusion_gain(next_state) / 10  # Normalize to [0, 1]
-        beta_N = rw.get_beta_N(next_state)
-        h98 = rw.get_h98(next_state)
-        q_profile = rw.get_q_profile(next_state)
-        q_min = rw.get_q_min(next_state)
-        q_95 = rw.get_q95(next_state)
-        s_profile = rw.get_s_profile(next_state)
-        j_center = rw.get_j_profile(next_state)[0]
-
-        # Customize weights and sigma as needed
-        weight_list = [2, 1, 2, 1, 1, 1]
-        sigma = 0.5
-
-        def gaussian_beta():
-            """Compute the Gaussian weight for the beta_N value.
-
-            Beta_N is a measure of performance and instabilities in plasma physics.
-            We have to find a trade-off between stability and performance.
-            The Troyon limit is an empirical limit which can be used as a trade-off.
-            However, it can be exceeded in certain scenarios.
-            For this reason, we need a correlation to allow a slight excess.
-            That's why we use a Gaussian function.
-            """
-            Ip = action["Ip"][0] / 1e6  # We know that Ip is in action
-            beta_troyon = (
-                0.028
-                * Ip
-                / (
-                    next_state["scalars"]["a_minor"][0]
-                    * next_state["scalars"]["B_0"][0]
-                )
-            )
-            return np.exp(-0.5 * ((beta_N - beta_troyon) / sigma) ** 2)
-
-        def q_min_function():
-            if q_min <= 1:
-                return 0
-            elif q_min > 1:
-                return 1
-
-        def q_edge_function():
-            if q_95 <= 3:
-                return 0
-            else:
-                return 1
-
-        def s_function():
-            q_risk = [1, 4 / 3, 3 / 2, 5 / 3, 2, 5 / 2, 3]
-            weight = [-1, -1, -1, -1, -1, -1, -1]
-            s0 = 0.1  # Value to avoid a division by zero
-            sum_ = 0
-            q_max = max(q_profile)
-
-            for q_val, w_val in zip(q_risk, weight):
-                if not (q_min <= q_val <= q_max):
-                    continue
-
-                for i in range(len(q_profile) - 1):
-                    q1, q2 = q_profile[i], q_profile[i + 1]
-                    s1, s2 = s_profile[i], s_profile[i + 1]
-
-                    if (q1 <= q_val <= q2) or (q2 <= q_val <= q1):
-                        # interpolate s from the estimated position q
-                        s = np.interp(q_val, [q1, q2], [s1, s2])
-                        sum_ += w_val * 1 / (abs(s) + s0)
-            return sum_
-
-        def is_H_mode():
-            if (
-                next_state["profiles"]["T_e"][0] > 10
-                and next_state["profiles"]["T_i"][0] > 10
-            ):
-                return True
-            else:
-                return False
-
-        # Calculate individual reward components
-        r_fusion_gain = weight_list[0] * fusion_gain / 50 if is_H_mode() else 0
-        r_beta = weight_list[1] * gaussian_beta()
-        r_h98 = weight_list[2] * 1 / 50 if (is_H_mode() and h98 >= 1) else 0
-        r_q_min = weight_list[3] * q_min_function() / 150
-        r_q_edge = weight_list[4] * q_edge_function() / 150
-        r_mag_shear = weight_list[5] * s_function()
-
-        total_reward = r_fusion_gain + r_h98 + r_q_min + r_q_edge
-
-        # Store reward breakdown for logging (attach to environment if it has reward_breakdown attribute)
-        if hasattr(self, "reward_breakdown"):
-            if not hasattr(self, "_reward_components"):
-                self._reward_components = {
-                    "fusion_gain": [],
-                    # "beta_N": [],
-                    "h98": [],
-                    "q_min": [],
-                    "q_edge": [],
-                    # "s_function": [],
-                }
-
-            self._reward_components["fusion_gain"].append(r_fusion_gain)
-            # self._reward_components["beta_N"].append(r_beta)
-            self._reward_components["h98"].append(r_h98)
-            self._reward_components["q_min"].append(r_q_min)
-            self._reward_components["q_edge"].append(r_q_edge)
-            # self._reward_components["s_function"].append(r_mag_shear)
-
-        return total_reward
-
-    def _j_objectif(self):
-        """Compute the objective function for the current density.
-
-        Returns:
-            float: The objective function value.
-        """
-        return (
-            0.2e6 + 0.4e6 + 1.4e6 * self.current_time / 100
-            if self.current_time <= 100
-            else 2e6
-        )
-
-
-def simulate(env: IterHybridEnvPid, k, save_plot_as=None):
+def simulate(env: IterHybridEnv, k, save_plot_as=None):
     """Simulate the environment with given PID parameters and return a cost.
 
     Args:
@@ -413,7 +253,7 @@ def simulate(env: IterHybridEnvPid, k, save_plot_as=None):
     gamma = 1  # Discount factor for future rewards
 
     while not terminated:
-        action = agent.act(observation, env._j_objectif())
+        action = agent.act(observation)
         observation, reward, terminated, _, _ = env.step(action)
 
         cumulative_reward += reward * (gamma**n)
@@ -515,22 +355,6 @@ if __name__ == "__main__":
 
     observation, _ = env.reset()
 
-    # Example 1: Direct scipy.optimize.minimize with timing
-    # opt_start_time = time.time()
-    # res = minimize(
-    #     lambda k: simulate(env, k),
-    #     x0=[10, 10],
-    #     method="Powell",
-    #     options={
-    #         "disp": True,  # Display convergence messages
-    #     },
-    #     bounds=[(0, 50), (0, 50)],
-    # )
-    # opt_time = time.time() - opt_start_time
-    # kp_opt, ki_opt = res.x
-    # print(f"Optimal Kp, Ki: {kp_opt:.4e}, {ki_opt:.4e}, Value: {-res.fun}")
-    # print(f"Optimization completed in {opt_time:.2f}s")
-
     # Example 2: Grid search + local optimization with built-in timing
     # res = optimize(
     #     lambda k: simulate(env, k),
@@ -553,36 +377,7 @@ if __name__ == "__main__":
     )
     main_time = time.time() - main_start_time
     print(f"Main execution completed in {main_time:.2f}s")
-    """
-    Only with j_error:
-        Optimization terminated successfully.
-            Current function value: 4.379804
-            Iterations: 2
-            Function evaluations: 121
-        Optimal Kp, Ki: 4.5682e+01, 4.1315e+00, Value: -4.3798039897847305
 
-    + -1000 if crash:
-    Optimization terminated successfully.
-         Current function value: 6.528004
-         Iterations: 2
-         Function evaluations: 120
-    Optimal Kp, Ki: 3.4669e+01, 2.3164e-01, Value: -6.528003919100931
-
-
-    Total cumulative reward: 51.9981
-    Reward component breakdown:
-    fusion_gain: 51.0004 (98.1%)
-    q_min: 7.4000 (14.2%)
-    q_edge: 15.1000 (29.0%)
-    j_error: -21.5023 (-41.4%)
-
-    Iteration 2: kp=1.0840e+27, ki=1.1057e+00
-    Optimization terminated successfully.
-            Current function value: -51.998101
-            Iterations: 2
-            Function evaluations: 73
-    Optimal Kp, Ki: 6.2250e+01, 1.0050e-01, Value: 51.99810094340189
-    """
     env.save_gif_torax(
         filename="tmp/pid_optimized.gif",
         interval=250,
