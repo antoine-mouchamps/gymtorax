@@ -55,7 +55,7 @@ class TestEnvironmentRegistration:
             "gymtorax/IterHybrid-v0",
             render_mode="rgb_array",
             log_level="info",
-            store_state_history=True,
+            store_history=True,
         )
         assert env1 is not None
         env1.close()

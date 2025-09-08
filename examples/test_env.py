@@ -186,17 +186,17 @@ class TestEnv(BaseEnv):
         Args:
             **kwargs: Keyword arguments passed to BaseEnv.__init__().
                 Common options include render_mode, log_level, logfile, fig,
-                and store_state_history. Refer to BaseEnv.__init__() documentation
+                and store_history. Refer to BaseEnv.__init__() documentation
                 for complete parameter list.
 
         Note:
             This environment sets the following defaults which can be overridden
-            via kwargs: render_mode=None, log_level="debug", store_state_history=True.
+            via kwargs: render_mode=None, log_level="debug", store_history=True.
         """
         # Set environment-specific defaults
         kwargs.setdefault("render_mode", None)
         kwargs.setdefault("log_level", "debug")
-        kwargs.setdefault("store_state_history", True)
+        kwargs.setdefault("store_history", True)
 
         super().__init__(**kwargs)
 

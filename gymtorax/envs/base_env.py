@@ -110,7 +110,7 @@ class BaseEnv(gym.Env, ABC):
         log_level="warning",
         logfile=None,
         fig: viz.FigureProperties | None = None,  # TODO: REMOVE FROM HERE
-        store_state_history=False,
+        store_history=False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
 
@@ -129,7 +129,7 @@ class BaseEnv(gym.Env, ABC):
                 configuration. Defines plot layout, variables to display, and styling
                 options for real-time plotting and GIF creation. If None, default
                 visualization settings will be used. Defaults to None.
-            store_state_history (bool, optional): Whether to store simulation history
+            store_history (bool, optional): Whether to store simulation history
                 for later saving. Set to True if you plan to use save_file() method.
                 Defaults to False.
 
@@ -198,10 +198,7 @@ class BaseEnv(gym.Env, ABC):
         self.timestep: int = 0  # Current action timestep counter
 
         # Initialize TORAX simulation wrapper
-        self.store_state_history = store_state_history
-        self.torax_app: ToraxApp = ToraxApp(
-            self.config, self.delta_t_a, store_state_history
-        )
+        self.torax_app: ToraxApp = ToraxApp(self.config, self.delta_t_a, store_history)
 
         # Start simulator
         self.torax_app.start()
@@ -234,9 +231,7 @@ class BaseEnv(gym.Env, ABC):
         else:
             self.plotter = None
 
-        # Initialize rendering components (will be set up when needed)
-        self.window = None
-        self.clock = None
+        self.store_history = store_history
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -280,6 +275,9 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = (
             self.observation_handler.extract_state_observation(torax_state)
         )
+
+        if self.store_history:
+            self.observation_history = [self.observation]
 
         if self.plotter is not None:
             self.plotter.update(
@@ -346,6 +344,9 @@ class BaseEnv(gym.Env, ABC):
             next_torax_state
         )
         self.state, self.observation = next_state, observation
+
+        if self.store_history:
+            self.observation_history.append(self.observation)
 
         # Compute reward based on state transition
         if not success or not self.observation_space.contains(self.observation):
@@ -430,7 +431,7 @@ class BaseEnv(gym.Env, ABC):
         This method loads a plotting configuration by name, extracts the simulation history (optionally
         selecting a time range), and generates an animated GIF visualizing the evolution of the simulation.
         The plot configuration must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG`
-        attribute. The simulation must have been run with `store_state_history=True` for this to work.
+        attribute. The simulation must have been run with `store_history=True` for this to work.
 
         Args:
             config_plot (str): Name of the plot configuration to use (e.g., "simple").

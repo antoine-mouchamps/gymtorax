@@ -511,9 +511,7 @@ def optimize(function, grid_search_space, bounds):
 
 
 if __name__ == "__main__":
-    env = IterHybridEnvPid(
-        render_mode=None, store_state_history=True, log_level="error"
-    )
+    env = IterHybridEnv(render_mode=None, store_history=True, log_level="error")
 
     observation, _ = env.reset()
 

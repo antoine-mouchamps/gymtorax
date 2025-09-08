@@ -177,7 +177,7 @@ class IterHybridEnv(BaseEnv):
         >>> env = IterHybridEnv(
         ...     render_mode="human",
         ...     log_level="info",
-        ...     store_state_history=True,
+        ...     store_history=True,
         ...     fig=custom_figure_properties
         ... )
 
@@ -193,7 +193,7 @@ class IterHybridEnv(BaseEnv):
             render_mode (str, optional): Rendering mode for visualization.
                 See BaseEnv documentation for details. Defaults to None.
             **kwargs: Additional keyword arguments passed to BaseEnv.__init__().
-                Common options include log_level, logfile, fig, and store_state_history.
+                Common options include log_level, logfile, fig, and store_history.
                 Refer to BaseEnv.__init__() documentation for complete parameter list.
 
         Note:

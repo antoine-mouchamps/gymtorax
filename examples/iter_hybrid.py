@@ -65,8 +65,8 @@ class IterHybridAgent:  # noqa: D101
 
 if __name__ == "__main__":
     profiler = cProfile.Profile()
-    fig_plot = None
-    env = IterHybridEnv(render_mode=None, store_state_history=True)
+
+    env = IterHybridEnv(render_mode="human", store_history=True)
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
