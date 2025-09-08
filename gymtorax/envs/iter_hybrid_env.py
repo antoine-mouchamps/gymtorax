@@ -208,24 +208,24 @@ class IterHybridEnv(BaseEnv):
         super().__init__(render_mode=render_mode, **kwargs)
 
     @property
-    def _define_actions(self):  # noqa: D102
+    def _define_action_space(self):  # noqa: D102
         actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
 
         return actions
 
     @property
-    def _define_observation(self):  # noqa: D102
+    def _define_observation_space(self):  # noqa: D102
         return oh.AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
 
     @property
-    def _define_torax_config(self):  # noqa: D102
+    def _get_torax_config(self):  # noqa: D102
         return {
             "config": CONFIG,
             "discretization": "fixed",
             "ratio_a_sim": 1,
         }
 
-    def _define_reward(self, state, next_state, action):
+    def _compute_reward(self, state, next_state, action):
         """Compute the reward. The higher the reward, the more performance and stability of the plasma.
 
         The reward is a weighted sum of several factors:

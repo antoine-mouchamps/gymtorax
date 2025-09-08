@@ -253,7 +253,7 @@ class ToraxApp:
             self.initial_config.config_torax.restart
             and self.initial_config.config_torax.restart.do_restart
         ):
-            self.t_current = self.config.get_initial_simulation_time(reset=True)
+            self.t_current = self.config.get_initial_simulation_time(restart=True)
         else:
             self.t_current = self.config.get_initial_simulation_time()
 
