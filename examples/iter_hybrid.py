@@ -8,13 +8,11 @@ from gymtorax import IterHybridEnv
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
 
-nbi_times = np.array([0, 99, 100])
 nbi_powers = np.array([0, 0, 33e6])
 nbi_cd = nbi_powers * _NBI_W_TO_MA
 
 r_nbi = 0.25
 w_nbi = 0.25
-el_heat_fraction = 0.66
 
 eccd_power = {0: 0, 99: 0, 100: 20.0e6}
 

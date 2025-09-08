@@ -185,3 +185,4 @@ cython_debug/
 *.json
 # Exceptions:
 !examples/*.json
+!gymtorax/envs/*.json
