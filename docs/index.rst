@@ -1,4 +1,4 @@
-About Gym-TORAX
+Welcome page
 ================
 
 **Gym-TORAX** is a Python package that provides reinforcement learning (RL) 
@@ -31,3 +31,4 @@ Gym-TORAX lowers the entry barrier for RL researchers to explore plasma control 
    User guide
    Developer guide
    Examples
+   Citing

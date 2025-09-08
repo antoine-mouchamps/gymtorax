@@ -18,8 +18,8 @@ TORAX is an open-source plasma simulator based on 1D transport equations.
 It models the time evolution of key plasma quantities such as temperatures, densities, 
 magnetic flux, and derived performance metrics (e.g. safety factor q, fusion gain Q).
 
-In its native form, TORAX is an open-loop simulator: input parameters such as loop voltage, 
-plasma current, or heating sources are predefined for the entire simulation, and the plasma 
+In its native form, TORAX is an open-loop simulator: input parameters such as loop voltage /
+plasma current, or heating sources are predefined for the entire simulation (time series), and the plasma 
 state is updated accordingly.
 
 Closing the Loop with Gym-TORAX
@@ -57,13 +57,16 @@ environment, four aspects must be specified:
 Helper classes (Action, Observation, Reward) simplify this process, so that new environments can 
 be created with minimal boilerplate.
 
-Beyond the Basics
--------------------
+Additional Features
+--------------------
 
-Gym-TORAX is more than just a Gymnasium wrapper:
+In addition to the core Gymnasium interface, Gym-TORAX provides:
 
-- It abstracts away plasma physics for RL users, who can use the environments like any other Gymnasium task.
+- Compatibility with reinforcement learning workflows: environments follow the 
+  standard Gymnasium API and can be used directly with existing RL libraries.
 
-- It empowers physicists to explore advanced control strategies by creating environments with different assumptions or operating scenarios (steady-state, ramp-up, ramp-down, etc.).
+- Configurability for physics studies: environments can be adapted to represent 
+  different operating scenarios (e.g., steady-state, ramp-up, ramp-down).
 
-- It includes visualization tools such as a real-time plotter and GIF exporter to track how the plasma evolves during an episode.
+- Visualization utilities: a real-time plotter and a GIF exporter are available 
+  to analyze plasma evolution during simulations.

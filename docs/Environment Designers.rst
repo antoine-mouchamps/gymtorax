@@ -5,7 +5,7 @@ The **Gym-TORAX** package provides a powerful framework for plasma physics speci
 to explore and create new environments. It is designed as a flexible toolkit that allows 
 users with a background in plasma physics to develop and test their own scenarios, 
 configurations, and experiments. This includes defining new actions, observations, 
-and the dynamics of the plasma itself.
+the TORAX configuration (for the plasma properties) and rewards.
 
 
 Creation of New Environments

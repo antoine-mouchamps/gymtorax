@@ -1,64 +1,17 @@
 Physical validation
 ====================
-To verify that Gym-TORAX does not alter the underlying physics, we reproduced 
-the ITER hybrid ramp-up scenario. This configuration is one of the reference cases.
-It is used in the `tutorial <https://torax.readthedocs.io/en/v1.0.3/tutorials.html>`_ (see [Citrin 2010]).
-
-- Scenario: a 100 s ramp-up phase, followed by a 50 s nominal phase (0 – 150 s total).
-
-- Control parameters: plasma current :math:`I_p`, neutral beam injection (NBI), and electron 
-  cyclotron resonance heating (ECRH).
-
-- Setup: we created a custom environment including three actions hereabove and the config file 
-  from the TORAX tutorial. An agent was programmed with a predetermined policy reproducing 
-  the input trajectories from the native TORAX scenario. The environment was stepped every 
-  second, from 0 s to 150 s.
+To validate that Gym-TORAX reproduces TORAX faithfully, we implemented an agent 
+with a predetermined policy. This agent directly follows the action trajectories 
+from the TORAX reference ITER hybrid scenario.
 
 .. code-block:: python
 
-    import gymtorax.action_handler as ah
-    import gymtorax.observation_handler as oh
-    from gymtorax.envs.base_env import BaseEnv
-
-    class IterHybridEnv(BaseEnv):
-        def __init__(self, render_mode, fig = None, store_state_history = False):
-            super().__init__(
-                render_mode=render_mode,
-                log_level="warning",
-                fig=fig,
-                store_state_history=store_state_history,
-            )
-
-        @property
-        def _define_actions(self):
-            actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
-
-            return actions
-
-        @property
-        def _define_observation(self):
-            return oh.AllObservation()
-
-        @property
-        def _define_torax_config(self):
-            return {
-                "config": CONFIG,
-                "discretization": "fixed",
-                "ratio_a_sim": 1,
-            }
-
-        def _define_reward(self, state, next_state, action): 
-            # Not used in this example
-            return 0.0
-
-.. code-block:: python
-
-    class IterHybridAgent(BaseAgent):  # noqa: D101
-        def __init__(self, action_space):  # noqa: D107
+    class IterHybridAgent(BaseAgent): 
+        def __init__(self, action_space):
             super().__init__(action_space=action_space)
             self.time = 0
 
-        def act(self, observation) -> dict:  # noqa: D102
+        def act(self, observation) -> dict:
             action = {
                 "Ip": [3e6],
                 "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
@@ -87,8 +40,9 @@ It is used in the `tutorial <https://torax.readthedocs.io/en/v1.0.3/tutorials.ht
 
 
 Comparison between Gym-TORAX and native TORAX shows identical plasma evolution for all 
-state variables. As an illustration, the figure below shows current density profiles 
-at selected times: 50s, 99s, 105s, and 150s.
+state variables. This validates the correctness of the wrapper implementation. To illustrate 
+this agreement, we compare current density profiles at four representative times 
+(50s, 99s, 105s, and 150s), spanning both the ramp-up and the nominal phases of the scenario:
 
 .. grid:: 2
 
@@ -119,6 +73,5 @@ at selected times: 50s, 99s, 105s, and 150s.
 *Snapshots of current density at different times (native TORAX: dashed lines, 
 Gym-TORAX: solid lines).*
 
-This confirms that Gym-TORAX faithfully reproduces TORAX simulations and can be 
-safely used as a control interface. Our complete code is available
+Our complete code is available
 `here <https://github.com/antoine-mouchamps/gymtorax/blob/main/examples/iter_hybrid.py>`_.

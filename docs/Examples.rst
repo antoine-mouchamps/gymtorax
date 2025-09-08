@@ -1,19 +1,25 @@
 Examples
 =========
 
-This section presents two example cases of Gym-TORAX:
+.. `tutorial <https://torax.readthedocs.io/en/v1.0.3/tutorials.html>`_ is normally the exact scenario
 
-- :doc:`Physical validation`: reproducing a TORAX reference scenario inside Gym-TORAX
-  to confirm the wrapper introduces no discrepancy.
+This section illustrates how to use Gym-TORAX with practical cases.  
+All examples are based on the ITER hybrid ramp-up scenario, provided with TORAX.  
+This scenario, adapted from [Citrin_2010], consists of:
 
-- :doc:`Simple control`: using a simple PI controller to search for a ramp-up strategy 
-  that maximizes a reward.
+- a ramp-up phase (0–100 s) in *L-mode* (low confinement regime),
+- followed by a nominal phase (100–150 s) in *H-mode* (high confinement regime).
 
-These examples illustrate both the correctness of the implementation and the potential for control design.
+We present three parts:
+
+1. :doc:`Environment description <Iter env>` — details about the custom Gym-TORAX environment ``IterHybridEnv``.
+2. :doc:`Physical validation <Physical validation>` — a direct comparison with the TORAX reference simulation.
+3. :doc:`PI controller <Simple control>` — a first proof-of-concept control example.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :hidden:
 
+   Iter env
    Physical validation
    Simple control
