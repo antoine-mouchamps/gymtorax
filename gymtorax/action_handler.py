@@ -6,8 +6,8 @@ can be modified during the simulation to influence plasma behavior.
 
 The Action class is designed to be extended by users to create custom actions
 for specific control parameters. Each action has a unique name, dimensionality,
-bounds, and knows how to map itself to TORAX configuration dictionaries and
-which state variables it affects.
+bounds, ramp rate limits, and knows how to map itself to TORAX configuration
+dictionaries and which state variables it affects.
 
 Classes:
     Action: Abstract base class for all action types (user-extensible)
@@ -25,6 +25,7 @@ Example:
     ...     dimension = 2
     ...     default_min = [0.0, -1.0]
     ...     default_max = [10.0, 1.0]
+    ...     default_ramp_rate = [0.1, None]  # First param limited, second unlimited
     ...     config_mapping = {
     ...         ('some_config', 'param1'): 0,
     ...         ('some_config', 'param2'): 1
@@ -34,9 +35,10 @@ Example:
     Use an existing action:
 
     >>> ip_action = IpAction()
-    >>> ip_action.set_values([1.5e6])  # 1.5 MA plasma current
+    >>> ip_action._set_values([1.5e6])  # 1.5 MA plasma current
 """
 
+import copy
 import logging
 from abc import ABC
 from typing import Any
@@ -65,6 +67,8 @@ class Action(ABC):
         dimension (int): Number of parameters controlled by this action
         default_min (list[float]): Default minimum values for parameters
         default_max (list[float]): Default maximum values for parameters
+        default_ramp_rate (list[float | None]): Default ramp rate limits for parameters.
+            None means no ramp rate limit, float values specify maximum change per step.
         config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
             paths to parameter indices. Keys are tuples representing the nested
             path in the config dictionary, values are parameter indices.
@@ -75,6 +79,7 @@ class Action(ABC):
 
     Instance Attributes:
         values (list[float]): Current parameter values
+        ramp_rate (list[float | None]): Ramp rate limits for each parameter
         dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
 
     Example:
@@ -85,6 +90,7 @@ class Action(ABC):
         ...     dimension = 2
         ...     default_min = [0.0, -5.0]
         ...     default_max = [10.0, 5.0]
+        ...     default_ramp_rate = [0.5, None]  # First param limited, second unlimited
         ...     config_mapping = {
         ...         ('section', 'param1'): 0,
         ...         ('section', 'param2'): 1
@@ -98,6 +104,7 @@ class Action(ABC):
     name: str
     default_min: list[float]
     default_max: list[float]
+    default_ramp_rate: list[float | None]
     config_mapping: dict[tuple[str, ...], int]
     state_var: dict[str, list[str]] = {}
 
@@ -105,6 +112,7 @@ class Action(ABC):
         self,
         min: list[float] | None = None,
         max: list[float] | None = None,
+        ramp_rate: list[float | None] | None = None,
         dtype: np.dtype = np.float64,
     ) -> None:
         """Initialize an Action instance.
@@ -114,6 +122,9 @@ class Action(ABC):
                 class default_min values. Must have length equal to dimension.
             max: Custom maximum bounds for each parameter. If None, uses the
                 class default_max values. Must have length equal to dimension.
+            ramp_rate: Custom ramp rate limits for each parameter. If None, uses the
+                class default_ramp_rate values. Must have length equal to dimension.
+                Each element can be None (no limit) or a float (max change per step).
             dtype: NumPy data type for the action arrays (default: np.float64).
                 Used for creating action spaces.
 
@@ -122,8 +133,8 @@ class Action(ABC):
                 - name class attribute is not defined
                 - dimension class attribute is not defined or not a positive integer
                 - config_mapping class attribute is not defined
-                - default_min or default_max don't match the dimension
-                - provided min or max don't match the dimension
+                - default_min, default_max, or default_ramp_rate don't match the dimension
+                - provided min, max, or ramp_rate don't match the dimension
         """
         # Validate that required class attributes are properly defined
         if not self.name:
@@ -157,11 +168,31 @@ class Action(ABC):
         ):
             raise ValueError(f"default_min must be a list of length {self.dimension}")
 
+        if min is not None:
+            if not isinstance(min, list) or len(min) != self.dimension:
+                raise ValueError(f"min must be a list of length {self.dimension}")
+
         if (
             not isinstance(self.default_max, list)
             or len(self.default_max) != self.dimension
         ):
             raise ValueError(f"default_max must be a list of length {self.dimension}")
+
+        if max is not None:
+            if not isinstance(max, list) or len(max) != self.dimension:
+                raise ValueError(f"max must be a list of length {self.dimension}")
+
+        if (
+            not isinstance(self.default_ramp_rate, list)
+            or len(self.default_ramp_rate) != self.dimension
+        ):
+            raise ValueError(
+                f"default_ramp_rate must be a list of length {self.dimension}"
+            )
+
+        if ramp_rate is not None:
+            if not isinstance(ramp_rate, list) or len(ramp_rate) != self.dimension:
+                raise ValueError(f"ramp_rate must be a list of length {self.dimension}")
 
         # Initialize minimum and maximum bounds for the action parameters
         # Use provided values or defaults
@@ -178,7 +209,10 @@ class Action(ABC):
                 f"Invalid max bounds dimension: expected {self.dimension}, got {len(self._max)}"
             )
         # Default value
-        self.values = self._min
+        self.values = copy.deepcopy(self._min)
+
+        # Ramp up/down limits
+        self.ramp_rate = ramp_rate if ramp_rate is not None else self.default_ramp_rate
 
         self.dtype = dtype
 
@@ -202,18 +236,29 @@ class Action(ABC):
         """
         return self._max
 
-    def set_values(self, values: list[float]) -> None:
+    def _set_values(self, new_values: list[float]) -> None:
         """Set the current parameter values for this action.
 
         Args:
-            values (list[float]): The new parameter values to set.
+            new_values: The new parameter values to set. Must have length equal
+                to the action's dimension.
 
         Raises:
             ValueError: If the length of the values list does not match the expected dimension.
         """
-        if len(values) != self.dimension:
-            raise ValueError(f"Expected {self.dimension} values, got {len(values)}")
-        self.values = values
+        if len(new_values) != self.dimension:
+            raise ValueError(f"Expected {self.dimension} values, got {len(new_values)}")
+
+        for i in range(self.dimension):
+            clipped_value = np.clip(new_values[i], self.min[i], self.max[i])
+            if self.ramp_rate[i] is not None:
+                self.values[i] = np.clip(
+                    clipped_value,
+                    self.values[i] - self.ramp_rate[i],
+                    self.values[i] + self.ramp_rate[i],
+                )
+            else:
+                self.values[i] = clipped_value
 
     def init_dict(self, config_dict: dict[str, Any]) -> None:
         """Initialize a TORAX configuration dictionary with this action parameters.
@@ -344,17 +389,17 @@ class ActionHandler:
         Args:
             actions: List of Action instances to manage.
         """
-        self._actions = actions
+        self._actions = {a.name: a for a in actions}
         self._actions_names = set([a.name for a in actions])
         self._validate_action_handler()
-        self.action_space = self.build_action_space()
         self.number_of_updates = 0
+        self.action_space = self.build_action_space()
 
-    def get_actions(self) -> list[Action]:
-        """Get the list of managed actions.
+    def get_actions(self) -> dict[str, Action]:
+        """Get the list of managed actions as a dictionnary.
 
         Returns:
-            list[Action]: List of Action instances managed by this handler.
+            dict[str, Action]: dictionnary of Action instances managed by this handler.
         """
         return self._actions
 
@@ -367,7 +412,7 @@ class ActionHandler:
         """
         variables = {}
 
-        for action in self.get_actions():
+        for action in self.get_actions().values():
             for cat, var in action.state_var.items():
                 if cat not in variables:
                     variables[cat] = []
@@ -398,9 +443,15 @@ class ActionHandler:
                     f"Action '{action_name}' does not exist in this environment."
                 )
 
+        if self.action_space.contains(actions) is False:
+            logger.warning(
+                f"updating actions with: a_{self.number_of_updates} = {actions}."
+                + f" Action values {actions} are out of bounds !"
+            )
         logger.debug(f" updating actions with: a_{self.number_of_updates} = {actions}")
-        for action in self._actions:
-            action.set_values(actions[action.name])
+
+        for action in self.get_actions().values():
+            action._set_values(actions[action.name])
 
         self.number_of_updates += 1
 
@@ -423,7 +474,7 @@ class ActionHandler:
                     high=np.array(action.max),
                     dtype=action.dtype,
                 )
-                for action in self.get_actions()
+                for action in self.get_actions().values()
             }
         )
 
@@ -441,7 +492,7 @@ class ActionHandler:
         """
         seen_keys = set()
         seen_names = set()
-        for action in self._actions:
+        for action in self.get_actions().values():
             for key in action.get_mapping().keys():
                 if key in seen_keys:
                     raise ValueError(f"Duplicate action parameter detected: {key}")
@@ -476,18 +527,20 @@ class IpAction(Action):
         dimension: 1 (single parameter)
         default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
         default_max: [np.inf]
+        default_ramp_rate: [None]
         config_mapping: Maps to ('profile_conditions', 'Ip')
         state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
 
     Example:
         >>> ip_action = IpAction()
-        >>> ip_action.set_values([1.5e6])  # 1.5 MA plasma current
+        >>> ip_action._set_values([1.5e6])  # 1.5 MA plasma current
     """
 
     name = "Ip"
     dimension = 1
     default_min = [_MIN_IP_AMPS]  # TORAX requirements
     default_max = [np.inf]
+    default_ramp_rate = [None]
     config_mapping = {("profile_conditions", "Ip"): 0}
     state_var = {"scalars": ["Ip"]}
 
@@ -503,18 +556,20 @@ class VloopAction(Action):
         dimension: 1 (single parameter)
         default_min: [0.0]
         default_max: [np.inf]
+        default_ramp_rate: [None]
         config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
         state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
 
     Example:
         >>> vloop_action = VloopAction()
-        >>> vloop_action.set_values([2.5])  # 2.5 V loop voltage
+        >>> vloop_action._set_values([2.5])  # 2.5 V loop voltage
     """
 
     name = "V_loop"
     dimension = 1
     default_min = [0.0]
     default_max = [np.inf]
+    default_ramp_rate = [None]
     config_mapping = {("profile_conditions", "v_loop_lcfs"): 0}
     state_var = {"scalars": ["v_loop_lcfs"]}
 
@@ -528,8 +583,9 @@ class EcrhAction(Action):
     Class Attributes:
         name: "ECRH"
         dimension: 3 (power, location, width)
-        default_min: [0.0, 0.0, 0.0]
-        default_max: [np.inf, np.inf, np.inf]
+        default_min: [0.0, 0.0, 0.01]
+        default_max: [np.inf, 1.0, np.inf]
+        default_ramp_rate: [None, None, None]
         config_mapping: Maps to ECRH source parameters
         state_var: {'scalars': ['P_ecrh_e']} -
                    modifies total electron-cyclotron power scalar
@@ -541,13 +597,14 @@ class EcrhAction(Action):
 
     Example:
         >>> ecrh_action = EcrhAction()
-        >>> ecrh_action.set_values([5e6, 0.3, 0.1])  # 5MW, r/a=0.3, width=0.1
+        >>> ecrh_action._set_values([5e6, 0.3, 0.1])  # 5MW, r/a=0.3, width=0.1
     """
 
     name = "ECRH"
     dimension = 3  # power, location, width
     default_min = [0.0, 0.0, 0.01]
     default_max = [np.inf, 1.0, np.inf]
+    default_ramp_rate = [None, None, None]
     config_mapping = {
         ("sources", "ecrh", "P_total"): 0,
         ("sources", "ecrh", "gaussian_location"): 1,
@@ -568,6 +625,7 @@ class NbiAction(Action):
         dimension: 4 (heating power, current power, location, width)
         default_min: [0.0, 0.0, 0.0, 0.01]
         default_max: [np.inf, np.inf, 1.0, np.inf]
+        default_ramp_rate: [None, None, None, None]
         config_mapping: Maps to generic heat and current source parameters in TORAX configuration
         state_var: {'scalars': ['P_aux_generic_total', 'I_aux_generic']} -
                    modifies total auxiliary power and current scalars
@@ -580,7 +638,7 @@ class NbiAction(Action):
 
     Example:
         >>> nbi_action = NbiAction()
-        >>> nbi_action.set_values([10e6, 2e6, 0.4, 0.2])
+        >>> nbi_action._set_values([10e6, 2e6, 0.4, 0.2])
         >>> # 10MW heating, 2MA current drive, r/a=0.4, width=0.2
     """
 
@@ -588,6 +646,7 @@ class NbiAction(Action):
     dimension = 4  # heating power, current power, location, width
     default_min = [0.0, 0.0, 0.0, 0.01]
     default_max = [np.inf, np.inf, 1.0, np.inf]
+    default_ramp_rate = [None, None, None, None]
     config_mapping = {
         ("sources", "generic_heat", "P_total"): 0,
         ("sources", "generic_current", "I_generic"): 1,

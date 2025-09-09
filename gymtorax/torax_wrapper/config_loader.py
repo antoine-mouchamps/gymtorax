@@ -202,7 +202,7 @@ class ConfigLoader:
                 )
 
         self.action_handler.update_actions(action)
-        actions = self.action_handler.get_actions()
+        actions = self.action_handler.get_actions().values()
 
         for action in actions:
             action.update_to_config(self.config_dict, current_time)
@@ -220,7 +220,7 @@ class ConfigLoader:
         Raises:
             ValueError: If the configuration is invalid
         """
-        action_list = self.action_handler.get_actions()
+        action_list = self.action_handler.get_actions().values()
         for a in action_list:
             a.init_dict(self.config_dict)
 
