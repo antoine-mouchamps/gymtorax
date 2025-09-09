@@ -1,8 +1,8 @@
 import numpy as np  # noqa: N999
 
-import gymtorax.action_handler as ah
-import gymtorax.observation_handler as oh
-import gymtorax.rewards as rw
+from gymtorax.action_handler import EcrhAction, IpAction, NbiAction
+from gymtorax.observation_handler import AllObservation
+import gymtorax.rewards as reward
 
 
 from .base_env import BaseEnv
@@ -209,13 +209,20 @@ class IterHybridEnv(BaseEnv):
 
     @property
     def _define_action_space(self):  # noqa: D102
-        actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
+        actions = [
+            IpAction(
+                max=[15e6],  # 15 MA max plasma current
+                ramp_rate=[0.2e6],
+            ),  # 0.2 MA/s ramp rate limit
+            NbiAction(),
+            EcrhAction(),
+        ]
 
         return actions
 
     @property
     def _define_observation_space(self):  # noqa: D102
-        return oh.AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
+        return AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
 
     @property
     def _get_torax_config(self):  # noqa: D102
@@ -259,14 +266,14 @@ class IterHybridEnv(BaseEnv):
                 return False
 
         def _r_fusion_gain():
-            fusion_gain = rw.get_fusion_gain(next_state) / 10  # Normalize to [0, 1]
+            fusion_gain = reward.get_fusion_gain(next_state) / 10  # Normalize to [0, 1]
             if _is_H_mode():
                 return fusion_gain
             else:
                 return 0
 
         def _r_h98():
-            h98 = rw.get_h98(next_state)
+            h98 = reward.get_h98(next_state)
             if _is_H_mode():
                 if h98 >= 1:
                     return 1
@@ -276,14 +283,14 @@ class IterHybridEnv(BaseEnv):
                 return 0
 
         def _r_q_min():
-            q_min = rw.get_q_min(next_state)
+            q_min = reward.get_q_min(next_state)
             if q_min <= 1:
                 return 0
             elif q_min > 1:
                 return 1
 
         def _r_q_95():
-            q_95 = rw.get_q95(next_state)
+            q_95 = reward.get_q95(next_state)
             if q_95 <= 3:
                 return 0
             else:

@@ -23,7 +23,7 @@ plt.rcParams.update(
 
 
 class PIDAgent:
-    def __init__(self, action_space, kp, ki, kd):
+    def __init__(self, action_space, ramp_rate, kp, ki, kd):
         self.action_space = action_space
         self.time = 0
 
@@ -42,8 +42,9 @@ class PIDAgent:
         self.ip_controlled = 0  # Current controlled power
 
         # Physical power constraints
-        self.ip_min = 0.001e6  # Minimum Ip current: 0 MA
-        self.ip_max = 15e6  # Maximum Ip power: 15 MA
+        self.ip_min = action_space.spaces["Ip"].low[0]  # Minimum Ip current: 0 MA
+        self.ip_max = action_space.spaces["Ip"].high[0]  # Maximum Ip power: 15 MA
+        self.ramp_rate = ramp_rate  # Ramp rate limit in A/s
 
         # Tracking variables for plotting
         self.j_target_history = []
@@ -91,7 +92,7 @@ class PIDAgent:
             ip_final = np.clip(ip_desired, self.ip_min, self.ip_max)
 
             # Apply ramp rate limiting (0.2 MA/s = 0.2e6 A/s)
-            max_ramp_rate = 0.2e6  # A/s
+            max_ramp_rate = self.ramp_rate
             max_change = max_ramp_rate * self.dt  # Maximum change per time step
 
             is_ramp_limited = False
@@ -237,7 +238,13 @@ def simulate(env: IterHybridEnv, k, save_plot_as=None):
     """
     kp, ki = k
 
-    agent = PIDAgent(env.action_space, kp=kp, ki=ki, kd=0.0)
+    agent = PIDAgent(
+        env.action_space,
+        env.action_handler.get_actions()["Ip"].ramp_rate[0],
+        kp=kp,
+        ki=ki,
+        kd=0.0,
+    )
 
     # Enable reward breakdown tracking
     env.reward_breakdown = True
