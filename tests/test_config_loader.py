@@ -18,6 +18,7 @@ class DummyAction(Action):
     dimension = 1
     default_min = [0.0]
     default_max = [1.0]
+    default_ramp_rate = [None]
     config_mapping = {}  # Empty mapping to avoid config conflicts
     state_var = {"scalars": ["test_var"]}
 

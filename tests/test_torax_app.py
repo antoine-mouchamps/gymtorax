@@ -30,7 +30,7 @@ class DummyConfigLoader:
     def set_total_simulation_time(self, t):
         pass
 
-    def get_initial_simulation_time(self, reset=False):
+    def get_initial_simulation_time(self, restart=False):
         return 0.0
 
 

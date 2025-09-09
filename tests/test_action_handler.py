@@ -21,6 +21,7 @@ class CustomAction(Action):
     dimension = 2
     default_min = [0.0, -1.0]
     default_max = [10.0, 1.0]
+    default_ramp_rate = [None, None]
     config_mapping = {("some_config", "param1"): 0, ("some_config", "param2"): 1}
     state_var = {"scalars": ["param1", "param2"]}
 
@@ -30,6 +31,7 @@ class CustomAction1(Action):
     dimension = 1
     default_min = [0.0]
     default_max = [1.0]
+    default_ramp_rate = [None]
     config_mapping = {("some_config", "param1"): 0}
     state_var = {"scalars": ["param1"]}
 
@@ -38,7 +40,8 @@ class CustomAction2(Action):
     name = "CustomAction2"
     dimension = 1
     default_min = [0.0]
-    default_max = [1.0]
+    default_max = [2.0]
+    default_ramp_rate = [None]
     config_mapping = {("some_config", "param2"): 0}
     state_var = {"scalars": ["param2"]}
 
@@ -106,7 +109,7 @@ def test_action_invalid_max_length():
 def test_action_set_values_valid():
     # Test setting valid values for CustomAction
     action = CustomAction()
-    action.set_values([5.0, 0.5])
+    action._set_values([5.0, 0.5])
     assert action.values == [5.0, 0.5]
 
 
@@ -114,7 +117,7 @@ def test_action_set_values_invalid_length():
     # Test that setting values with wrong length raises ValueError
     action = CustomAction()
     with pytest.raises(ValueError):
-        action.set_values([1.0])
+        action._set_values([1.0])
 
 
 def test_action_repr():
@@ -138,13 +141,13 @@ def test_action_get_mapping():
 def test_action_init_dict_and_update_to_config():
     # Test init_dict and update_to_config methods for CustomAction
     action = CustomAction()
-    action.set_values([2.0, 0.5])
+    action._set_values([2.0, 0.5])
     config = {"some_config": {"param1": None, "param2": None}}
     action.init_dict(config)
     assert config["some_config"]["param1"][0][0] == 2.0
     assert config["some_config"]["param2"][0][0] == 0.5
     # Update at time=1.0
-    action.set_values([3.0, 0.7])
+    action._set_values([3.0, 0.7])
     action.update_to_config(config, time=1.0)
     assert config["some_config"]["param1"][0][1.0] == 3.0
     assert config["some_config"]["param2"][0][1.0] == 0.7
@@ -176,7 +179,7 @@ def test_action_handler_get_actions():
     a1 = CustomAction1()
     a2 = CustomAction2()
     handler = ActionHandler([a1, a2])
-    actions = handler.get_actions()
+    actions = [a for a in handler.get_actions().values()]
     assert actions == [a1, a2]
 
 
@@ -207,6 +210,7 @@ def test_action_handler_duplicate_keys():
         dimension = 1
         default_min = [0.0]
         default_max = [1.0]
+        default_ramp_rate = [None]
         config_mapping = {("a",): 0}
 
     class A2(Action):
@@ -214,6 +218,7 @@ def test_action_handler_duplicate_keys():
         dimension = 1
         default_min = [0.0]
         default_max = [1.0]
+        default_ramp_rate = [None]
         config_mapping = {("a",): 0}
 
     with pytest.raises(ValueError):
@@ -309,7 +314,7 @@ def test_nbi_action():
 def test_ecrh_action_init_dict_and_update():
     # Test init_dict and update_to_config for EcrhAction
     ecrh = EcrhAction()
-    ecrh.set_values([5e6, 0.3, 0.1])
+    ecrh._set_values([5e6, 0.3, 0.1])
     config = {
         "sources": {
             "ecrh": {"P_total": None, "gaussian_location": None, "gaussian_width": None}
@@ -320,7 +325,7 @@ def test_ecrh_action_init_dict_and_update():
     assert config["sources"]["ecrh"]["gaussian_location"][0][0] == 0.3
     assert config["sources"]["ecrh"]["gaussian_width"][0][0] == 0.1
     # Update at time=2.0
-    ecrh.set_values([6e6, 0.4, 0.2])
+    ecrh._set_values([6e6, 0.4, 0.2])
     ecrh.update_to_config(config, time=2.0)
     assert config["sources"]["ecrh"]["P_total"][0][2.0] == 6e6
     assert config["sources"]["ecrh"]["gaussian_location"][0][2.0] == 0.4
@@ -330,7 +335,7 @@ def test_ecrh_action_init_dict_and_update():
 def test_nbi_action_init_dict_and_update():
     # Test init_dict and update_to_config for NbiAction
     nbi = NbiAction()
-    nbi.set_values([10e6, 2e6, 0.4, 0.2])
+    nbi._set_values([10e6, 2e6, 0.4, 0.2])
     config = {
         "sources": {
             "generic_heat": {
@@ -353,7 +358,7 @@ def test_nbi_action_init_dict_and_update():
     assert config["sources"]["generic_current"]["gaussian_location"][0][0] == 0.4
     assert config["sources"]["generic_current"]["gaussian_width"][0][0] == 0.2
     # Update at time=3.0
-    nbi.set_values([11e6, 3e6, 0.5, 0.3])
+    nbi._set_values([11e6, 3e6, 0.5, 0.3])
     nbi.update_to_config(config, time=3.0)
     assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 11e6
     assert config["sources"]["generic_current"]["I_generic"][0][3.0] == 3e6
