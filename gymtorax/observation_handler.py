@@ -1,29 +1,18 @@
 """TORAX Observation Handler Module.
 
-This module provides an abstract framework for handling observations from TORAX
-plasma simulation outputs. Observations represent the current state of the plasma
-that can be monitored during the simulation, formatted for use with Gymnasium
-reinforcement learning environments.
+Provides classes for creating observation spaces from TORAX plasma simulation outputs.
+Observations represent the current plasma state for use with Gymnasium environments.
 
 The module converts TORAX DataTree outputs into structured observation spaces
-suitable for machine learning applications, with support for custom variable
-selection, bounds specification, and automatic removal of action-controlled
-variables to prevent redundancy between action and observation spaces.
-
-Workflow:
-    1. Create observation handler with desired variables and bounds
-    2. Call set_state_variables() to analyze available TORAX output variables
-    3. Call set_action_variables() to specify which variables are controlled by actions
-    4. Call set_n_grid_points() to set radial grid resolution
-    5. Call build_observation_space() to create the Gymnasium space (one-time only)
-    6. Use extract_state_observation() during simulation to get state/observation data
+with support for variable selection, bounds specification, and automatic
+action variable filtering.
 
 Classes:
-    Observation: Abstract base class for building observation spaces from TORAX outputs
-    AllObservation: Example implementation that includes all available variables
+    Observation: Abstract base class for observation space construction.
+    AllObservation: Implementation that includes all available variables.
 """
 
-import copy
+import json
 import logging
 from abc import ABC
 from typing import Any
@@ -32,8 +21,6 @@ import numpy as np
 from gymnasium import spaces
 from xarray import Dataset, DataTree
 
-from .utils import load_json_file
-
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
@@ -41,312 +28,188 @@ logger = logging.getLogger(__name__)
 class Observation(ABC):
     """Abstract base class for building observation spaces from TORAX DataTree outputs.
 
-    This class provides the foundation for converting TORAX simulation outputs into
-    structured observation spaces suitable for reinforcement learning environments.
-    It handles variable selection, bounds specification, data extraction from
-    TORAX DataTree structure, and automatic removal of action-controlled variables.
+    Converts TORAX simulation outputs into structured observation spaces
+    for reinforcement learning environments. Handles variable selection,
+    bounds specification, and automatic action variable filtering.
 
-    The class maintains a comprehensive catalog of all TORAX variables with their
-    default bounds and dimensionality, allowing users to create custom observation
-    spaces by selecting subsets of variables and specifying custom bounds, if
-    needed.
-
-    Class Attributes:
-          - DEFAULT_BOUNDS (dict): Master catalog of all TORAX variables with their
-            default bounds and size specifications.
-            Variables are categorized as:
-
-            - "profiles": Spatially-resolved variables (functions of radius)
-            - "scalars": Global/integrated quantities (single values)
-
-          - variables (dict): Selected variables for this observation space
-          - custom_bounds (dict): User-specified bounds overriding defaults
-          - dtype (np.dtype): Data type for observation arrays
-
-        # Set by setup methods:
-            - action_variables (dict|None): Variables controlled by actions (via set_action_variables)
-            - state_variables (dict|None): Variables available in TORAX output (via set_state_variables)
-
-        # Internal processing attributes:
-            - observation_variables (dict): Final observation variables after filtering
-            - bounds (dict): Final bounds after applying custom overrides and sizing
-            - first_state (bool): Flag to ensure build_observation_space() called only once
-            - _sizes (dict|None): Mapping from symbolic to actual array sizes
+    Attributes:
+        variables_to_include (dict): Variables to include in observation space.
+        variables_to_exclude (dict): Variables to exclude from observation space.
+        custom_bounds (dict): Custom bounds for variables.
+        dtype (np.dtype): Data type for observation arrays.
+        action_variables (dict): Variables controlled by actions.
+        state_variables (dict): Available variables from TORAX output.
+        observation_variables (dict): Final filtered observation variables.
+        bounds (dict): Final bounds after processing.
     """
-
-    # This comprehensive dictionary contains all known TORAX output variables
-    # organized by category with their physical bounds and array size specifications
-    DEFAULT_BOUNDS = load_json_file("default_bounds.json")
-
-    # Class-level constant: Set containing all available variable names
-    # Computed from both profiles and scalars categories for quick membership testing
-    DEFAULT_VARIABLES = set(DEFAULT_BOUNDS["profiles"].keys()) | set(
-        DEFAULT_BOUNDS["scalars"].keys()
-    )
 
     def __init__(
         self,
         variables: dict[str, list[str]] | None = None,
-        custom_bounds: dict[str, tuple[float, float]] | None = None,
-        exclude: list[str] | None = None,
+        custom_bounds_filename: str | None = None,
+        exclude: dict[str, list[str]] | None = None,
         dtype: np.dtype = np.float64,
     ) -> None:
-        """Initialize an Observation handler.
+        """Initialize Observation handler.
 
-        This constructor sets up the basic configuration for the observation handler
-        but does not finalize the observation space. The actual space construction
-        requires calling setup methods first (set_state_variables, set_action_variables,
-        set_n_grid_points) followed by build_observation_space().
+        Sets up configuration for the observation handler. Requires subsequent
+        calls to set_state_variables(), set_action_variables(), and
+        build_observation_space() before use.
 
         Args:
-            variables: Dictionary specifying which variables to include in the
-                observation space. Format: {"profiles": [var_names], "scalars": [var_names]}.
-                If None, includes all available variables except those in exclude list.
-                Missing categories are automatically added as empty lists.
-            custom_bounds: Dictionary of custom bounds for specific variables,
-                format: {var_name: (min_value, max_value)}. Overrides DEFAULT_BOUNDS
-                for the specified variables.
-            exclude: List of variable names to exclude from the observation space.
-                Only used if variables=None. Cannot be used together with variables.
-            dtype: NumPy data type for the observation arrays (default: np.float64).
+            variables: Variables to include. Format: {"profiles": [names], "scalars": [names]}.
+                If None, includes all available variables except those in exclude.
+            custom_bounds_filename: Path to JSON file with custom bounds.
+                Format: {"profiles": {var: {"min": val, "max": val}}, "scalars": {...}}.
+            exclude: Variables to exclude. Format: {"profiles": [names], "scalars": [names]}.
+                Cannot be used with variables parameter.
+            dtype: Data type for observation arrays.
 
         Raises:
-            ValueError: If both variables and exclude are specified, if custom bounds
-                are malformed, or if bound values are invalid.
-
-        Example:
-            >>> # Include specific variables with custom bounds
-            >>> obs = Observation(
-            ...     variables={"profiles": ["T_e", "T_i"], "scalars": ["Ip", "beta_N"]},
-            ...     custom_bounds={"T_e": (0.0, 50.0), "T_i": (0.0, 50.0)},
-            ...     dtype=np.float64
-            ... )
-            >>>
-            >>> # Include all variables except some specific ones
-            >>> obs = Observation(exclude=["n_impurity", "Z_impurity"])
+            ValueError: If both variables and exclude specified or invalid configuration.
         """
-        # Initialize instance attributes
-        self.custom_bounds = custom_bounds or {}
+        # Load custom bounds if specified
+        if custom_bounds_filename is not None:
+            self.custom_bounds = _load_json_file(custom_bounds_filename)
+        else:
+            self.custom_bounds = {"profiles": {}, "scalars": {}}
+
+        # Validate mutually exclusive parameters
+        if variables is not None and exclude:
+            raise ValueError(
+                "Cannot specify both 'variables' and 'exclude' parameters. "
+                "Use either inclusion or exclusion logic."
+            )
+
         self.variables_to_include = variables
-        self.variables_to_exclude = set(exclude or [])
+        self.variables_to_exclude = exclude
+
+        # Validate exclude parameter structure
+        if self.variables_to_exclude is not None:
+            for category in self.variables_to_exclude:
+                if category not in ["profiles", "scalars"]:
+                    raise ValueError(
+                        f"Invalid category '{category}'. Use 'profiles' or 'scalars'."
+                    )
+                for var in self.variables_to_exclude[category]:
+                    if not isinstance(var, str):
+                        raise ValueError(
+                            f"Variable names must be strings, got {type(var)}."
+                        )
+
         self.dtype = dtype
 
         # These will be set by required setup methods before building observation space
-        self.n_rho = None  # Will be set via set_n_grid_points()
         self.action_variables = None  # Will be set via set_action_variables()
         self.state_variables = None  # Will be set via set_state_variables()
 
-        # Validate that include and exclude are not both specified
-        if self.variables_to_include is not None and self.variables_to_exclude:
-            raise ValueError(
-                "Cannot specify variables to include and exclude at the same time."
+    def _filter_variables(self) -> None:
+        """Finalize variable selection and apply bounds configuration.
+
+        Determines final observation variables based on include/exclude logic,
+        applies custom bounds, and removes action variables from observation space.
+        Called automatically by build_observation_space().
+        """
+        if self.variables_to_include is None and self.variables_to_exclude is not None:
+            # Include all variables except excluded ones (if they were provided)
+            variables_to_exclude = set(self.variables_to_exclude["profiles"]) | set(
+                self.variables_to_exclude["scalars"]
             )
-
-        # Validate custom bounds - ensure bounds are well-formed
-        for var, bounds in self.custom_bounds.items():
-            if not isinstance(bounds, tuple) or len(bounds) != 2:
-                raise ValueError(
-                    f"Custom bounds for variable '{var}' must be a tuple of (min, max)."
-                )
-            if not all(isinstance(b, int | float) for b in bounds):
-                raise ValueError(f"Custom bounds for variable '{var}' must be numeric.")
-            if bounds[0] >= bounds[1]:
-                raise ValueError(
-                    f"Custom bounds for variable '{var}' must be (min, max) with min < max."
-                )
-
-        # Initialize bounds with defaults, will be updated with custom bounds later
-        # IMPORTANT: Create a deep copy to avoid modifying the class-level DEFAULT_BOUNDS
-        self.bounds = copy.deepcopy(self.DEFAULT_BOUNDS)
-
-        # Initialize variables list with defaults, will be filtered later
-        # These will be updated in _validate_and_filter_variables() based on actual
-        # state variables and user selections
-        self.observation_variables = {
-            "profiles": list(self.bounds["profiles"].keys()),
-            "scalars": list(self.bounds["scalars"].keys()),
-        }
-
-        # Store private reference to _sizes mapping for validation
-        self._sizes = None  # Will be set via set_n_grid_points()
-
-        # Flag to ensure build_observation_space() is only called once
-        self.first_state = True
-
-    def set_n_grid_points(self, n_rho: int) -> None:
-        """Set the number of radial grid points and update array sizes accordingly.
-
-        This method must be called before building the observation space, as it
-        determines the array dimensions for spatially-resolved variables.
-
-        TORAX uses three different radial coordinate systems with different sizes:
-          - rho_norm: Cell centers with boundary conditions (n_rho + 2 points)
-          - rho_cell_norm: Cell centers for transport equations (n_rho points)
-          - rho_face_norm: Cell interfaces/faces (n_rho + 1 points)
-
-        Args:
-            n_rho: Number of radial transport cells in the simulation grid.
-                Must be a positive integer. This determines the resolution
-                of all profile variables.
-
-        Raises:
-            ValueError: If n_rho is not a positive integer.
-
-        Note:
-            This method creates the internal _sizes mapping that converts
-            symbolic size names in DEFAULT_BOUNDS to actual array dimensions.
-            All profile variables use these symbolic names which get resolved
-            when build_observation_space() is called.
-        """
-        if not isinstance(n_rho, int) or n_rho <= 0:
-            raise ValueError(f"n_rho must be a positive integer, got {n_rho}")
-
-        # Define the mapping from symbolic sizes to actual array dimensions
-        self._sizes = {
-            "rho_face_norm": n_rho + 1,  # Cell interfaces
-            "rho_cell_norm": n_rho,  # Transport cells
-            "rho_norm": n_rho + 2,  # Cells with boundary conditions
-        }
-
-    def _validate_and_filter_variables(self) -> None:
-        """Validate configuration and finalize variable selection and bounds.
-
-        This method performs the complete setup of the observation handler by:
-        1. Validating all configuration via _validate()
-        2. Determining final variable selection (include/exclude logic)
-        3. Applying custom bounds while preserving size information
-        4. Converting symbolic sizes to actual array dimensions
-        5. Removing action variables from observation space
-        6. Logging final variable counts and total dimensions
-
-        This method is called automatically by build_observation_space() and
-        should not be called directly by users.
-        """
-        self._validate()
-
-        # Determine final variable selection
-        if self.variables_to_include is None:
-            # Include all variables except excluded ones
             self.observation_variables = {
-                cat: [
-                    var for var in vars_.keys() if var not in self.variables_to_exclude
-                ]
+                cat: [var for var in vars_.keys() if var not in variables_to_exclude]
                 for cat, vars_ in self.state_variables.items()
             }
+        elif self.variables_to_include is None and self.variables_to_exclude is None:
+            # Include all available variables if no include/exclude specified
+            self.observation_variables = {
+                cat: list(vars_.keys()) for cat, vars_ in self.state_variables.items()
+            }
         else:
-            # Use explicitly provided variables
+            # Include only explicitly specified variables
             self.observation_variables = {
                 cat: [var for var in vars_]
                 for cat, vars_ in self.variables_to_include.items()
             }
 
-        # Apply custom bounds by overriding defaults where specified
-        for var, custom_bound in self.custom_bounds.items():
-            # Create new bound entry with custom min/max but preserving size info
-            if var in self.observation_variables["profiles"]:
-                original_size = self.bounds["profiles"][var]["size"]
-                self.bounds["profiles"][var] = {
-                    "min": custom_bound[0],
-                    "max": custom_bound[1],
-                    "size": original_size,
-                }
-            elif var in self.observation_variables["scalars"]:
-                original_size = self.bounds["scalars"][var]["size"]
-                self.bounds["scalars"][var] = {
-                    "min": custom_bound[0],
-                    "max": custom_bound[1],
-                    "size": original_size,
-                }
-
-        # Convert symbolic profile variable sizes to actual array dimensions
-        # This resolves size specifications like "rho_norm" -> actual integer values
-        self.bounds["profiles"] = {
-            key: {
-                "min": val["min"],
-                "max": val["max"],
-                "size": self._sizes[val["size"]],
-            }
-            for key, val in self.bounds["profiles"].items()
-        }
-
-        # Remove variables affected by the action from the variables tracked
-        # for states and observations.
-        logger.debug(
-            f"The following variables are removed from the "
-            f"state due to being in the action space:"
-            f"\n{self.action_variables}"
-        )
+        # Remove action variables to prevent observation-action overlap
+        logger.debug(f"Removing action variables: {self.action_variables}")
         self._remove_action_variables()
 
+        # Apply custom bounds with default infinite bounds
+        self.bounds = {"profiles": {}, "scalars": {}}
+        for var in self.observation_variables["profiles"]:
+            if var in self.custom_bounds["profiles"]:
+                self.bounds["profiles"][var] = {
+                    "min": self.custom_bounds["profiles"][var]["min"],
+                    "max": self.custom_bounds["profiles"][var]["max"],
+                    "size": len(self.state_variables["profiles"][var]["data"][0]),
+                }
+            else:
+                self.bounds["profiles"][var] = {
+                    "min": -np.inf,
+                    "max": np.inf,
+                    "size": len(self.state_variables["profiles"][var]["data"][0]),
+                }
+
+        for var in self.observation_variables["scalars"]:
+            if var in self.custom_bounds["scalars"]:
+                self.bounds["scalars"][var] = {
+                    "min": self.custom_bounds["scalars"][var]["min"],
+                    "max": self.custom_bounds["scalars"][var]["max"],
+                    "size": 1,
+                }
+            else:
+                self.bounds["scalars"][var] = {
+                    "min": -np.inf,
+                    "max": np.inf,
+                    "size": 1,
+                }
+
+        # Log final configuration
         if logger.isEnabledFor(logging.DEBUG):
             total_dim = 0
             for cat, vars_ in self.observation_variables.items():
                 total_dim += sum(self.bounds[cat][var]["size"] for var in vars_)
+            total_obs_bounded = 0
+            for cat, vars_ in self.observation_variables.items():
+                total_obs_bounded += sum(
+                    1 * self.bounds[cat][var]["size"]
+                    for var in vars_
+                    if self.bounds[cat][var]["min"] > -np.inf
+                    or self.bounds[cat][var]["max"] < np.inf
+                )
             logger.debug(
-                f"Validation of all variables done. State space "
-                f"is composed of {len(self.observation_variables['profiles'])} "
-                f"profiles variables, and {len(self.observation_variables['scalars'])} "
-                f"scalars variables, for a total of {total_dim} distinct "
-                f"variables."
+                f"Observation space configured:\n"
+                f" - Profiles: {len(self.observation_variables['profiles'])}\n"
+                f" - Scalars: {len(self.observation_variables['scalars'])}\n"
+                f" - Total dimensions: {total_dim}\n"
+                f" - Bounded variables: {total_obs_bounded / total_dim:.2%}"
             )
 
     def _validate(self) -> None:
-        """Validate all observation handler configuration before building spaces.
+        """Validate configuration before building observation space.
 
-        This method performs comprehensive validation of:
-            - State variables have been set via set_state_variables()
-            - Action variables have been set via set_action_variables()
-            - Grid points have been set via set_n_grid_points()
-            - All specified variables exist in available state variables
-            - Custom bounds are properly specified for existing variables
-
-        Automatically adds missing variables to DEFAULT_BOUNDS with infinite
-        bounds and logs a warning.
+        Checks that required setup methods have been called and that all
+        specified variables exist in the state variables.
 
         Raises:
-            ValueError: If required setup methods haven't been called or
-                if specified variables don't exist in the state variables.
+            ValueError: If validation fails.
         """
         if self.state_variables is None:
-            raise ValueError("""State variables must be set before building observation space.
-                             Call set_state_variables() first.""")
+            raise ValueError(
+                "State variables not set. Call set_state_variables() first."
+            )
 
-        # Make sure that all state variables appears in the DEFAULT_VARIABLES list
         all_state_variables = set(self.state_variables["profiles"].keys()) | set(
             self.state_variables["scalars"].keys()
         )
-        missing_vars = all_state_variables - self.DEFAULT_VARIABLES
 
-        if missing_vars:
-            # Handle variables present in TORAX output but missing from our DEFAULT_BOUNDS
-            # Instead of raising an error, automatically add them with infinite bounds
-            for missing_var in missing_vars:
-                category = (
-                    "profiles"
-                    if missing_var in self.state_variables["profiles"]
-                    else "scalars"
-                )
-                new_variable = {
-                    "min": -np.inf,
-                    "max": np.inf,
-                    "size": len(self.state_variables[category][missing_var]["data"]),
-                }
-                self.DEFAULT_BOUNDS[category][missing_var] = new_variable
-                self.bounds[category][missing_var] = new_variable
-
-            logger.warning(
-                f"State variables is missing from DEFAULT_BOUNDS"
-                f". Bounds (-inf; inf) are assumed:\n"
-                f"{sorted(missing_vars)}"
-            )
-
-        # Validate explicitly included variables (if provided)
+        # Validate included variables
         if self.variables_to_include is not None:
             for category, var_list in self.variables_to_include.items():
                 if category not in ["profiles", "scalars"]:
                     raise ValueError(
-                        f"""Variable category '{category}' not recognized. Use
-                        'profiles' or 'scalars'."""
+                        f"Invalid category '{category}'. Use 'profiles' or 'scalars'."
                     )
                 for var in var_list:
                     if var not in all_state_variables:
@@ -354,98 +217,67 @@ class Observation(ABC):
                             f"Variable '{var}' not found in state variables."
                         )
 
-            # Ensure both categories exist in variables_to_include to prevent KeyError
-            # Add empty lists for missing categories to maintain consistent structure
+            # Ensure both categories exist
             if "profiles" not in self.variables_to_include:
                 self.variables_to_include["profiles"] = []
             if "scalars" not in self.variables_to_include:
                 self.variables_to_include["scalars"] = []
 
-        # Validate exclude list with variables present in the state
-        for var in self.variables_to_exclude:
-            if var not in all_state_variables:
-                raise ValueError(
-                    f"Excluded variable '{var}' not found in available state variables."
-                )
-
-        # Validate custom bounds - ensure bounds appear in the state variables
-        for var, _ in self.custom_bounds.items():
-            if var not in all_state_variables:
-                raise ValueError(
-                    f"""Custom bound variable '{var}' not found in available state
-                    variables."""
-                )
+        # Validate custom bounds
+        for category, var_list in self.custom_bounds.items():
+            for var in var_list:
+                if var not in all_state_variables:
+                    raise ValueError(
+                        f"Custom bound variable '{var}' not found in state variables."
+                    )
 
         # Ensure action variables have been set
         if self.action_variables is None:
-            raise ValueError("""Action variables must be set before building
-                             observation space. Call set_action_variables()
-                             first.""")
-
-        # Ensure grid points have been set
-        if self._sizes is None:
-            raise ValueError("""Number of radial grid points (n_rho) must be set before
-                             building observation space. Call set_n_grid_points(n_rho)
-                             first.""")
+            raise ValueError(
+                "Action variables not set. Call set_action_variables() first."
+            )
 
     def set_action_variables(self, variables: dict[str, list[str]]) -> None:
-        """Set the variables that are controlled by actions.
+        """Set variables controlled by actions.
 
-        Action variables will be automatically removed from the state and
-        observation space to prevent redundancy between controllable parameters
-        (actions) and observable parameters (observations). This ensures clean
-        separation between what the agent can control and what it can observe.
+        These variables are removed from the observation space to prevent
+        redundancy between actions and observations.
 
         Args:
-            variables: Dictionary specifying action variables by category.
-                Format: {"profiles": [var_names], "scalars": [var_names]}.
-                Variables listed here will be excluded from the final observation space.
-                Categories not present are treated as empty lists.
-
-        Note:
-            This method must be called before build_observation_space(). Variables
-            not present in the intial observation space will be ignored.
+            variables: Action variables by category.
+                Format: {"profiles": [names], "scalars": [names]}.
         """
         self.action_variables = variables
 
     def set_state_variables(self, state: DataTree) -> None:
-        """Set the state variables available from TORAX simulation output.
+        """Set available state variables from TORAX output.
+
+        Catalogs all variables from the TORAX DataTree for inclusion
+        in the observation space.
 
         Args:
-            state: TORAX DataTree containing the complete simulation output structure.
-                Must have /profiles/ and /scalars/ datasets with actual variable data.
-                This is typically obtained from torax_app.get_state_data().
-
-        Note:
-            This method must be called before build_observation_space().
-            Any variables found in the TORAX output that aren't in DEFAULT_BOUNDS
-            will be automatically added with bounds (-inf, +inf) and a warning logged.
+            state: TORAX DataTree with /profiles/ and /scalars/ datasets.
         """
         self.state_variables = self._get_state_as_dict(state)
 
     def extract_state_observation(
         self, datatree: DataTree
     ) -> tuple[dict[str, dict[str, np.ndarray]], dict[str, dict[str, np.ndarray]]]:
-        """Extract complete state and filtered observation from TORAX DataTree output.
+        """Extract state and observation data from TORAX output.
 
-        This method processes the TORAX simulation output and returns both the
-        complete state (all variables present in the TORAX output) and the
-        filtered observation (only variables selected for this observation handler).
+        Returns both complete state (all variables) and filtered observation
+        (selected variables only).
 
         Args:
             datatree: TORAX simulation output containing profiles and scalars datasets.
 
         Returns:
-            tuple:
-            - state (dict): Complete state with all available TORAX variables
-                Format: {"profiles": {var: ndarray}, "scalars": {var: scalar}}
-            - observation (dict): Filtered state with only selected observation variables
-                Format: {"profiles": {var: ndarray}, "scalars": {var: scalar}}
+            Tuple of (state_dict, observation_dict) with format:
+            {"profiles": {var: array}, "scalars": {var: value}}
         """
         state = self._get_state_as_dict(datatree)
 
-        # Build complete state dictionary with all available TORAX variables
-        # This includes all variables present in the simulation output
+        # Extract complete state data
         state = {
             "profiles": {
                 var: state["profiles"][var]["data"][0]
@@ -453,16 +285,15 @@ class Observation(ABC):
             },
             "scalars": {
                 var: (
-                    state["scalars"][var]["data"][0]
+                    [state["scalars"][var]["data"][0]]
                     if isinstance(state["scalars"][var]["data"], list)
-                    else state["scalars"][var]["data"]
+                    else [state["scalars"][var]["data"]]
                 )
                 for var in self.state_variables["scalars"]
             },
         }
 
-        # Filter state to create observation with only selected variables
-        # This uses the filtered variables list (after action variable removal)
+        # Filter for observation variables only
         observation = {
             "profiles": {
                 var: state["profiles"][var]
@@ -501,46 +332,26 @@ class Observation(ABC):
                 # Skip variables that are not present in current observation variables
                 # This handles cases where action variables may not be in the selected
                 # observation set
-                if (
-                    var not in self.observation_variables[cat]
-                    or var not in self.bounds[cat]
-                ):
+                if var not in self.observation_variables[cat]:
                     continue
-                # Remove the variable from both bounds and variables lists
-                self.bounds[cat].pop(var)
+                # Remove the variable from observation variables list
                 self.observation_variables[cat].remove(var)
 
     def build_observation_space(self) -> spaces.Dict:
-        """Build a Gymnasium observation space for the selected variables.
+        """Build Gymnasium observation space for selected variables.
 
-        This method creates a nested dict space structure matching the observation
-        format, with Box spaces for each variable using the configured bounds.
-
-        The method performs one-time initialization by calling _validate_and_filter_variables()
-        on the first call, which finalizes variable selection, applies bounds, and
-        removes action variables.
+        Creates nested Dict space with Box spaces for each variable using
+        configured bounds. Validates configuration and finalizes variable selection.
 
         Returns:
-            spaces.Dict:
-                Gymnasium observation space with the structure:
-                {"profiles": dict of Box spaces, "scalars": dict of Box spaces}.
-                Each Box space has bounds and shape appropriate for the variable.
+            Gymnasium Dict space with structure:
+            {"profiles": {var: Box}, "scalars": {var: Box}}
 
         Raises:
-            RuntimeError: If called multiple times (observation variables already set).
-            ValueError: If required setup methods (set_n_grid_points,
-                set_action_variables, set_state_variables) have not been called first.
-
-        Note:
-            This method can only be called once per instance. The setup methods
-            set_n_grid_points(), set_action_variables(), and set_state_variables()
-            must be called before this method.
+            ValueError: If validation fails or required setup incomplete.
         """
-        if self.first_state is True:
-            self._validate_and_filter_variables()
-            self.first_state = False
-        else:
-            raise RuntimeError("Observation variables have already been set.")
+        self._validate()
+        self._filter_variables()
 
         return spaces.Dict(
             {
@@ -560,65 +371,45 @@ class Observation(ABC):
         )
 
     def _make_box(self, var_name: str) -> spaces.Box:
-        """Create a Gymnasium Box space with appropriate bounds and shape.
-
-        This method creates the actual Box space that will be used in the observation
-        space dictionary. It handles both profile variables (with array shapes) and
-        scalar variables (single values) by looking up the variable in the bounds
-        dictionary and creating appropriate arrays.
+        """Create Gymnasium Box space for variable.
 
         Args:
-            var_name: Name of the variable to create a Box space for.
-                Must exist in either self.bounds["profiles"] or self.bounds["scalars"].
+            var_name: Variable name.
 
         Returns:
-            spaces.Box: Gymnasium Box space configured with:
-                - Appropriate bounds (low/high arrays)
-                - Correct shape (1D array for profiles, single value for scalars)
-                - Specified dtype
+            Box space with appropriate bounds and shape.
         """
-        # Determine variable category and extract bounds/shape information
+        # Determine variable category and extract bounds
         if var_name in self.bounds["profiles"]:
             low = self.bounds["profiles"][var_name]["min"]
             high = self.bounds["profiles"][var_name]["max"]
             shape = (self.bounds["profiles"][var_name]["size"],)
         else:
-            # Variable must be in scalars category (verified during validation)
             low = self.bounds["scalars"][var_name]["min"]
             high = self.bounds["scalars"][var_name]["max"]
             shape = (self.bounds["scalars"][var_name]["size"],)
 
-        # Create bound arrays with the appropriate shape and dtype
+        # Create bound arrays
         low_arr = np.full(shape, low, dtype=self.dtype)
         high_arr = np.full(shape, high, dtype=self.dtype)
 
         return spaces.Box(low=low_arr, high=high_arr, dtype=self.dtype)
 
     def _get_state_as_dict(self, datatree: DataTree) -> dict[str, dict[str, Any]]:
-        """Process the DataTree into a structured dictionary format.
-
-        This method converts the TORAX DataTree structure into a standardized
-        dictionary format that can be easily processed by other methods.
+        """Convert TORAX DataTree to structured dictionary.
 
         Args:
-            datatree: TORAX simulation output DataTree.
+            datatree: TORAX simulation output.
 
         Returns:
-            dict: Structured dictionary with format:
-                {
-                    "profiles": {var_name: {"data": <numerical_values>, ...}},
-                    "scalars": {var_name: {"data": <numerical_values>, ...}}
-                }
-
-        Note:
-            This is an internal method used by set_state_variables() and
-            extract_state_observation() to standardize DataTree processing.
+            Dictionary with format:
+            {"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}
         """
-        # Extract datasets from the TORAX DataTree structure
+        # Extract datasets
         profiles: Dataset = datatree["/profiles/"].ds
         scalars: Dataset = datatree["/scalars/"].ds
 
-        # Convert xarray datasets to dictionaries for easier access
+        # Convert to dictionaries
         state_profiles, state_scalars = profiles.to_dict(), scalars.to_dict()
 
         state = {
@@ -628,47 +419,80 @@ class Observation(ABC):
 
         return state
 
+
+def _load_json_file(filename: str) -> dict:
+    """Load and validate bounds configuration from JSON file.
+
+    Args:
+        filename: Path to JSON bounds file.
+
+    Returns:
+        Validated bounds dictionary.
+
+    Raises:
+        ValueError: If file format is invalid.
+        FileNotFoundError: If file not found.
+    """
+    with open(filename) as f:
+        bounds = json.load(f)
+
+    # Validate and convert string values to numeric
+    for cat in bounds:
+        if cat not in ["profiles", "scalars"]:
+            raise ValueError(f"Invalid category '{cat}'. Use 'profiles' or 'scalars'.")
+        for var, var_bounds in bounds[cat].items():
+            for bound, val in var_bounds.items():
+                if bound not in ["min", "max"]:
+                    raise ValueError(
+                        f"Invalid bound '{bound}' for '{var}'. Use 'min' or 'max'."
+                    )
+                if not isinstance(val, int | float | str):
+                    raise ValueError(f"Invalid bound value for '{var}': {type(val)}.")
+                if val == "inf":
+                    var_bounds[bound] = np.inf
+                elif val == "-inf":
+                    var_bounds[bound] = -np.inf
+            if var_bounds["min"] >= var_bounds["max"]:
+                raise ValueError(f"Invalid bounds for '{var}': min >= max.")
+    return bounds
+
+
 # =============================================================================
 # Pre-configured Observation Examples
 # =============================================================================
 
 
 class AllObservation(Observation):
-    """Example observation handler that includes all available TORAX variables.
+    """Observation handler that includes all available TORAX variables.
 
-    The observation space will contain all profile and scalar variables available
-    in TORAX output, providing complete visibility into the plasma state.
+    Creates a complete observation space containing all profile and scalar
+    variables available in the TORAX simulation output. Supports variable
+    exclusions and custom bounds configuration.
 
     Example:
-        >>> # Include everything except impurity-related variables
-        >>> obs = AllObservation(exclude=["n_impurity", "Z_impurity", "A_impurity"])
-        >>>
-        >>> # Custom bounds for temperatures (0-50 keV range)
-        >>> obs_bounded = AllObservation(
-        ...     custom_bounds={"T_e": (0.0, 50.0), "T_i": (0.0, 50.0)},
-        ...     dtype=np.float64
-        ... )
+        >>> obs = AllObservation()
+        >>> obs = AllObservation(exclude={"profiles": ["n_impurity"]})
+        >>> obs = AllObservation(custom_bounds_filename="bounds.json")
     """
 
-    def __init__(
-        self,
-        custom_bounds: dict[str, tuple[float, float]] = None,
-        exclude: list[str] = None,
-        dtype: np.dtype = np.float64,
-    ) -> None:
-        """Initialize AllObservation with all variables (minus exclusions).
+    def __init__(self, exclude=None, custom_bounds_file=None) -> None:
+        """Initialize AllObservation with all available TORAX variables.
 
-        Args:
-            custom_bounds: dictionary of custom bounds for specific variables,
-                format: {var_name: (min_value, max_value)}.
-            exclude: list of variable names to exclude from the observation space.
-            dtype: NumPy data type for observation arrays.
+        Creates an observation handler that includes all available TORAX variables
+        by default, with flexible configuration through keyword arguments.
+
+        Kwargs:
+            custom_bounds_filename (str, optional): Path to JSON file containing
+                custom bounds for variables.
+            exclude (dict[str, list[str]], optional): Variables to exclude.
+                Format: {"profiles": [names], "scalars": [names]}.
+            dtype (np.dtype, optional): Data type for observation arrays.
+
+        Example:
+            >>> obs = AllObservation()
+            >>> obs = AllObservation(exclude={"profiles": ["psi"]})
         """
-        # Call parent constructor with variables=None to include all variables
-        # The parent class will handle exclusions and custom bounds
+        # Call parent constructor with all variables included by default
         super().__init__(
-            variables=None,  # Include all variables
-            custom_bounds=custom_bounds,
-            exclude=exclude,
-            dtype=dtype,
+            variables=None, exclude=exclude, custom_bounds_filename=custom_bounds_file
         )

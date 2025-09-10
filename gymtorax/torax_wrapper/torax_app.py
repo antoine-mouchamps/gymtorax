@@ -21,6 +21,7 @@ from torax._src.output_tools import output
 from torax._src.output_tools.post_processing import PostProcessedOutputs
 from torax._src.sources import source_models as source_models_lib
 from torax._src.state import SimError
+from xarray import DataTree
 
 from .config_loader import ConfigLoader
 
@@ -224,6 +225,7 @@ class ToraxApp:
 
         # Store initial state in history if history tracking is enabled
         if self.store_history is True:
+            self.history_list: list = []
             self.history_list.append((self.initial_sim_state, self.initial_sim_output))
 
         # Reset current simulation state to initial conditions
@@ -261,7 +263,7 @@ class ToraxApp:
             self.initial_config.config_torax.restart
             and self.initial_config.config_torax.restart.do_restart
         ):
-            self.t_current = self.config.get_initial_simulation_time(reset=True)
+            self.t_current = self.config.get_initial_simulation_time(restart=True)
         else:
             self.t_current = self.config.get_initial_simulation_time()
 
@@ -346,9 +348,10 @@ class ToraxApp:
 
         # Check if TORAX simulation encountered internal errors
         if sim_error != state.SimError.NO_ERROR:
-            logger.warning(
-                " simulation terminated with an error. The environment will reset"
-            )
+            logger.error("simulation terminated with an error.")
+            sim_error.log_error()
+            logger.error(" The environment will reset.")
+
             return False, False
 
         # Update current state to final state from simulation step
@@ -413,6 +416,50 @@ class ToraxApp:
                 self.config.config_torax
             )
         )
+
+    def get_output_datatree(self, beginning: int = 0, end: int = -1) -> DataTree:
+        """Return the full simulation history as an xarray DataTree.
+
+        This method reconstructs the complete trajectory of the simulation,
+        including all state and post-processed output snapshots, as an xarray
+        DataTree suitable for analysis and visualization. If `beginning` and
+        `end` are specified, only data between those time values (inclusive)
+        will be selected for all datasets in the DataTree that have a 'time'
+        coordinate. Requires that the ToraxApp was initialized with
+        `store_history=True` so that the full history is available.
+
+        Args:
+            beginning (int or float, optional): Start time for selection.
+                Defaults to 0.
+            end (int or float, optional): End time for selection. Defaults to
+                -1 (no upper limit).
+
+        Returns:
+            DataTree: The complete simulation history as an xarray DataTree,
+                with all timesteps and outputs, or only the selected time range
+                if specified.
+
+        Raises:
+            RuntimeError: If `store_history` was not enabled and thus no
+                history is available.
+        """
+        if self.store_history is False:
+            raise RuntimeError()
+
+        state_history = [output[0] for output in self.history_list]
+        post_processed_outputs_history = [output[1] for output in self.history_list]
+
+        state_history = output.StateHistory(
+            state_history=state_history[beginning:end],
+            post_processed_outputs_history=post_processed_outputs_history[
+                beginning:end
+            ],
+            sim_error=SimError.NO_ERROR,
+            torax_config=self.config.config_torax,
+        )
+        dt = state_history.simulation_output_to_xr(self.config.config_torax.restart)
+
+        return dt
 
     def save_output_file(self, file_name):
         """Save complete simulation history to NetCDF file.

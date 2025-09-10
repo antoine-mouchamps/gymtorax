@@ -30,7 +30,7 @@ class ConfigLoader:
 
         Args:
             config: Dictionary containing TORAX configuration parameters.
-            action_handler: An optional ActionHandler instance for managing actions.
+            action_handler: ActionHandler instance for managing actions.
 
         Raises:
             ValueError: If the configuration dictionary is invalid
@@ -102,7 +102,7 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
-    def get_initial_simulation_time(self, reset=False) -> float:
+    def get_initial_simulation_time(self, restart=False) -> float:
         """Get the initial simulation time in seconds.
 
         This extracts the :code:`t_initial` parameter from the numerics section,
@@ -115,7 +115,7 @@ class ConfigLoader:
             KeyError: If the configuration doesn't contain the required keys
             TypeError: If the value is not a number
         """
-        if reset is False:
+        if restart is False:
             if "t_initial" not in self.config_dict["numerics"]:
                 t_initial = 0.0
             else:

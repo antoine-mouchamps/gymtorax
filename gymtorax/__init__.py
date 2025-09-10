@@ -1,4 +1,19 @@
-from .agents import BaseAgent
-from .envs import BaseEnv
+from gymnasium.envs.registration import register
 
-__all__ = ["BaseEnv", "BaseAgent"]
+from .envs import BaseEnv, IterHybridEnv
+
+# Register environments with Gymnasium
+register(
+    id="gymtorax/IterHybrid-v0",
+    entry_point="gymtorax.envs:IterHybridEnv",
+    kwargs={},
+)
+
+# Register the basic test environment for examples
+register(
+    id="gymtorax/Test-v0",
+    entry_point="examples.test_env:TestEnv",
+    kwargs={},
+)
+
+__all__ = ["BaseEnv", "IterHybridEnv"]

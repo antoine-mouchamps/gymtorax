@@ -89,7 +89,7 @@ class Action(ABC):
         ...         ('section', 'param1'): 0,
         ...         ('section', 'param2'): 1
         ...     }
-        ...     state_var = (('scalars', 'param1'), ('scalars', 'param2'))
+        ...     state_var = {'scalars': ['param1', 'param2']}
         >>> action = TwoParamAction()
     """
 
@@ -99,7 +99,7 @@ class Action(ABC):
     default_min: list[float]
     default_max: list[float]
     config_mapping: dict[tuple[str, ...], int]
-    state_var: tuple[tuple[str]] = ()
+    state_var: dict[str, list[str]] = {}
 
     def __init__(
         self,
@@ -315,15 +315,6 @@ class Action(ABC):
             dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
         """
         return self.config_mapping
-
-    def get_state_variables(self) -> tuple[tuple[str]]:
-        """Get the state variables modified by the action.
-
-        Returns:
-            tuple[tuple[str]]: A tuple of tuples, each containing the state variable
-            names modified by the action.
-        """
-        return self.state_var
 
     def __repr__(self) -> str:
         """Return a string representation of the action.

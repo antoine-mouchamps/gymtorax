@@ -184,4 +184,5 @@ cython_debug/
 *.gif
 *.json
 # Exceptions:
-!default_bounds.json
+!examples/*.json
+!gymtorax/envs/*.json

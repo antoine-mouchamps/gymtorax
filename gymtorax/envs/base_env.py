@@ -19,23 +19,30 @@ Example:
     Create a custom environment by extending BaseEnv:
 
     >>> class PlasmaControlEnv(BaseEnv):
+    ...     def __init__(self, render_mode=None, **kwargs):
+    ...         # Set environment-specific defaults
+    ...         kwargs.setdefault("log_level", "info")
+    ...         super().__init__(render_mode=render_mode, **kwargs)
+    ...
     ...     @property
-    ...     def _define_observation(self):
+    ...     def _define_observation_space(self):
     ...         return AllObservation(exclude=["n_impurity"])
     ...
     ...     @property
-    ...     def _define_actions(self):
+    ...     def _define_action_space(self):
     ...         return [IpAction(), EcrhAction()]
     ...
     ...     @property
-    ...     def _define_torax_config(self):
+    ...     def _get_torax_config(self):
     ...         return CONFIG
     ...
-    ...     def _define_reward(self, state, next_state, action):
+    ...     def _compute_reward(self, state, next_state, action):
     ...         # Custom reward logic
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
 
+import copy
+import importlib
 import logging
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
@@ -50,7 +57,7 @@ import gymtorax.rendering.visualization as viz
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
-from ..torax_wrapper import ConfigLoader, ToraxApp
+from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -88,12 +95,11 @@ class BaseEnv(gym.Env, ABC):
         truncated (bool): Episode truncation flag
 
     Abstract Properties:
-        - _define_observation(): Define observation space variables
-        - _define_actions(): Define available control actions
-        - _define_torax_config(): Define TORAX configuration parameters
-
+        - _define_observation_space(): Define observation space variables
+        - _define_action_space(): Define available control actions
+        - _get_torax_config(): Define TORAX configuration parameters
     Abstract Method:
-        _define_reward(): Define reward signal (optional override)
+        _compute_reward(): Define reward signal (optional override)
     """
 
     # Gymnasium metadata for rendering configuration
@@ -105,42 +111,53 @@ class BaseEnv(gym.Env, ABC):
         log_level="warning",
         logfile=None,
         fig: viz.FigureProperties | None = None,  # TODO: REMOVE FROM HERE
-        store_state_history=False,
+        store_history=False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
 
+        This method sets up the complete simulation environment including TORAX configuration,
+        action/observation spaces, time discretization, and rendering components.
+
         Args:
-            render_mode: Rendering mode for visualization. Options: "human", "rgb_array", or None.
-            log_level: Logging level for environment operations. Options: "debug", "info",
-                "warning", "error", "critical". Default: "warning".
-            logfile: Path to log file for writing log messages. If None, logs to console.
-            fig: Figure properties for visualization configuration. Defines plot layout,
-                variables to display, and styling options for real-time plotting and GIF creation.
-                If None, default visualization settings will be used.
-            store_state_history: Whether to store simulation history for later saving.
-                Set to True if you plan to use save_file() method. Default: False.
+            render_mode (str, optional): Rendering mode for visualization.
+                Options: "human", "rgb_array", or None. Defaults to None.
+            log_level (str, optional): Logging level for environment operations.
+                Options: "debug", "info", "warning", "error", "critical".
+                Defaults to "warning".
+            logfile (str, optional): Path to log file for writing log messages.
+                If None, logs to console. Defaults to None.
+            fig (FigureProperties, optional): Figure properties for visualization
+                configuration. Defines plot layout, variables to display, and styling
+                options for real-time plotting and GIF creation. If None, default
+                visualization settings will be used. Defaults to None.
+            store_history (bool, optional): Whether to store simulation history
+                for later saving. Set to True if you plan to use save_file() method.
+                Defaults to False.
 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
             TypeError: If discretization_torax is not "auto" or "fixed".
+            KeyError: If required keys are missing from TORAX configuration.
 
         Note:
-            The environment must implement _define_observation, _define_actions and
-            _define_torax_config abstract properties to define the observation and action
-            spaces and TORAX configuration.
-            The environment must implement _define_reward() method to define the reward signal.
-            Logging is set up during initialization and applies to all environment operations.
+            Subclasses should use **kwargs to pass parameters to avoid explicit parameter
+            listing and maintain flexibility as the base class evolves. Environment-specific
+            defaults can be set using kwargs.setdefault() before calling super().__init__().
+
+            The environment must implement the abstract properties _define_observation,
+            _define_action_space, and _get_torax_config, as well as the abstract method
+            _compute_reward() to define the reward signal.
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
         try:
-            config = self._define_torax_config["config"]
-            discretization_torax = self._define_torax_config["discretization"]
+            config = copy.deepcopy(self._get_torax_config["config"])
+            discretization_torax = self._get_torax_config["discretization"]
         except KeyError as e:
             raise KeyError(f"Missing key in TORAX config: {e}")
 
         # Initialize action handler using abstract method
-        self.action_handler = ActionHandler(self._define_actions)
+        self.action_handler = ActionHandler(self._define_action_space)
 
         # Initialize state tracking
         self.state: dict[str, Any] | None = None  # Plasma state
@@ -155,14 +172,14 @@ class BaseEnv(gym.Env, ABC):
         # Configure time discretization based on chosen method
         if discretization_torax == "auto":
             # Use explicit action timestep timing
-            if self._define_torax_config["delta_t_a"] is None:
+            if self._get_torax_config["delta_t_a"] is None:
                 raise ValueError("delta_t_a must be provided for auto discretization")
-            self.delta_t_a: float = self._define_torax_config[
+            self.delta_t_a: float = self._get_torax_config[
                 "delta_t_a"
             ]  # Time between actions [s]
         elif discretization_torax == "fixed":
             # Use ratio-based timing relative to simulation timesteps
-            if self._define_torax_config["ratio_a_sim"] is None:
+            if self._get_torax_config["ratio_a_sim"] is None:
                 raise ValueError(
                     "ratio_a_sim must be provided for fixed discretization"
                 )
@@ -170,7 +187,7 @@ class BaseEnv(gym.Env, ABC):
                 self.config.get_simulation_timestep()
             )  # TORAX internal timestep [s]
             self.delta_t_a: float = (
-                self._define_torax_config["ratio_a_sim"] * delta_t_sim
+                self._get_torax_config["ratio_a_sim"] * delta_t_sim
             )  # Action interval [s]
         else:
             raise TypeError(
@@ -182,16 +199,13 @@ class BaseEnv(gym.Env, ABC):
         self.timestep: int = 0  # Current action timestep counter
 
         # Initialize TORAX simulation wrapper
-        self.store_state_history = store_state_history
-        self.torax_app: ToraxApp = ToraxApp(
-            self.config, self.delta_t_a, store_state_history
-        )
+        self.torax_app: ToraxApp = ToraxApp(self.config, self.delta_t_a, store_history)
 
         # Start simulator
         self.torax_app.start()
 
         # Initialize observation handler
-        self.observation_handler = self._define_observation
+        self.observation_handler = self._define_observation_space
 
         # Set variables appearing in the actual simulation states
         self.observation_handler.set_state_variables(self.torax_app.get_state_data())
@@ -201,8 +215,6 @@ class BaseEnv(gym.Env, ABC):
         self.observation_handler.set_action_variables(
             self.action_handler.get_action_variables()
         )
-
-        self.observation_handler.set_n_grid_points(self.config.get_n_grid_points())
 
         # Build Gymnasium spaces
         # WARNING: At this stage, the observation space cannot be fully
@@ -214,13 +226,13 @@ class BaseEnv(gym.Env, ABC):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         if fig is not None:
-            self.plotter = viz.ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
+            self.plotter = viz.ToraxStyleRealTimePlotter(
+                fig, render_mode=self.render_mode
+            )
         else:
             self.plotter = None
 
-        # Initialize rendering components (will be set up when needed)
-        self.window = None
-        self.clock = None
+        self.store_history = store_history
 
     def reset(
         self, *, seed: int | None = None, options: dict[str, Any] | None = None
@@ -264,6 +276,9 @@ class BaseEnv(gym.Env, ABC):
         self.state, self.observation = (
             self.observation_handler.extract_state_observation(torax_state)
         )
+
+        if self.store_history:
+            self.observation_history = [self.observation]
 
         if self.plotter is not None:
             self.plotter.update(
@@ -331,8 +346,15 @@ class BaseEnv(gym.Env, ABC):
         )
         self.state, self.observation = next_state, observation
 
+        if self.store_history:
+            self.observation_history.append(self.observation)
+
         # Compute reward based on state transition
-        reward = self._define_reward(state, next_state, action)
+        if not success or not self.observation_space.contains(self.observation):
+            reward = -1000.0  # Large negative reward on failure
+            self.terminated = True
+        else:
+            reward = self._compute_reward(state, next_state, action)
 
         # Update time tracking
         self.current_time += self.delta_t_a
@@ -341,7 +363,11 @@ class BaseEnv(gym.Env, ABC):
             self.terminated = True
 
         if self.plotter is not None:
-            self.plotter.update(current_state = self.state, action_input = self.last_action_dict, t=self.current_time)
+            self.plotter.update(
+                current_state=self.state,
+                action_input=self.last_action_dict,
+                t=self.current_time,
+            )
 
         return observation, reward, self.terminated, truncated, info
 
@@ -351,8 +377,6 @@ class BaseEnv(gym.Env, ABC):
         This method properly closes the TORAX simulation and releases any rendering
         resources. Should be called when the environment is no longer needed.
         """
-        # Close TORAX simulation
-        self.torax_app.close()
         if self.plotter is not None:
             self.plotter.close()
 
@@ -388,6 +412,62 @@ class BaseEnv(gym.Env, ABC):
             ) from e
 
         logger.debug(f"Saved simulation history to {file_name}")
+
+    def save_gif_torax(
+        self,
+        config_plot: str = "simple",
+        filename: str = "torax_evolution.gif",
+        interval: int = 200,
+        frame_skip: int = 2,
+        beginning: int = 0,
+        end: int = -1,
+    ) -> None:
+        """Generate and save an GIF of the simulation.
+
+        This method loads a plotting configuration by name, extracts the simulation history (optionally
+        selecting a time range), and generates an animated GIF visualizing the evolution of the simulation.
+        The plot configuration must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG`
+        attribute. The simulation must have been run with `store_history=True` for this to work.
+
+        Args:
+            config_plot (str): Name of the plot configuration to use (e.g., "simple").
+            filename (str): Output GIF filename.
+            interval (int): Delay between frames in milliseconds.
+            frame_skip (int): Save every Nth frame (default 2 = every other frame).
+            beginning (int): Start time for the GIF (inclusive).
+            end (int): End time for the GIF (inclusive, -1 for no upper limit).
+
+        Raises:
+            ImportError: If the plot configuration module cannot be found.
+            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
+            RuntimeError: If the simulation was not run with state history enabled.
+        """
+        try:
+            module = importlib.import_module(
+                f"torax.plotting.configs.{config_plot}_plot_config"
+            )
+        except ImportError:
+            logger.error(f"""Plot config: {config_plot} not found
+                         in `torax.plotting.configs`""")
+            return
+        try:
+            PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
+        except AttributeError:
+            logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
+                         in `torax.plotting.configs`""")
+            return
+
+        data_tree = self.torax_app.get_output_datatree(beginning, end)
+
+        torax_plot_extensions.plot_run_to_gif(
+            plot_config=PLOT_CONFIG,
+            data_tree=data_tree,
+            gif_filename=filename,
+            n_frames=50,
+            duration=interval,
+            optimize=False,
+            frame_skip=frame_skip,
+        )
 
     def save_gif(
         self,
@@ -452,7 +532,7 @@ class BaseEnv(gym.Env, ABC):
 
     @property
     @abstractmethod
-    def _define_observation(self) -> Observation:
+    def _define_observation_space(self) -> Observation:
         """Define the observation space variables for this environment.
 
         This method must be implemented by concrete subclasses to specify
@@ -463,7 +543,7 @@ class BaseEnv(gym.Env, ABC):
             plasma state variables are visible to the RL agent.
 
         Example:
-            >>> def _define_observation(self):
+            >>> def _define_observation_space(self):
             ...     return AllObservation(
             ...         exclude=["n_impurity", "Z_impurity"],
             ...         custom_bounds={
@@ -476,7 +556,7 @@ class BaseEnv(gym.Env, ABC):
 
     @property
     @abstractmethod
-    def _define_actions(self) -> list[Action]:
+    def _define_action_space(self) -> list[Action]:
         """Define the available control actions for this environment.
 
         This method must be implemented by concrete subclasses to specify
@@ -487,7 +567,7 @@ class BaseEnv(gym.Env, ABC):
             parameters with their bounds and TORAX configuration mappings.
 
         Example:
-            >>> def _define_actions(self):
+            >>> def _define_action_space(self):
             ...     return [
             ...         IpAction(min=[0.5e6], max=[2.0e6]),      # Plasma current
             ...         EcrhAction(                               # ECRH heating
@@ -501,7 +581,7 @@ class BaseEnv(gym.Env, ABC):
 
     @property
     @abstractmethod
-    def _define_torax_config(self) -> dict[str, Any]:
+    def _get_torax_config(self) -> dict[str, Any]:
         """Define the TORAX simulation configuration.
 
         This abstract method must be implemented by concrete subclasses
@@ -534,32 +614,32 @@ class BaseEnv(gym.Env, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _define_reward(
-            self,
-            state: dict[str, Any],
-            next_state: dict[str, Any],
-            action: NDArray[np.floating],
-        ) -> float:
-            """Define the reward signal for a state transition.
+    def _compute_reward(
+        self,
+        state: dict[str, Any],
+        next_state: dict[str, Any],
+        action: NDArray[np.floating],
+    ) -> float:
+        """Define the reward signal for a state transition.
 
-            This method should be overridden by concrete subclasses to implement
-            task-specific reward functions. The default implementation returns 0.0.
+        This method should be overridden by concrete subclasses to implement
+        task-specific reward functions. The default implementation returns 0.0.
 
-            Args:
-                state: Previous plasma state before action was applied.
-                    Contains complete state with "profiles" and "scalars" dictionaries.
-                next_state: New plasma state after action and simulation step.
-                    Same structure as state parameter.
-                action: Action array that was applied to cause this transition.
+        Args:
+            state: Previous plasma state before action was applied.
+                Contains complete state with "profiles" and "scalars" dictionaries.
+            next_state: New plasma state after action and simulation step.
+                Same structure as state parameter.
+            action: Action array that was applied to cause this transition.
 
-            Returns:
-                float: Reward value for this state transition.
+        Returns:
+            float: Reward value for this state transition.
 
-            Example:
-                >>> def _define_reward(self, state, next_state, action):
-                ...     # Reward based on proximity to target beta_N
-                ...     target_beta = 2.0
-                ...     current_beta = next_state["scalars"]["beta_N"]
-                ...     return -abs(current_beta - target_beta)
-            """
-            raise NotImplementedError
+        Example:
+            >>> def _compute_reward(self, state, next_state, action):
+            ...     # Reward based on proximity to target beta_N
+            ...     target_beta = 2.0
+            ...     current_beta = next_state["scalars"]["beta_N"]
+            ...     return -abs(current_beta - target_beta)
+        """
+        raise NotImplementedError
