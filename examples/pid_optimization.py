@@ -5,12 +5,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-import gymtorax.action_handler as ah
-import gymtorax.observation_handler as oh
 from gymtorax import IterHybridEnv
 
 # Set up logger for this module
-logging.basicConfig(level=logging.ERROR)
 logger = logging.getLogger(__name__)
 
 plt.rcParams.update({"font.size": 25})
@@ -21,10 +18,27 @@ plt.rcParams.update(
     }
 )
 
+_NBI_W_TO_MA = 1 / 16e6
+
+nbi_powers = np.array([0, 0, 33e6])
+nbi_cd = nbi_powers * _NBI_W_TO_MA
+
+r_nbi = 0.25
+w_nbi = 0.25
+
+eccd_power = {0: 0, 99: 0, 100: 20.0e6}
+
+
+class IterHybridEnv(IterHybridEnv):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.reward_breakdown = True  # Enable reward breakdown tracking
+
 
 class PIDAgent:
-    def __init__(self, action_space, ramp_rate, kp, ki, kd):
+    def __init__(self, action_space, get_j_target, ramp_rate, kp, ki, kd):
         self.action_space = action_space
+        self.get_j_target = get_j_target
         self.time = 0
 
         # PID state variables
@@ -55,7 +69,7 @@ class PIDAgent:
 
     def act(self, observation) -> dict:
         j_center = observation["profiles"]["j_total"][0]
-        j_target = 0.2e6 + 0.4e6 + 1.4e6 * self.time / 100
+        j_target = self.get_j_target(self.time)
 
         # Store values for tracking/plotting
         self.j_target_history.append(j_target)
@@ -125,16 +139,6 @@ class PIDAgent:
 
             # Store current error for next derivative calculation
             self.previous_error = error
-
-        _NBI_W_TO_MA = 1 / 16e6
-
-        nbi_powers = np.array([0, 0, 33e6])
-        nbi_cd = nbi_powers * _NBI_W_TO_MA
-
-        r_nbi = 0.25
-        w_nbi = 0.25
-
-        eccd_power = {0: 0, 99: 0, 100: 20.0e6}
 
         action = {
             "Ip": [self.ip_controlled],
@@ -225,7 +229,53 @@ class PIDAgent:
         fig.savefig(f"{filename}_ip.pdf", bbox_inches="tight")
 
 
-def simulate(env: IterHybridEnv, k, save_plot_as=None):
+class IterHybridAgent:  # noqa: D101
+    """Agent for the ITER hybrid scenario.
+
+    This agent produces a sequence of actions for the ITER hybrid scenario,
+    ramping up plasma current and heating sources according to the scenario timeline.
+    """
+
+    def __init__(self, action_space):
+        """Initialize the agent with the given action space."""
+        self.action_space = action_space
+        self.time = 0
+        self.action_history = []
+
+    def act(self, observation) -> dict:
+        """Compute the next action based on the current observation and internal time.
+
+        Returns:
+            dict: Action dictionary for the environment.
+        """
+        action = {
+            "Ip": [3e6],
+            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "ECRH": [eccd_power[0], 0.35, 0.05],
+        }
+
+        if self.time == 98:
+            action["ECRH"][0] = eccd_power[99]
+            action["NBI"][0] = nbi_powers[1]
+            action["NBI"][1] = nbi_cd[1]
+
+        if self.time >= 99:
+            action["ECRH"][0] = eccd_power[100]
+            action["NBI"][0] = nbi_powers[2]
+            action["NBI"][1] = nbi_cd[2]
+
+        if self.time < 99:
+            action["Ip"][0] = 3e6 + (self.time + 1) * (12.5e6 - 3e6) / 100
+        else:
+            action["Ip"][0] = 12.5e6
+
+        self.time += 1
+
+        self.action_history.append(action["Ip"][0] / 1e6)
+        return action
+
+
+def simulate(env: IterHybridEnv, agent, verbose=0):
     """Simulate the environment with given PID parameters and return a cost.
 
     Args:
@@ -236,16 +286,6 @@ def simulate(env: IterHybridEnv, k, save_plot_as=None):
     Returns:
         float: Negative cumulative reward (cost to minimize)
     """
-    kp, ki = k
-
-    agent = PIDAgent(
-        env.action_space,
-        env.action_handler.get_actions()["Ip"].ramp_rate[0],
-        kp=kp,
-        ki=ki,
-        kd=0.0,
-    )
-
     # Enable reward breakdown tracking
     env.reward_breakdown = True
 
@@ -268,128 +308,250 @@ def simulate(env: IterHybridEnv, k, save_plot_as=None):
 
     # Calculate and log reward component shares
     if hasattr(env, "_reward_components"):
-        pos_component_totals = {
-            name: sum(values)
-            for name, values in env._reward_components.items()
-            if name != "j_error"
+        r_components = {
+            name: sum(values) for name, values in env._reward_components.items()
         }
-        pos_total_sum = sum(pos_component_totals.values())
+        pos_total_sum = sum(r_components.values())
 
-        # print(f"Simulation completed with kp={kp:.4e}, ki={ki:.4e}")
-        print(
-            f"Total cumulative reward: {cumulative_reward:.4f} with kp={kp:.4e}, ki={ki:.4e}"
-        )
-        if env.reward_breakdown is True:
+        if verbose > 0:
+            if hasattr(agent, "kp") and hasattr(agent, "ki"):
+                text = f" with kp={agent.kp:.4e}, ki={agent.ki:.4e}"
+            else:
+                text = ""
+            print(f"Total cumulative reward: {cumulative_reward:.4f}{text}")
+        if env.reward_breakdown is True and verbose > 1:
             print("Reward component breakdown:")
 
-            for name, total in pos_component_totals.items():
+            for name, total in r_components.items():
                 share = (total / pos_total_sum * 100) if pos_total_sum != 0 else 0
                 print(f"  {name}: {total:.4f} ({share:.1f}%)")
-            # j_error_tot = sum(env._reward_components["j_error"])
-            # j_error_share = (
-            #     (-j_error_tot / pos_total_sum * 100) if pos_total_sum != 0 else 0
-            # )
-            # print(f"  j_error: {j_error_tot:.4f} ({j_error_share:.1f}%)")
-        print()  # Empty line for readability
 
-    # Plot j evolution if requested
-    if save_plot_as:
-        agent.plot_j_evolution(filename=save_plot_as)
-        print("plots saved !")
+        # print()  # Empty line for readability
 
     return -cumulative_reward
 
 
-def optimize(function, grid_search_space, bounds):
-    """Optimize PID parameters using grid search followed by local optimization.
+def optimize(function, bounds, n_starts=5):
+    """Optimize PID parameters using multiple evenly distributed starting points.
 
     Args:
         function: Objective function to minimize
-        grid_search_space: Tuple of (Kp_vals, Ki_vals) arrays for grid search
-        bounds: Bounds for local optimization
+        bounds: Bounds for optimization [(kp_min, kp_max), (ki_min, ki_max)]
+        n_starts: Number of evenly distributed starting points (default: 5)
 
     Returns:
         scipy.optimize.OptimizeResult: Best optimization result
     """
     start_time = time.time()
 
-    # coarse grid in bounds
-    Kp_vals = grid_search_space[0]
-    Ki_vals = grid_search_space[1]
-    candidates = [(kp, ki) for kp in Kp_vals for ki in Ki_vals]
+    # Extract bounds
+    kp_bounds, ki_bounds = bounds
+    kp_min, kp_max = kp_bounds
+    ki_min, ki_max = ki_bounds
 
-    # evaluate coarse grid
-    scores = []
-    grid_start_time = time.time()
-    print("Starting grid search...")
-    for x in candidates:
-        scores.append((function(np.array(x)), x))
-    scores.sort()  # ascending (minimization of negative reward)
-    grid_time = time.time() - grid_start_time
+    # Create evenly distributed initial conditions avoiding borders
+    # Use n_starts+1 points and exclude the first and last (border) points
+    kp_starts = np.linspace(kp_min, kp_max, n_starts + 2)[1:-1]
+    ki_starts = np.linspace(ki_min, ki_max, n_starts + 2)[1:-1]
 
-    print(f"Grid search done in {grid_time:.2f}s. Top scores:")
-    for val, (kp, ki) in scores[:5]:
-        print(f"  Kp: {kp:.4e}, Ki: {ki:.4e}, Reward: {-val:.4f}")
+    # Create all combinations of starting points
+    initial_conditions = []
+    for kp in kp_starts:
+        for ki in ki_starts:
+            initial_conditions.append([kp, ki])
 
-    # start local optimization from top-N grid points
-    local_start_time = time.time()
+    print(
+        f"Starting optimization with {len(initial_conditions)} evenly distributed initial conditions..."
+    )
+
+    # Run minimize from each starting point
     best = None
     best_val = np.inf
-    for val, x0 in scores[:5]:  # refine top-5 starting points
+    results = []
+
+    for i, (kp0, ki0) in enumerate(initial_conditions):
+        print(
+            f"Starting point {i + 1}/{len(initial_conditions)}: kp={kp0:.4e}, ki={ki0:.4e}"
+        )
+
         res = minimize(
             function,
-            np.array(x0),
+            np.array([kp0, ki0]),
             method="Powell",
-            options={"xtol": 1e-3, "ftol": 1e-3, "maxfev": 50},
+            options={"xtol": 1e-3, "ftol": 1e-4},
             bounds=bounds,
         )
-        print("Optimization result:", res.x, res.fun)
+
+        results.append(res)
+        print(
+            f"  Result: kp={res.x[0]:.4e}, ki={res.x[1]:.4e}, objective={res.fun:.4f}"
+        )
+
         if res.fun < best_val:
             best_val = res.fun
             best = res
-    local_time = time.time() - local_start_time
+
     total_time = time.time() - start_time
 
-    print(f"Local optimization done in {local_time:.2f}s")
-    print(f"Total optimization time: {total_time:.2f}s")
-    print("Best solution:", best.x, "reward:", -best.fun)
+    print(f"\nOptimization completed in {total_time:.2f}s")
+    print(
+        f"Best solution: kp={best.x[0]:.4e}, ki={best.x[1]:.4e}, reward={-best.fun:.4f}"
+    )
 
     return best
 
 
+def plot_j_evolution(
+    filename,
+    action_history,
+    j_target_history,
+    j_actual_history,
+    Ip_reference,
+):
+    """Plot the evolution of j_target and j_actual over time.
+
+    Args:
+        filename (str, optional): If provided, save the plot to this file
+    """
+    fig, ax = plt.subplots()
+
+    j_target_ma = np.array(j_target_history) / 1e6
+    j_actual_ma = np.array(j_actual_history) / 1e6
+
+    # Plot j_target and j_actual
+    ax.plot(
+        j_actual_ma,
+        "b-",
+        label=r"$j_{actual}$",
+        linewidth=2,
+    )
+
+    ax.plot(
+        j_target_ma[:100],
+        "r--",
+        label=r"$j_{target}$",
+        linewidth=1.5,
+    )
+
+    # Add vertical line at t=100 with LH transition text
+    ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
+    ax.text(
+        105,
+        (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.05 + ax.get_ylim()[0],
+        "LH transition",
+        fontsize=20,
+    )
+
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Current density (MA/m²)")
+    ax.legend(prop={"size": 20}, loc="upper left")
+
+    fig.savefig(f"{filename}_error.pdf", bbox_inches="tight")
+
+    fig, ax = plt.subplots()
+    ax.plot(
+        np.array(action_history) / 1e6,
+        linewidth=2,
+        color="blue",
+        label=r"$I_p$",
+    )
+    if Ip_reference is not None:
+        ax.plot(
+            np.array(Ip_reference),
+            linewidth=1.5,
+            label=r"$I_{p,ref}$",
+            color="blue",
+            alpha=0.6,
+            linestyle="dotted",
+        )
+
+    # Add vertical line at t=100 with LH transition text
+    ax.axvline(x=100, linestyle="dashed", color="black", linewidth=1)
+    ax.text(
+        105,
+        (ax.get_ylim()[1] - ax.get_ylim()[0]) * 0.05 + ax.get_ylim()[0],
+        "LH transition",
+        fontsize=20,
+    )
+
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("Total current (MA)")
+    ax.legend(prop={"size": 20}, loc="upper left")
+
+    fig.savefig(f"{filename}_ip.pdf", bbox_inches="tight")
+
+
 if __name__ == "__main__":
-    env = IterHybridEnv(render_mode=None, store_history=True, log_level="error")
+    get_j_target = lambda t: 0.2e6 + 0.4e6 + 1.4e6 * t / 100  # noqa: E731
+
+    env = IterHybridEnv(render_mode=None, store_history=True, log_level="critical")
 
     observation, _ = env.reset()
 
-    # Example 2: Grid search + local optimization with built-in timing
+    def _simulate_PID(k):
+        agent = PIDAgent(
+            env.action_space,
+            get_j_target,
+            env.action_handler.get_actions()["Ip"].ramp_rate[0],
+            kp=k[0],
+            ki=k[1],
+            kd=0.0,
+        )
+
+        return simulate(env, agent, verbose=1)
+
+    # Run the main optimization sequence
     # res = optimize(
-    #     lambda k: simulate(env, k),
-    #     grid_search_space=(
-    #         np.linspace(0, 25, 5),  # Kp values
-    #         np.linspace(0, 25, 5),  # Ki values
-    #     ),
-    #     bounds=[(0, 25), (0, 25)],
+    #     lambda k: _simulate_PID(k),
+    #     bounds=[(0, 50), (0, 50)],
+    #     n_starts=3,
     # )
 
     # kp, ki = res.x
 
-    kp, ki = 0.20176247, 19.09879356
+    kp, ki = 0.32521673, 30.9023307
 
-    main_start_time = time.time()
+    agent_pid = PIDAgent(
+        env.action_space,
+        get_j_target,
+        env.action_handler.get_actions()["Ip"].ramp_rate[0],
+        kp=kp,
+        ki=ki,
+        kd=0.0,
+    )
+
+    # Final simulation with optimized parameters and plotting
     simulate(
         env,
-        [kp, ki],
-        save_plot_as="tmp/pid_optimization",
+        agent_pid,
+        verbose=2,
     )
-    main_time = time.time() - main_start_time
-    print(f"Main execution completed in {main_time:.2f}s")
 
-    env.save_gif_torax(
-        filename="tmp/pid_optimized.gif",
-        interval=250,
-        frame_skip=5,
-        config_plot="default",
-        beginning=0,
-        end=-1,
+    j_target_history = [get_j_target(t) for t in range(150)]
+
+    # Save a gif of the final simulation
+    # env.save_gif_torax(
+    #     filename="tmp/pid_optimized.gif",
+    #     interval=250,
+    #     frame_skip=2,
+    #     config_plot="default",
+    #     beginning=0,
+    #     end=-1,
+    # )
+
+    # Also run a simulation with the IterHybridAgent for comparison
+    agent_classic = IterHybridAgent(env.action_space)
+
+    simulate(
+        env,
+        agent_classic,
+        verbose=2,
+    )
+
+    plot_j_evolution(
+        "tmp/pid_optimized",
+        agent_pid.action_history,
+        agent_pid.j_target_history,
+        agent_pid.j_actual_history,
+        agent_classic.action_history,
     )
