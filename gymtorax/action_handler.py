@@ -10,12 +10,12 @@ bounds, ramp rate limits, and knows how to map itself to TORAX configuration
 dictionaries and which state variables it affects.
 
 Classes:
-    Action: Abstract base class for all action types (user-extensible)
-    ActionHandler: Internal container and manager for multiple actions
-    IpAction: Action for plasma current control
-    VloopAction: Action for loop voltage control
-    EcrhAction: Action for electron cyclotron resonance heating
-    NbiAction: Action for neutral beam injection
+    - Action: Abstract base class for all action types (user-extensible)
+    - ActionHandler: Internal container and manager for multiple actions
+    - IpAction: Action for plasma current control
+    - VloopAction: Action for loop voltage control
+    - EcrhAction: Action for electron cyclotron resonance heating
+    - NbiAction: Action for neutral beam injection
 
 Example:
     Create a custom action by extending the Action class:
@@ -63,25 +63,23 @@ class Action(ABC):
     to specify the action dimensionality, bounds, and configuration mapping.
 
     Class Attributes (must be overridden by subclasses):
-        name (str): Unique identifier for this action type
-        dimension (int): Number of parameters controlled by this action
-        default_min (list[float]): Default minimum values for parameters
-        default_max (list[float]): Default maximum values for parameters
-        default_ramp_rate (list[float | None]): Default ramp rate limits for parameters.
-            None means no ramp rate limit, float values specify maximum change per step.
-        config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
-            paths to parameter indices. Keys are tuples representing the nested
-            path in the config dictionary, values are parameter indices.
-        state_var (dict[str, list[str]]): Dictionary mapping variable categories
-            to lists of variable names modified by this action. Categories
-            are 'scalars' and 'profiles' (e.g., {'scalars': ['Ip']} or
-            {'scalars': ['P_ecrh_e'], 'profiles': ['p_ecrh_e']}).
+        - name (str): Unique identifier for this action type
+        - dimension (int): Number of parameters controlled by this action
+        - default_min (list[float]): Default minimum values for parameters
+        - default_max (list[float]): Default maximum values for parameters
+        - config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
+          paths to parameter indices. Keys are tuples representing the nested
+          path in the config dictionary, values are parameter indices.
+        - state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
+          state variables directly modified by this action. Each inner tuple
+          contains the path to a state variable (e.g., ('scalars', 'Ip') or
+          ('profiles', 'p_ecrh_e')).
 
     Instance Attributes:
-        values (np.ndarray): Current parameter values
-        ramp_rate (np.ndarray): Ramp rate limits for each parameter.
-            np.inf indicates no ramp rate limit for that parameter.
-        dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
+        - values (list[float]): Current parameter values
+        - ramp_rate (np.ndarray): Ramp rate limits for each parameter.
+          np.inf indicates no ramp rate limit for that parameter.
+        - dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
 
     Example:
         Create a custom action for controlling two parameters:
@@ -299,7 +297,7 @@ class Action(ABC):
 
         Args:
             config_dict: The TORAX configuration dictionary to update.
-                Must have been previously initialized with init_dict.
+              Must have been previously initialized with init_dict.
             time: Simulation time for this update. Must be > 0.
 
         Note:
@@ -480,8 +478,8 @@ class ActionHandler:
 
         Returns:
             spaces.Dict: Dictionary action space with action names as keys and
-                Box spaces as values. Each Box space uses the action's min/max
-                bounds and dtype for proper numerical handling.
+            Box spaces as values. Each Box space uses the action's min/max
+            bounds and dtype for proper numerical handling.
         """
         return spaces.Dict(
             {
@@ -539,13 +537,13 @@ class IpAction(Action):
     It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        name: "Ip"
-        dimension: 1 (single parameter)
-        default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
-        default_max: [np.inf]
-        default_ramp_rate: [None]
-        config_mapping: Maps to ('profile_conditions', 'Ip')
-        state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
+        - name: "Ip"
+        - dimension: 1 (single parameter)
+        - default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
+        - default_max: [np.inf]
+        - default_ramp_rate: [None]
+        - config_mapping: Maps to ('profile_conditions', 'Ip')
+        - state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
 
     Example:
         >>> ip_action = IpAction()
@@ -568,13 +566,13 @@ class VloopAction(Action):
     simulations. It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        name: "V_loop"
-        dimension: 1 (single parameter)
-        default_min: [0.0]
-        default_max: [np.inf]
-        default_ramp_rate: [None]
-        config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-        state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
+        - name: "V_loop"
+        - dimension: 1 (single parameter)
+        - default_min: [0.0]
+        - default_max: [np.inf]
+        - default_ramp_rate: [None]
+        - config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
+        - state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
 
     Example:
         >>> vloop_action = VloopAction()
@@ -597,14 +595,14 @@ class EcrhAction(Action):
     and Gaussian width of the heating profile.
 
     Class Attributes:
-        name: "ECRH"
-        dimension: 3 (power, location, width)
-        default_min: [0.0, 0.0, 0.01]
-        default_max: [np.inf, 1.0, np.inf]
-        default_ramp_rate: [None, None, None]
-        config_mapping: Maps to ECRH source parameters
-        state_var: {'scalars': ['P_ecrh_e']} -
-                   modifies total electron-cyclotron power scalar
+        - name: "ECRH"
+        - dimension: 3 (power, location, width)
+        - default_min: [0.0, 0.0, 0.0]
+        - default_max: [np.inf, np.inf, np.inf]
+        - default_ramp_rate: [None, None, None]
+        - config_mapping: Maps to ECRH source parameters
+        - state_var: {'scalars': ['P_ecrh_e']} -
+                     modifies total electron-cyclotron power scalar
 
     Parameters:
         - Index 0: Total power (P_total) in Watts
@@ -637,14 +635,14 @@ class NbiAction(Action):
     components share the same spatial profile (location and width).
 
     Class Attributes:
-        name: "NBI"
-        dimension: 4 (heating power, current power, location, width)
-        default_min: [0.0, 0.0, 0.0, 0.01]
-        default_max: [np.inf, np.inf, 1.0, np.inf]
-        default_ramp_rate: [None, None, None, None]
-        config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        state_var: {'scalars': ['P_aux_generic_total', 'I_aux_generic']} -
-                   modifies total auxiliary power and current scalars
+        - name: "NBI"
+        - dimension: 4 (heating power, current power, location, width)
+        - default_min: [0.0, 0.0, 0.0, 0.01]
+        - default_max: [np.inf, np.inf, 1.0, np.inf]
+        - default_ramp_rate: [None, None, None, None]
+        - config_mapping: Maps to generic heat and current source parameters in TORAX configuration
+        - state_var: {'scalars': ['P_aux_generic_total', 'I_aux_generic']} -
+          modifies total auxiliary power and current scalars
 
     Parameters:
         - Index 0: Heating power (generic_heat P_total) in Watts
