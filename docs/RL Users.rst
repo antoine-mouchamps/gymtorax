@@ -1,26 +1,31 @@
 RL Users
 ==============
 
-In a Nutshell
-----------------
+This section is intended for users who want to leverage the Gym-TORAX package for 
+reinforcement learning tasks. It provides an overview of how to interact with 
+the environments, including key methods and a simple example.
 
-The **Gym-TORAX** package provides a flexible framework for developing reinforcement 
-learning (RL) agents in plasma physics, using the well-known Gymnasium interface. The 
-core implementation can be found in `gymtorax/envs/base_env` or :doc:`here <Environment Design>` 
-in the documentation. The main methods are:
+.. automethod:: gymtorax.envs.base_env.BaseEnv.reset
+   :noindex:
 
-- :py:meth:`reset()<gymtorax.envs.base_env.BaseEnv.reset>`: reset the environment to its initial state for a new episode.
-- :py:meth:`step(action)<gymtorax.envs.base_env.BaseEnv.step>`: execute one environment step with the given action. It returns the next observation,
-  reward, done flag, and additional info.
-- :py:meth:`render()<gymtorax.envs.base_env.BaseEnv.render>`: render the current environment state following Gymnasium convention.
-- :py:meth:`close()<gymtorax.envs.base_env.BaseEnv.close>`: clean up environment resources.
+.. automethod:: gymtorax.envs.base_env.BaseEnv.step
+   :noindex:
 
-Other methods are available to analyse outputs, save data, etc.
+.. automethod:: gymtorax.envs.base_env.BaseEnv.render
+   :noindex:
 
-- :py:meth:`save_file(file_name)<gymtorax.envs.base_env.BaseEnv.save_file>`: save the simulation output data to a file.
-- :py:meth:`save_gif(filename, interval, frame_step)<gymtorax.envs.base_env.BaseEnv.save_gif>`: save the data as a GIF file.
+.. automethod:: gymtorax.envs.base_env.BaseEnv.close
+   :noindex:
 
-Here is a simple example of how to use the Gym-TORAX package for reinforcement learning tasks:
+.. automethod:: gymtorax.envs.base_env.BaseEnv.save_file
+   :noindex:
+
+.. automethod:: gymtorax.envs.base_env.BaseEnv.save_gif
+   :noindex:
+
+
+Here is a simple example of how to use the Gym-TORAX package for reinforcement 
+learning applications:
 
 .. code-block:: python
 
@@ -40,24 +45,3 @@ Here is a simple example of how to use the Gym-TORAX package for reinforcement l
     env.save_file("output_data")
     env.save_gif("simulation.gif")
     env.close()
-
-In details
-----------------
-.. automethod:: gymtorax.envs.base_env.BaseEnv.reset
-   :noindex:
-
-.. automethod:: gymtorax.envs.base_env.BaseEnv.step
-   :noindex:
-
-.. automethod:: gymtorax.envs.base_env.BaseEnv.render
-   :noindex:
-
-.. automethod:: gymtorax.envs.base_env.BaseEnv.close
-   :noindex:
-
-.. automethod:: gymtorax.envs.base_env.BaseEnv.save_file
-   :noindex:
-
-.. automethod:: gymtorax.envs.base_env.BaseEnv.save_gif
-   :noindex:
-

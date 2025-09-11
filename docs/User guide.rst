@@ -2,7 +2,7 @@ User Guide
 ===========================
 
 This section explains how to use the Gym-TORAX package.
-It is divided into two parts representing two visions:
+It is divided into two parts representing two perspectives:
 
 - :doc:`RL Users`: Focus on using the package for reinforcement learning tasks, 
   leveraging the provided environments and tools.

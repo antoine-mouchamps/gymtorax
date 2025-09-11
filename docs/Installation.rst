@@ -1,15 +1,12 @@
 Installation
 ==============
 
-WIP
-
-Note: text inspired by GBOML documentation.
-
 There are two main ways to install Gym-TORAX:
 
 1. Using pip from the Python Package Index (PyPI).
 
 2. Installing it manually by cloning the GitHub repository.
+
 .. In addition, TORAX must be installed separately, as described below.
 
 Installing with pip (PyPI)
@@ -17,6 +14,7 @@ Installing with pip (PyPI)
 
 The simplest method is to install Gym-TORAX directly from PyPI using ``pip``.
 Run the following command in your terminal:
+
 .. code-block:: bash
 
     pip install gym-torax

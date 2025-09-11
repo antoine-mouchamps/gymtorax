@@ -16,7 +16,7 @@ TORAX in a Nutshell
 
 TORAX is an open-source plasma simulator based on 1D transport equations. 
 It models the time evolution of key plasma quantities such as temperatures, densities, 
-magnetic flux, and derived performance metrics (e.g. safety factor q, fusion gain Q).
+magnetic flux, and derived performance metrics (e.g. safety factor :math:`q`, fusion gain :math:`Q`).
 
 In its native form, TORAX is an open-loop simulator: input parameters such as loop voltage /
 plasma current, or heating sources are predefined for the entire simulation (time series), and the plasma 
@@ -40,7 +40,7 @@ agent interacts at a higher-level control frequency.
 The Environment Design
 --------------------------
 
-Every Gym-TORAX environment is built on top of a BaseEnv class. To create a new 
+Every Gym-TORAX environment is built on top of a :doc:`BaseEnv<Environment Designers>` class. To create a new 
 environment, four aspects must be specified:
 
 - TORAX configuration → time discretization, physical models, geometry, and initial 
@@ -54,7 +54,8 @@ environment, four aspects must be specified:
 - Reward function → combination of predefined reward terms to target control objectives 
   (stability, performance, etc.).
 
-Helper classes (Action, Observation, Reward) simplify this process, so that new environments can 
+Helper classes (:doc:`Action <RL Users>`, :doc:`Observation <RL Users>`) and methods 
+(in :doc:`reward <Environment Designers>`) simplify this process, so that new environments can 
 be created with minimal boilerplate.
 
 Additional Features

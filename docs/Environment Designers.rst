@@ -1,7 +1,7 @@
 Environment Designers
 ===========================
 
-The **Gym-TORAX** package provides a powerful framework for plasma physics specialists 
+The Gym-TORAX package provides a powerful framework for plasma physics specialists 
 to explore and create new environments. It is designed as a flexible toolkit that allows 
 users with a background in plasma physics to develop and test their own scenarios, 
 configurations, and experiments. This includes defining new actions, observations, 
@@ -20,16 +20,16 @@ Base Environment
 Abstract Methods and Properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_actions
+.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_action_space
     :no-index:
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_observation
+.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_observation_space
     :no-index:
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_torax_config
+.. autoattribute:: gymtorax.envs.base_env.BaseEnv._get_torax_config
     :no-index:
 
-.. automethod:: gymtorax.envs.base_env.BaseEnv._define_reward
+.. automethod:: gymtorax.envs.base_env.BaseEnv._compute_reward
     :no-index:
 
 Here is a simple example of how to create a new environment by extending the base class:
@@ -42,19 +42,19 @@ Here is a simple example of how to create a new environment by extending the bas
     import gymtorax.rewards as rw
 
     class CustomEnv(BaseEnv):
-        def _define_actions(self):
+        def _define_action_space(self):
             actions = [ah.IpAction(),]
             return actions
-            
-        def _define_observation(self):
+
+        def _define_observation_space(self):
             return oh.AllObservation()
 
-        def _define_torax_config(self):
+        def _get_torax_config(self):
             return {"config": CONFIG, 
                 "discretization": "auto", 
                 "delta_t_a": 1.0}
 
-        def _define_reward(self, current_state, next_state, action):
+        def _compute_reward(self, current_state, next_state, action):
             Q = rw.get_fusion_gain(next_state)
             q_min = rw.get_q_min(next_state)
             w_Q, w_qmin = 1.0, 1.0
@@ -68,20 +68,27 @@ Here is a simple example of how to create a new environment by extending the bas
             return w_Q * Q + w_qmin * q_min_function()
 
 
-Creation of New Actions
+Creation of Actions
 ------------------------------
 
 .. autoclass:: gymtorax.action_handler.Action
     :no-index:
 
-Creation of New Observations
+Creation of Observations
 ------------------------------
 
 .. autoclass:: gymtorax.observation_handler.Observation
     :no-index:
 
-Creation of a configuration
+Creation of Configurations
 ------------------------------
 The configuration needed in the method `_define_torax_config` is a dictionary which
 is exactly the same as the one used in TORAX. You can find more details about the configuration
 in the `TORAX documentation <https://torax.readthedocs.io/en/stable/configuration.html>`_.
+The configuration used in our examples is available :doc:`here <Config example>`.
+
+Creation of Rewards
+------------------------------
+.. automodule:: gymtorax.rewards
+    :members:
+    :no-index:

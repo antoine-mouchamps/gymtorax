@@ -603,7 +603,7 @@ class BaseEnv(gym.Env, ABC):
 
 
         Example:
-            >>> def _define_torax_config(self):
+            >>> def _get_torax_config(self):
             ...     return {
             ...         "config": TORAX_CONFIG,
             ...         "discretisation_torax": "auto",
