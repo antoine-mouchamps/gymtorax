@@ -81,7 +81,6 @@ if __name__ == "__main__":
     env.save_file("tmp/outputs_iter_torax.nc")
     viz.save_gif_from_nc(
         "tmp/outputs_iter_torax.nc",
-        fig_properties=fig_plot,
         filename="tmp/output_torax.gif",
         interval=200,
         frame_step=5,

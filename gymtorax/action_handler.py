@@ -78,8 +78,9 @@ class Action(ABC):
             {'scalars': ['P_ecrh_e'], 'profiles': ['p_ecrh_e']}).
 
     Instance Attributes:
-        values (list[float]): Current parameter values
-        ramp_rate (list[float | None]): Ramp rate limits for each parameter
+        values (np.ndarray): Current parameter values
+        ramp_rate (np.ndarray): Ramp rate limits for each parameter.
+            np.inf indicates no ramp rate limit for that parameter.
         dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
 
     Example:
@@ -136,6 +137,7 @@ class Action(ABC):
                 - default_min, default_max, or default_ramp_rate don't match the dimension
                 - provided min, max, or ramp_rate don't match the dimension
         """
+        self.dtype = dtype
         # Validate that required class attributes are properly defined
         if not self.name:
             raise ValueError(
@@ -195,9 +197,13 @@ class Action(ABC):
                 raise ValueError(f"ramp_rate must be a list of length {self.dimension}")
 
         # Initialize minimum and maximum bounds for the action parameters
-        # Use provided values or defaults
-        self._min = min if min is not None else self.default_min
-        self._max = max if max is not None else self.default_max
+        # Use provided values or defaults, converting to numpy arrays
+        self._min = np.array(
+            min if min is not None else self.default_min, dtype=self.dtype
+        )
+        self._max = np.array(
+            max if max is not None else self.default_max, dtype=self.dtype
+        )
 
         # Validate bounds dimensions
         if self._min is not None and len(self._min) != self.dimension:
@@ -209,39 +215,42 @@ class Action(ABC):
                 f"Invalid max bounds dimension: expected {self.dimension}, got {len(self._max)}"
             )
         # Default value
-        self.values = copy.deepcopy(self._min)
+        self.values = np.array(copy.deepcopy(self._min), dtype=self.dtype)
 
-        # Ramp up/down limits
-        self.ramp_rate = ramp_rate if ramp_rate is not None else self.default_ramp_rate
+        # Ramp up/down limits - convert None to np.inf for unlimited ramp rates
+        ramp_rate_input = ramp_rate if ramp_rate is not None else self.default_ramp_rate
+        self.ramp_rate = np.array(
+            [r if r is not None else np.inf for r in ramp_rate_input], dtype=self.dtype
+        )
 
         self.dtype = dtype
 
     @property
-    def min(self) -> list[float]:
+    def min(self) -> np.ndarray:
         """Minimum bounds for this action parameters.
 
         Returns:
-            list[float]: List of minimum values, one for each parameter
+            np.ndarray: Array of minimum values, one for each parameter
                 controlled by this action.
         """
         return self._min
 
     @property
-    def max(self) -> list[float]:
+    def max(self) -> np.ndarray:
         """Maximum bounds for this action parameters.
 
         Returns:
-            list[float]: List of maximum values, one for each parameter
+            np.ndarray: Array of maximum values, one for each parameter
                 controlled by this action.
         """
         return self._max
 
-    def _set_values(self, new_values: list[float]) -> None:
+    def _set_values(self, new_values: list[float] | np.ndarray) -> None:
         """Set the current parameter values for this action.
 
         Args:
-            new_values: The new parameter values to set. Must have length equal
-                to the action's dimension.
+            new_values: The new parameter values to set. Can be a list or numpy array.
+                Must have length equal to the action's dimension.
 
         Raises:
             ValueError: If the length of the values list does not match the expected dimension.
@@ -249,16 +258,15 @@ class Action(ABC):
         if len(new_values) != self.dimension:
             raise ValueError(f"Expected {self.dimension} values, got {len(new_values)}")
 
-        for i in range(self.dimension):
-            clipped_value = np.clip(new_values[i], self.min[i], self.max[i])
-            if self.ramp_rate[i] is not None:
-                self.values[i] = np.clip(
-                    clipped_value,
-                    self.values[i] - self.ramp_rate[i],
-                    self.values[i] + self.ramp_rate[i],
-                )
-            else:
-                self.values[i] = clipped_value
+        # Clip values to bounds
+        clipped_values = np.clip(new_values, self.min, self.max)
+
+        # Apply ramp rate limits (np.inf means no limit)
+        ramp_limited_values = np.clip(
+            clipped_values, self.values - self.ramp_rate, self.values + self.ramp_rate
+        )
+
+        self.values = ramp_limited_values
 
     def init_dict(self, config_dict: dict[str, Any]) -> None:
         """Initialize a TORAX configuration dictionary with this action parameters.
@@ -421,7 +429,7 @@ class ActionHandler:
 
         return variables
 
-    def update_actions(self, actions: spaces.Dict) -> None:
+    def update_actions(self, actions: dict[str, np.ndarray]) -> None:
         """Update the current values of all managed actions.
 
         This method validates that all provided actions exist in the handler,
@@ -429,9 +437,9 @@ class ActionHandler:
         method. The update counter is incremented after successful processing.
 
         Args:
-            actions (spaces.Dict): Dictionary mapping action names to their new values.
+            actions (dict): Dictionary mapping action names to their new values.
                 Keys must correspond to existing action names in this handler.
-                Values must be compatible with each action expected format and bounds.
+                Values must be numpy arrays compatible with each action expected format and bounds.
 
         Raises:
             ValueError: If any action name in the actions dict does not exist
@@ -443,15 +451,23 @@ class ActionHandler:
                     f"Action '{action_name}' does not exist in this environment."
                 )
 
-        if self.action_space.contains(actions) is False:
+        # Ensure all action values are numpy arrays with correct dtype
+        actions_np_array = {
+            name: np.asarray(values, dtype=self._actions[name].dtype)
+            for name, values in actions.items()
+        }
+        if self.action_space.contains(actions_np_array) is False:
             logger.warning(
                 f"updating actions with: a_{self.number_of_updates} = {actions}."
-                + f" Action values {actions} are out of bounds !"
+                + f" Action values {actions_np_array} are out of bounds !"
             )
-        logger.debug(f" updating actions with: a_{self.number_of_updates} = {actions}")
+        else:
+            logger.debug(
+                f" updating actions with: a_{self.number_of_updates} = {actions}"
+            )
 
         for action in self.get_actions().values():
-            action._set_values(actions[action.name])
+            action._set_values(actions_np_array[action.name])
 
         self.number_of_updates += 1
 
@@ -470,8 +486,8 @@ class ActionHandler:
         return spaces.Dict(
             {
                 action.name: spaces.Box(
-                    low=np.array(action.min),
-                    high=np.array(action.max),
+                    low=action.min,
+                    high=action.max,
                     dtype=action.dtype,
                 )
                 for action in self.get_actions().values()

@@ -280,14 +280,15 @@ class Observation(ABC):
         # Extract complete state data
         state = {
             "profiles": {
-                var: state["profiles"][var]["data"][0]
+                var: np.asarray(state["profiles"][var]["data"][0], dtype=self.dtype)
                 for var in self.state_variables["profiles"]
             },
             "scalars": {
-                var: (
+                var: np.asarray(
                     [state["scalars"][var]["data"][0]]
                     if isinstance(state["scalars"][var]["data"], list)
-                    else [state["scalars"][var]["data"]]
+                    else [state["scalars"][var]["data"]],
+                    dtype=self.dtype,
                 )
                 for var in self.state_variables["scalars"]
             },
@@ -296,11 +297,11 @@ class Observation(ABC):
         # Filter for observation variables only
         observation = {
             "profiles": {
-                var: state["profiles"][var]
+                var: np.asarray(state["profiles"][var], dtype=self.dtype)
                 for var in self.observation_variables["profiles"]
             },
             "scalars": {
-                var: state["scalars"][var]
+                var: np.asarray(state["scalars"][var], dtype=self.dtype)
                 for var in self.observation_variables["scalars"]
             },
         }
