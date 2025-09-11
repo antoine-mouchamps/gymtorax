@@ -29,14 +29,14 @@ w_nbi = 0.25
 eccd_power = {0: 0, 99: 0, 100: 20.0e6}
 
 
-class IterHybridEnv(IterHybridEnv):
-    def __init__(self, *args, **kwargs):
+class IterHybridEnv(IterHybridEnv):  # noqa: D101
+    def __init__(self, *args, **kwargs):  # noqa: D107
         super().__init__(*args, **kwargs)
         self.reward_breakdown = True  # Enable reward breakdown tracking
 
 
-class PIDAgent:
-    def __init__(self, action_space, get_j_target, ramp_rate, kp, ki, kd):
+class PIDAgent:  # noqa: D101
+    def __init__(self, action_space, get_j_target, ramp_rate, kp, ki, kd):  # noqa: D107
         self.action_space = action_space
         self.get_j_target = get_j_target
         self.time = 0
@@ -67,7 +67,7 @@ class PIDAgent:
         self.error_history = []
         self.action_history = []
 
-    def act(self, observation) -> dict:
+    def act(self, observation) -> dict:  # noqa: D102
         j_center = observation["profiles"]["j_total"][0]
         j_target = self.get_j_target(self.time)
 
@@ -280,8 +280,8 @@ def simulate(env: IterHybridEnv, agent, verbose=0):
 
     Args:
         env: The environment to simulate
-        k: PID parameters [kp, ki]
-        save_plot_as: Filename to save the plot (if plotting is enabled)
+        agent: The agent to use for action selection
+        verbose: Verbosity level (0: none, 1: total reward, 2: detailed breakdown)
 
     Returns:
         float: Negative cumulative reward (cost to minimize)
@@ -401,18 +401,13 @@ def optimize(function, bounds, n_starts=5):
     return best
 
 
-def plot_j_evolution(
+def _plot_j_evolution(
     filename,
     action_history,
     j_target_history,
     j_actual_history,
-    Ip_reference,
+    ip_reference,
 ):
-    """Plot the evolution of j_target and j_actual over time.
-
-    Args:
-        filename (str, optional): If provided, save the plot to this file
-    """
     fig, ax = plt.subplots()
 
     j_target_ma = np.array(j_target_history) / 1e6
@@ -455,9 +450,9 @@ def plot_j_evolution(
         color="blue",
         label=r"$I_p$",
     )
-    if Ip_reference is not None:
+    if ip_reference is not None:
         ax.plot(
-            np.array(Ip_reference),
+            np.array(ip_reference),
             linewidth=1.5,
             label=r"$I_{p,ref}$",
             color="blue",
@@ -488,7 +483,7 @@ if __name__ == "__main__":
 
     observation, _ = env.reset()
 
-    def _simulate_PID(k):
+    def _simulate_pid(k):
         agent = PIDAgent(
             env.action_space,
             get_j_target,
@@ -502,7 +497,7 @@ if __name__ == "__main__":
 
     # Run the main optimization sequence
     # res = optimize(
-    #     lambda k: _simulate_PID(k),
+    #     lambda k: _simulate_pid(k),
     #     bounds=[(0, 50), (0, 50)],
     #     n_starts=3,
     # )
@@ -548,7 +543,7 @@ if __name__ == "__main__":
         verbose=2,
     )
 
-    plot_j_evolution(
+    _plot_j_evolution(
         "tmp/pid_optimized",
         agent_pid.action_history,
         agent_pid.j_target_history,

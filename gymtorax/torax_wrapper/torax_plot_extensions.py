@@ -75,8 +75,8 @@ def plot_run_to_gif(
 
     Args:
         plot_config: FigureProperties object defining the plot layout and content
-        outfile: Path to the TORAX simulation output file (.nc)
-        outfile2: Optional path to second file for comparison
+        data_tree: Datatree of the TORAX simulation output file
+        data_tree_2: Optional Datatree of the second file for comparison
         gif_filename: Output GIF filename
         n_frames: Maximum number of frames in the animation
         duration: Duration per frame in milliseconds

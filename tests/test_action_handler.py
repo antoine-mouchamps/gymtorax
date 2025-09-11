@@ -232,6 +232,7 @@ def test_action_handler_ip_vloop_exclusive():
     with pytest.raises(ValueError):
         ActionHandler([ip, vloop])
 
+
 def test_action_handler_get_action_variables():
     a1 = CustomAction1()
     a2 = CustomAction2()
@@ -240,6 +241,7 @@ def test_action_handler_get_action_variables():
     assert "scalars" in variables
     assert "param1" in variables["scalars"]
     assert "param2" in variables["scalars"]
+
 
 def test_action_handler_build_action_space():
     a1 = CustomAction1()

@@ -5,7 +5,6 @@ Gymnasium interface using the official env_checker utility.
 """
 
 import gymnasium as gym
-import numpy as np
 import pytest
 from gymnasium.utils.env_checker import check_env
 

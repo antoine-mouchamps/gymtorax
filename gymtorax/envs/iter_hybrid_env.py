@@ -1,9 +1,8 @@
 import numpy as np  # noqa: N999
 
+import gymtorax.rewards as reward
 from gymtorax.action_handler import EcrhAction, IpAction, NbiAction
 from gymtorax.observation_handler import AllObservation
-import gymtorax.rewards as reward
-
 
 from .base_env import BaseEnv
 
@@ -256,7 +255,7 @@ class IterHybridEnv(BaseEnv):
         # Customize weights and sigma as needed
         weight_list = [2, 1, 2, 1, 1, 1]
 
-        def _is_H_mode():
+        def _is_H_mode():  # noqa: N802
             if (
                 next_state["profiles"]["T_e"][0] > 10
                 and next_state["profiles"]["T_i"][0] > 10
