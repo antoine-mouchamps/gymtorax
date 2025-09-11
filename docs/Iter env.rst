@@ -67,7 +67,7 @@ Here is the environment:
         @property
         def _get_torax_config(self):
             return {
-                "config": CONFIG,
+                "config": CONFIG, # -> see Configuration Example
                 "discretization": "fixed",
                 "ratio_a_sim": 1,
             }

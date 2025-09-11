@@ -2,17 +2,17 @@ Agents
 ==========
 Three simple agents are included in this example:
 
-- Open-loop reference agent – reproduces the original TORAX trajectories. This validates 
+- **Open-loop reference agent** – reproduces the original TORAX trajectories. This validates 
   that Gym-TORAX is consistent with the reference simulator.
 
-- PI controller agent – regulates the plasma current using a Proportional-Integral 
+- **PI controller agent** – regulates the plasma current using a Proportional-Integral 
   controller. The controller gains are optimized to maximize the cumulative reward. 
   Heating actions (NBI, ECRH) follow the reference trajectories.
 
-- Random agent – selects actions uniformly at random within the allowed ranges. 
+- **Random agent** – selects actions uniformly at random within the allowed ranges. 
   This provides a naive baseline for comparison.
 
-Here is the code for the open-loop reference agent as illustration:
+Here is the code for the open-loop agent as illustration:
 
 .. code-block:: python
 

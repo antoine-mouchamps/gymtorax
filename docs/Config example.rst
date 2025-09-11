@@ -1,7 +1,7 @@
 Configuration Example
 =========================
 
-Here is the configuration used in our :doc:`examples <Examples>`, in ``iter_hybrid_env.py``:
+Here is the configuration used in our :doc:`examples <Examples>`, in ``IterHybridEnv``:
 
 .. code-block:: python
 
