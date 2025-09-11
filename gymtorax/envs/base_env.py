@@ -352,6 +352,7 @@ class BaseEnv(gym.Env, ABC):
         if not success or not self.observation_space.contains(self.observation):
             reward = -1000.0  # Large negative reward on failure
             self.terminated = True
+            truncated = True
         else:
             reward = self._compute_reward(state, next_state, action)
 
