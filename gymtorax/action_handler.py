@@ -27,10 +27,10 @@ Example:
     ...     default_max = [10.0, 1.0]
     ...     default_ramp_rate = [0.1, None]  # First param limited, second unlimited
     ...     config_mapping = {
-    ...         ('some_config', 'param1'): 0,
-    ...         ('some_config', 'param2'): 1
+    ...         ('some_config', 'param1'): (0, 1),    # (index, factor)
+    ...         ('some_config', 'param2'): (1, 1)     # (index, factor)
     ...     }
-    ...     state_var = (('scalars', 'param1'), ('scalars', 'param2'))
+    ...     state_var = {'scalars': ['param1', 'param2']}
 
     Use an existing action:
 
@@ -67,9 +67,9 @@ class Action(ABC):
         - dimension (int): Number of parameters controlled by this action
         - default_min (list[float]): Default minimum values for parameters
         - default_max (list[float]): Default maximum values for parameters
-        - config_mapping (dict[tuple[str, ...], int]): Mapping from configuration
-          paths to parameter indices. Keys are tuples representing the nested
-          path in the config dictionary, values are parameter indices.
+        - config_mapping (dict[tuple[str, ...], tuple[int, float]]): Mapping from configuration
+          paths to parameter indices and scaling factors. Keys are tuples representing the nested
+          path in the config dictionary, values are tuples of (parameter_index, scaling_factor).
         - state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
           state variables directly modified by this action. Each inner tuple
           contains the path to a state variable (e.g., ('scalars', 'Ip') or
@@ -91,8 +91,8 @@ class Action(ABC):
         ...     default_max = [10.0, 5.0]
         ...     default_ramp_rate = [0.5, None]  # First param limited, second unlimited
         ...     config_mapping = {
-        ...         ('section', 'param1'): 0,
-        ...         ('section', 'param2'): 1
+        ...         ('section', 'param1'): (0, 1),      # No scaling
+        ...         ('section', 'param2'): (1, 0.5)     # Scale by 0.5
         ...     }
         ...     state_var = {'scalars': ['param1', 'param2']}
         >>> action = TwoParamAction()
@@ -246,6 +246,10 @@ class Action(ABC):
     def _set_values(self, new_values: list[float] | np.ndarray) -> None:
         """Set the current parameter values for this action.
 
+        Values are automatically clipped to the action's bounds and ramp rate limits.
+        The method ensures all values remain within the defined minimum and maximum
+        bounds, and that changes between timesteps don't exceed the ramp rate limits.
+
         Args:
             new_values: The new parameter values to set. Can be a list or numpy array.
                 Must have length equal to the action's dimension.
@@ -281,6 +285,7 @@ class Action(ABC):
         Raises:
             KeyError: If the configuration dictionary doesn't have the expected
                 structure for this action parameters.
+            RuntimeError: If any error occurs during the initialization process.
         """
         try:
             self._apply_mapping(config_dict, time="init")
@@ -294,6 +299,7 @@ class Action(ABC):
 
         This method updates the time-dependent parameters in the configuration
         dictionary with the action current values at the specified time.
+        Scaling factors from config_mapping are applied consistently.
 
         Args:
             config_dict: The TORAX configuration dictionary to update.
@@ -302,7 +308,8 @@ class Action(ABC):
 
         Note:
             The configuration dictionary must have been initialized with
-            init_dict before calling this method.
+            init_dict before calling this method. Values are scaled by the
+            factors defined in config_mapping before being stored.
         """
         self._apply_mapping(config_dict, time=time)
 
@@ -310,21 +317,23 @@ class Action(ABC):
         """Apply the action values to a TORAX configuration dictionary.
 
         This method traverses the configuration dictionary using the paths defined
-        in config_mapping and sets the appropriate values. For time=0 (initialization),
-        it creates new time-dependent parameter entries. For time>0, it updates
-        existing entries.
+        in config_mapping and sets the appropriate values with consistent scaling.
+        For time="init" (initialization), it creates new time-dependent parameter entries.
+        For time>0, it updates existing entries. Scaling factors are applied in both cases.
 
         Args:
             config_dict: The TORAX configuration dictionary to modify
-            time: Simulation time. If 0, initializes new time-dependent parameters.
+            time: Simulation time. If "init", initializes new time-dependent parameters.
                 If >0, updates existing time-dependent parameters.
 
         Note:
             This is an internal method used by init_dict and update_to_config.
             The configuration format follows TORAX conventions where time-dependent
-            parameters are stored as ({time: value, ...}, "STEP") tuples.
+            parameters are stored as ({time: scaled_value, ...}, "STEP") tuples.
+            Scaling factors from config_mapping are consistently applied during
+            both initialization and updates.
         """
-        for dict_path, idx in self.config_mapping.items():
+        for dict_path, (idx, factor) in self.config_mapping.items():
             # drill down into config_dict
             d = config_dict
             for key in dict_path[:-1]:
@@ -355,15 +364,18 @@ class Action(ABC):
                     logger.warning(
                         f" using the lower bound {self.values[idx]} of {key} as initial condition. Consider providing one in the configuration file."
                     )
-                d[key] = ({0: self.values[idx]}, "STEP")
+                # Apply the factor during initialization as well for consistency
+                d[key] = ({0: self.values[idx] * factor}, "STEP")
             else:
-                d[key][0].update({time: self.values[idx]})
+                print(f"{key}: {self.values[idx] * factor}")
+                d[key][0].update({time: self.values[idx] * factor})
 
     def get_mapping(self) -> dict[tuple[str, ...], int]:
-        """Get the mapping of configuration dictionary paths to action indices.
+        """Get the mapping of configuration dictionary paths to action indices and factors.
 
         Returns:
-            dict[tuple[str, ...], int]: Mapping of config dictionary paths to action parameter indices.
+            dict[tuple[str, ...], tuple[int, float]]: Mapping of config dictionary paths 
+                to tuples of (action_parameter_index, scaling_factor).
         """
         return self.config_mapping
 
@@ -386,14 +398,24 @@ class ActionHandler:
         actions: List of Action instances to manage.
 
     Attributes:
-        actions: Internal list of managed actions.
+        actions: Internal dictionary of managed actions indexed by name.
+        action_space: Gymnasium Dict space representing all managed actions.
+        number_of_updates: Counter tracking the number of action updates performed.
     """
 
     def __init__(self, actions: list[Action]) -> None:
         """Initialize the ActionHandler with a list of actions.
 
+        Validates action compatibility, builds the action space, and sets up
+        internal tracking structures.
+
         Args:
-            actions: List of Action instances to manage.
+            actions: List of Action instances to manage. Actions must have unique
+                names and compatible configuration mappings.
+
+        Raises:
+            ValueError: If duplicate action names or configuration paths are found,
+                or if incompatible actions (e.g., both Ip and Vloop) are provided.
         """
         self._actions = {a.name: a for a in actions}
         self._actions_names = set([a.name for a in actions])
@@ -402,10 +424,11 @@ class ActionHandler:
         self.action_space = self.build_action_space()
 
     def get_actions(self) -> dict[str, Action]:
-        """Get the list of managed actions as a dictionnary.
+        """Get the dictionary of managed actions.
 
         Returns:
-            dict[str, Action]: dictionnary of Action instances managed by this handler.
+            dict[str, Action]: Dictionary mapping action names to Action instances
+                managed by this handler.
         """
         return self._actions
 
@@ -431,11 +454,12 @@ class ActionHandler:
         """Update the current values of all managed actions.
 
         This method validates that all provided actions exist in the handler,
-        then updates each action internal values using the action set_values
+        converts values to numpy arrays with correct dtypes, validates bounds,
+        and updates each action's internal values using the action's _set_values
         method. The update counter is incremented after successful processing.
 
         Args:
-            actions (dict): Dictionary mapping action names to their new values.
+            actions: Dictionary mapping action names to their new values.
                 Keys must correspond to existing action names in this handler.
                 Values must be numpy arrays compatible with each action expected format and bounds.
 
@@ -495,14 +519,20 @@ class ActionHandler:
     def _validate_action_handler(self) -> None:
         """Validates the action handler.
 
-        This function performs two main checks:
-        1. It verifies that no duplicate parameters exist across all actions.
-        2. It ensures that 'Ip' and 'Vloop' actions are not present simultaneously,
-        as TORAX can only use one or the other.
+        This function performs validation checks:
+        1. Verifies that no duplicate configuration paths exist across all actions.
+        2. Ensures that action names are unique within the handler.
+        3. Enforces TORAX-specific constraints (e.g., 'Ip' and 'Vloop' are mutually exclusive).
+
+        The validation ensures that the action configuration is consistent and compatible
+        with TORAX simulation requirements.
 
         Raises:
-            ValueError: If duplicate parameters are found or if both 'Ip'
-                        and 'Vloop' actions are present.
+            ValueError: If any of the following conditions are detected:
+                - Duplicate configuration paths across different actions
+                - Duplicate action names
+                - Both 'Ip' and 'Vloop' actions present simultaneously
+                  (TORAX can only use one current control method)
         """
         seen_keys = set()
         seen_names = set()
@@ -555,7 +585,7 @@ class IpAction(Action):
     default_min = [_MIN_IP_AMPS]  # TORAX requirements
     default_max = [np.inf]
     default_ramp_rate = [None]
-    config_mapping = {("profile_conditions", "Ip"): 0}
+    config_mapping = {("profile_conditions", "Ip"): (0, 1)}
     state_var = {"scalars": ["Ip"]}
 
 
@@ -584,7 +614,7 @@ class VloopAction(Action):
     default_min = [0.0]
     default_max = [np.inf]
     default_ramp_rate = [None]
-    config_mapping = {("profile_conditions", "v_loop_lcfs"): 0}
+    config_mapping = {("profile_conditions", "v_loop_lcfs"): (0, 1)}
     state_var = {"scalars": ["v_loop_lcfs"]}
 
 
@@ -620,9 +650,9 @@ class EcrhAction(Action):
     default_max = [np.inf, 1.0, np.inf]
     default_ramp_rate = [None, None, None]
     config_mapping = {
-        ("sources", "ecrh", "P_total"): 0,
-        ("sources", "ecrh", "gaussian_location"): 1,
-        ("sources", "ecrh", "gaussian_width"): 2,
+        ("sources", "ecrh", "P_total"): (0, 1),
+        ("sources", "ecrh", "gaussian_location"): (1, 1),
+        ("sources", "ecrh", "gaussian_width"): (2, 1),
     }
     state_var = {"scalars": ["P_ecrh_e"]}
 
@@ -630,43 +660,80 @@ class EcrhAction(Action):
 class NbiAction(Action):
     """Example action for controlling Neutral Beam Injection (NBI).
 
-    This action controls four NBI parameters: heating power, current drive power,
-    Gaussian location, and Gaussian width. Both heating and current drive
-    components share the same spatial profile (location and width).
+    This action controls three NBI parameters: heating power, Gaussian location,
+    and Gaussian width of the heating profile. The current drive power is automatically
+    calculated from the heating power using a configurable conversion factor.
 
     Class Attributes:
         - name: "NBI"
-        - dimension: 4 (heating power, current power, location, width)
-        - default_min: [0.0, 0.0, 0.0, 0.01]
-        - default_max: [np.inf, np.inf, 1.0, np.inf]
-        - default_ramp_rate: [None, None, None, None]
+        - dimension: 3 (heating power, location, width)
+        - default_min: [0.0, 0.0, 0.01]
+        - default_max: [np.inf, 1.0, np.inf]
+        - default_ramp_rate: [None, None, None]
         - config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        - state_var: {'scalars': ['P_aux_generic_total', 'I_aux_generic']} -
-          modifies total auxiliary power and current scalars
+        - state_var: {'scalars': ['P_aux_generic_total']} -
+          modifies total auxiliary power scalar
+    
+    Instance Attributes:
+        nbi_w_to_ma: Conversion factor from heating power (W) to current drive (MA).
+                     Default is 1/16e6, meaning 16MW of heating produces 1MA of current.
+        config_mapping: Dynamically created in __init__ to use the specified conversion factor.
 
     Parameters:
         - Index 0: Heating power (generic_heat P_total) in Watts
-        - Index 1: Current drive power (generic_current I_generic) in Amperes
-        - Index 2: Gaussian location (shared by heat and current) - normalized radius [0,1]
-        - Index 3: Gaussian width (shared by heat and current) - profile width parameter
+        - Index 1: Gaussian location (shared by heat and current) - normalized radius [0,1]
+        - Index 2: Gaussian width (shared by heat and current) - profile width parameter
 
     Example:
         >>> nbi_action = NbiAction()
-        >>> nbi_action._set_values([10e6, 2e6, 0.4, 0.2])
-        >>> # 10MW heating, 2MA current drive, r/a=0.4, width=0.2
+        >>> nbi_action._set_values([10e6, 0.4, 0.2])  # 10MW heating, r/a=0.4, width=0.2
+        
+        >>> # NBI with custom conversion factor
+        >>> nbi_custom = NbiAction(nbi_w_to_ma=1/20e6)  # 20MW per 1MA
+        >>> nbi_custom._set_values([20e6, 0.3, 0.15])
+        
+        >>> # NBI with current drive disabled
+        >>> nbi_heating_only = NbiAction(nbi_w_to_ma=0)
+        >>> nbi_heating_only._set_values([15e6, 0.5, 0.1])
     """
 
     name = "NBI"
-    dimension = 4  # heating power, current power, location, width
-    default_min = [0.0, 0.0, 0.0, 0.01]
-    default_max = [np.inf, np.inf, 1.0, np.inf]
-    default_ramp_rate = [None, None, None, None]
-    config_mapping = {
-        ("sources", "generic_heat", "P_total"): 0,
-        ("sources", "generic_current", "I_generic"): 1,
-        ("sources", "generic_heat", "gaussian_location"): 2,
-        ("sources", "generic_heat", "gaussian_width"): 3,
-        ("sources", "generic_current", "gaussian_location"): 2,  # Shared location
-        ("sources", "generic_current", "gaussian_width"): 3,  # Shared width
-    }
-    state_var = {"scalars": ["P_aux_generic_total", "I_aux_generic"]}
+    dimension = 3  # heating power, location, width
+    default_min = [0.0, 0.0, 0.01]
+    default_max = [np.inf, 1.0, np.inf]
+    default_ramp_rate = [None, None, None]
+    # Note: config_mapping is set in __init__ to allow customizable nbi_w_to_ma
+    state_var = {"scalars": ["P_aux_generic_total"]}
+
+    def __init__(self, nbi_w_to_ma=1 / 16e6, **kwargs):
+        """Initialize NbiAction with configurable heating-to-current conversion.
+
+        Args:
+            nbi_w_to_ma: Conversion factor from heating power (Watts) to current drive (MA).
+                Default is 1/16e6, meaning 16MW of heating produces 1MA of current drive.
+                Set to 0 to disable current drive while keeping heating.
+            **kwargs: Additional arguments passed to the parent Action class
+                (min, max, ramp_rate, dtype).
+
+        Example:
+            >>> # Default conversion (16MW -> 1MA)
+            >>> nbi = NbiAction()
+            
+            >>> # Custom conversion (20MW -> 1MA)  
+            >>> nbi = NbiAction(nbi_w_to_ma=1/20e6)
+            
+            >>> # Heating only, no current drive
+            >>> nbi = NbiAction(nbi_w_to_ma=0)
+        """
+        # Set the config_mapping with the provided nbi_w_to_ma value
+        self.config_mapping = {
+            ("sources", "generic_heat", "P_total"): (0, 1),
+            ("sources", "generic_current", "I_generic"): (0, nbi_w_to_ma),
+            ("sources", "generic_heat", "gaussian_location"): (1, 1),
+            ("sources", "generic_heat", "gaussian_width"): (2, 1),
+            ("sources", "generic_current", "gaussian_location"): (1, 1),  # Shared location
+            ("sources", "generic_current", "gaussian_width"): (2, 1),  # Shared width
+        }
+        
+        super().__init__(**kwargs)
+        self.nbi_w_to_ma = nbi_w_to_ma

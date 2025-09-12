@@ -22,7 +22,7 @@ class CustomAction(Action):
     default_min = [0.0, -1.0]
     default_max = [10.0, 1.0]
     default_ramp_rate = [None, None]
-    config_mapping = {("some_config", "param1"): 0, ("some_config", "param2"): 1}
+    config_mapping = {("some_config", "param1"): (0, 1), ("some_config", "param2"): (1, 1)}
     state_var = {"scalars": ["param1", "param2"]}
 
 
@@ -32,7 +32,7 @@ class CustomAction1(Action):
     default_min = [0.0]
     default_max = [1.0]
     default_ramp_rate = [None]
-    config_mapping = {("some_config", "param1"): 0}
+    config_mapping = {("some_config", "param1"): (0, 1)}
     state_var = {"scalars": ["param1"]}
 
 
@@ -42,7 +42,7 @@ class CustomAction2(Action):
     default_min = [0.0]
     default_max = [2.0]
     default_ramp_rate = [None]
-    config_mapping = {("some_config", "param2"): 0}
+    config_mapping = {("some_config", "param2"): (0, 1)}
     state_var = {"scalars": ["param2"]}
 
 
@@ -54,17 +54,17 @@ class CustomAction2(Action):
 def test_action_init_defaults():
     # Test default initialization of CustomAction
     action = CustomAction()
-    assert action.min == [0.0, -1.0]
-    assert action.max == [10.0, 1.0]
-    assert action.values == [0.0, -1.0]
+    np.testing.assert_array_equal(action.min, [0.0, -1.0])
+    np.testing.assert_array_equal(action.max, [10.0, 1.0])
+    np.testing.assert_array_equal(action.values, [0.0, -1.0])
 
 
 def test_action_init_custom_bounds():
     # Test CustomAction initialization with custom min/max bounds
     action = CustomAction(min=[1.0, 0.0], max=[5.0, 0.5])
-    assert action.min == [1.0, 0.0]
-    assert action.max == [5.0, 0.5]
-    assert action.values == [1.0, 0.0]
+    np.testing.assert_array_equal(action.min, [1.0, 0.0])
+    np.testing.assert_array_equal(action.max, [5.0, 0.5])
+    np.testing.assert_array_equal(action.values, [1.0, 0.0])
 
 
 def test_action_invalid_dimension():
@@ -110,7 +110,7 @@ def test_action_set_values_valid():
     # Test setting valid values for CustomAction
     action = CustomAction()
     action._set_values([5.0, 0.5])
-    assert action.values == [5.0, 0.5]
+    np.testing.assert_array_equal(action.values, [5.0, 0.5])
 
 
 def test_action_set_values_invalid_length():
@@ -286,8 +286,8 @@ def test_ecrh_action():
     # Test EcrhAction class attributes and config mapping
     ecrh = EcrhAction()
     assert ecrh.dimension == 3
-    assert ecrh.min == [0.0, 0.0, 0.01]
-    assert ecrh.max == [np.inf, 1.0, np.inf]
+    np.testing.assert_array_equal(ecrh.min, [0.0, 0.0, 0.01])
+    np.testing.assert_array_equal(ecrh.max, [np.inf, 1.0, np.inf])
     mapping = ecrh.get_mapping()
     assert ("sources", "ecrh", "P_total") in mapping
     assert ("sources", "ecrh", "gaussian_location") in mapping
@@ -299,9 +299,9 @@ def test_ecrh_action():
 def test_nbi_action():
     # Test NbiAction class attributes and config mapping
     nbi = NbiAction()
-    assert nbi.dimension == 4
-    assert nbi.min == [0.0, 0.0, 0.0, 0.01]
-    assert nbi.max == [np.inf, np.inf, 1.0, np.inf]
+    assert nbi.dimension == 3
+    np.testing.assert_array_equal(nbi.min, [0.0, 0.0, 0.01])
+    np.testing.assert_array_equal(nbi.max, [np.inf, 1.0, np.inf])
     mapping = nbi.get_mapping()
     assert ("sources", "generic_heat", "P_total") in mapping
     assert ("sources", "generic_current", "I_generic") in mapping
@@ -310,7 +310,7 @@ def test_nbi_action():
     assert ("sources", "generic_current", "gaussian_location") in mapping
     assert ("sources", "generic_current", "gaussian_width") in mapping
     assert isinstance(nbi.state_var, dict)
-    assert nbi.state_var == {"scalars": ["P_aux_generic_total", "I_aux_generic"]}
+    assert nbi.state_var == {"scalars": ["P_aux_generic_total"]}
 
 
 def test_ecrh_action_init_dict_and_update():
@@ -337,7 +337,7 @@ def test_ecrh_action_init_dict_and_update():
 def test_nbi_action_init_dict_and_update():
     # Test init_dict and update_to_config for NbiAction
     nbi = NbiAction()
-    nbi._set_values([10e6, 2e6, 0.4, 0.2])
+    nbi._set_values([10e6, 0.4, 0.2])  # Updated for 3 dimensions: power, location, width
     config = {
         "sources": {
             "generic_heat": {
@@ -354,16 +354,19 @@ def test_nbi_action_init_dict_and_update():
     }
     nbi.init_dict(config)
     assert config["sources"]["generic_heat"]["P_total"][0][0] == 10e6
-    assert config["sources"]["generic_current"]["I_generic"][0][0] == 2e6
+    # Current drive power should be calculated from heat power using nbi_w_to_ma factor
+    expected_current = 10e6 * nbi.nbi_w_to_ma  # Default factor is 1/16e6
+    assert config["sources"]["generic_current"]["I_generic"][0][0] == expected_current
     assert config["sources"]["generic_heat"]["gaussian_location"][0][0] == 0.4
     assert config["sources"]["generic_heat"]["gaussian_width"][0][0] == 0.2
     assert config["sources"]["generic_current"]["gaussian_location"][0][0] == 0.4
     assert config["sources"]["generic_current"]["gaussian_width"][0][0] == 0.2
     # Update at time=3.0
-    nbi._set_values([11e6, 3e6, 0.5, 0.3])
+    nbi._set_values([11e6, 0.5, 0.3])  # Updated for 3 dimensions
     nbi.update_to_config(config, time=3.0)
     assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 11e6
-    assert config["sources"]["generic_current"]["I_generic"][0][3.0] == 3e6
+    expected_current_updated = 11e6 * nbi.nbi_w_to_ma
+    assert config["sources"]["generic_current"]["I_generic"][0][3.0] == expected_current_updated
     assert config["sources"]["generic_heat"]["gaussian_location"][0][3.0] == 0.5
     assert config["sources"]["generic_heat"]["gaussian_width"][0][3.0] == 0.3
     assert config["sources"]["generic_current"]["gaussian_location"][0][3.0] == 0.5

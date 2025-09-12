@@ -142,19 +142,17 @@ class PIDAgent:  # noqa: D101
 
         action = {
             "Ip": [self.ip_controlled],
-            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "NBI": [nbi_powers[0], r_nbi, w_nbi],
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
         if self.time == 98:
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
-            action["NBI"][1] = nbi_cd[1]
 
         if self.time >= 99:
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
-            action["NBI"][1] = nbi_cd[2]
 
         self.time += 1
         self.action_history.append(self.ip_controlled)
@@ -250,19 +248,17 @@ class IterHybridAgent:  # noqa: D101
         """
         action = {
             "Ip": [3e6],
-            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "NBI": [nbi_powers[0], r_nbi, w_nbi],
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
         if self.time == 98:
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
-            action["NBI"][1] = nbi_cd[1]
 
         if self.time >= 99:
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
-            action["NBI"][1] = nbi_cd[2]
 
         if self.time < 99:
             action["Ip"][0] = 3e6 + (self.time + 1) * (12.5e6 - 3e6) / 100
@@ -501,7 +497,6 @@ if __name__ == "__main__":
     #     bounds=[(0, 50), (0, 50)],
     #     n_starts=3,
     # )
-
     # kp, ki = res.x
 
     kp, ki = 0.32521673, 30.9023307
