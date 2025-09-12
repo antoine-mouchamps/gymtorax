@@ -17,16 +17,16 @@ Base Environment
 .. autoclass:: gymtorax.envs.base_env.BaseEnv
     :no-index:
 
-Abstract Methods and Properties
+Abstract Methods
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_action_space
+.. automethod:: gymtorax.envs.base_env.BaseEnv._define_action_space
     :no-index:
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._define_observation_space
+.. automethod:: gymtorax.envs.base_env.BaseEnv._define_observation_space
     :no-index:
 
-.. autoattribute:: gymtorax.envs.base_env.BaseEnv._get_torax_config
+.. automethod:: gymtorax.envs.base_env.BaseEnv._get_torax_config
     :no-index:
 
 .. automethod:: gymtorax.envs.base_env.BaseEnv._compute_reward
