@@ -90,13 +90,12 @@ class BaseEnv(gym.Env, ABC):
         timestep (int): Current timestep counter
         terminated (bool): Episode termination flag
         truncated (bool): Episode truncation flag
-
-    Abstract Properties:
+        
+    Abstract Method:
         - _define_observation_space(): Define observation space variables
         - _define_action_space(): Define available control actions
         - _get_torax_config(): Define TORAX configuration parameters
-    Abstract Method:
-        _compute_reward(): Define reward signal (optional override)
+        - _compute_reward(): Define reward signal (optional override)
     """
 
     # Gymnasium metadata for rendering configuration
@@ -141,20 +140,19 @@ class BaseEnv(gym.Env, ABC):
             listing and maintain flexibility as the base class evolves. Environment-specific
             defaults can be set using kwargs.setdefault() before calling super().__init__().
 
-            The environment must implement the abstract properties _define_observation,
-            _define_action_space, and _get_torax_config, as well as the abstract method
-            _compute_reward() to define the reward signal.
+            The environment must implement the abstract methods _define_observation(),
+            _define_action_space(), _get_torax_config(), and _compute_reward().
         """
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
         try:
-            config = copy.deepcopy(self._get_torax_config["config"])
-            discretization_torax = self._get_torax_config["discretization"]
+            config = copy.deepcopy(self._get_torax_config()["config"])
+            discretization_torax = self._get_torax_config()["discretization"]
         except KeyError as e:
             raise KeyError(f"Missing key in TORAX config: {e}")
 
         # Initialize action handler using abstract method
-        self.action_handler = ActionHandler(self._define_action_space)
+        self.action_handler = ActionHandler(self._define_action_space())
 
         # Initialize state tracking
         self.state: dict[str, Any] | None = None  # Plasma state
@@ -169,14 +167,14 @@ class BaseEnv(gym.Env, ABC):
         # Configure time discretization based on chosen method
         if discretization_torax == "auto":
             # Use explicit action timestep timing
-            if self._get_torax_config["delta_t_a"] is None:
+            if self._get_torax_config()["delta_t_a"] is None:
                 raise ValueError("delta_t_a must be provided for auto discretization")
-            self.delta_t_a: float = self._get_torax_config[
+            self.delta_t_a: float = self._get_torax_config()[
                 "delta_t_a"
             ]  # Time between actions [s]
         elif discretization_torax == "fixed":
             # Use ratio-based timing relative to simulation timesteps
-            if self._get_torax_config["ratio_a_sim"] is None:
+            if self._get_torax_config()["ratio_a_sim"] is None:
                 raise ValueError(
                     "ratio_a_sim must be provided for fixed discretization"
                 )
@@ -184,7 +182,7 @@ class BaseEnv(gym.Env, ABC):
                 self.config.get_simulation_timestep()
             )  # TORAX internal timestep [s]
             self.delta_t_a: float = (
-                self._get_torax_config["ratio_a_sim"] * delta_t_sim
+                self._get_torax_config()["ratio_a_sim"] * delta_t_sim
             )  # Action interval [s]
         else:
             raise TypeError(
@@ -202,7 +200,7 @@ class BaseEnv(gym.Env, ABC):
         self.torax_app.start()
 
         # Initialize observation handler
-        self.observation_handler = self._define_observation_space
+        self.observation_handler = self._define_observation_space()
 
         # Set variables appearing in the actual simulation states
         self.observation_handler.set_state_variables(self.torax_app.get_state_data())
