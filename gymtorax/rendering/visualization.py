@@ -223,7 +223,7 @@ class ToraxStyleRealTimePlotter:
             self.fig.canvas.flush_events()
             plt.pause(0.001)
 
-    def save_gif(self, filename: str, interval: float, frame_step: int):
+    def save_gif(self, filename: str, interval: float, frame_skip: int):
         """Create a GIF animation from the stored spatial and time series data.
 
         This method generates an animated GIF showing the time evolution of spatial
@@ -233,23 +233,23 @@ class ToraxStyleRealTimePlotter:
         Args:
             filename (str): Output GIF file path (should end with .gif)
             interval (float): Delay between frames in milliseconds
-            frame_step (int): Step size for frame sampling (1 = all frames, 2 = every other frame, etc.)
+            frame_skip (int): Step size for frame sampling (1 = all frames, 2 = every other frame, etc.)
 
         Note:
             The method ensures the last frame is always included in the animation,
-            regardless of the frame_step value. Invalid frame_step values are
+            regardless of the frame_skip value. Invalid frame_skip values are
             automatically reset to 1.
         """
         import matplotlib.animation as animation
 
         fig, axes, lines = self._setup_figure_and_lines()
         nframes = len(self.time_history)
-        if frame_step < 1 or frame_step > nframes or frame_step is None:
+        if frame_skip < 1 or frame_skip > nframes or frame_skip is None:
             logger.warning(
-                f"[ToraxStyleRealTimePlotter] Warning: Invalid frame_step {frame_step}, resetting to 1."
+                f"[ToraxStyleRealTimePlotter] Warning: Invalid frame_skip {frame_skip}, resetting to 1."
             )
-            frame_step = 1
-        frame_indices = list(range(0, nframes, frame_step))
+            frame_skip = 1
+        frame_indices = list(range(0, nframes, frame_skip))
         # Ensure the last frame is included
         if nframes > 0 and (frame_indices == [] or frame_indices[-1] != nframes - 1):
             frame_indices.append(nframes - 1)
@@ -285,7 +285,7 @@ class ToraxStyleRealTimePlotter:
             return lines
 
         logger.debug(
-            f" Saving GIF to {filename} with {len(frame_indices)} frames (step={frame_step})."
+            f" Saving GIF to {filename} with {len(frame_indices)} frames (step={frame_skip})."
         )
         ani = animation.FuncAnimation(
             fig, animate, frames=len(frame_indices), blit=True, interval=interval
@@ -392,7 +392,7 @@ class ToraxStyleRealTimePlotter:
 
 
 def save_gif_from_nc(
-    nc_path, fig_properties, filename="output.gif", interval=100, frame_step=1
+    nc_path, fig_properties, filename="output.gif", interval=100, frame_skip=1
 ):
     """Create a GIF animation from a NetCDF output file.
 
@@ -406,7 +406,7 @@ def save_gif_from_nc(
             which variables to plot and how to arrange them
         filename (str, optional): Output GIF file path. Defaults to "output.gif"
         interval (int, optional): Delay between frames in milliseconds. Defaults to 100
-        frame_step (int, optional): Step size for frame sampling. Defaults to 1 (all frames)
+        frame_skip (int, optional): Step size for frame sampling. Defaults to 1 (all frames)
 
     Note:
         This function is useful for post-processing saved simulation results into
@@ -458,7 +458,7 @@ def save_gif_from_nc(
                 lines.append((line, attr, "temporal"))
         ax.legend()
     nframes = len(time)
-    frame_indices = list(range(0, nframes, frame_step))
+    frame_indices = list(range(0, nframes, frame_skip))
     if nframes > 0 and (frame_indices == [] or frame_indices[-1] != nframes - 1):
         frame_indices.append(nframes - 1)
 

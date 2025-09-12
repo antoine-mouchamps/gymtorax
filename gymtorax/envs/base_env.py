@@ -368,11 +368,7 @@ class BaseEnv(gym.Env, ABC):
         return observation, reward, self.terminated, truncated, info
 
     def close(self) -> None:
-        """Clean up environment resources.
-
-        This method properly closes the TORAX simulation and releases any rendering
-        resources. Should be called when the environment is no longer needed.
-        """
+        """Clean up environment resources."""
         if self.plotter is not None:
             self.plotter.close()
 
@@ -411,8 +407,8 @@ class BaseEnv(gym.Env, ABC):
 
     def save_gif_torax(
         self,
-        config_plot: str = "simple",
         filename: str = "torax_evolution.gif",
+        config_plot: str = "simple",
         interval: int = 200,
         frame_skip: int = 2,
         beginning: int = 0,
@@ -469,7 +465,7 @@ class BaseEnv(gym.Env, ABC):
         self,
         filename: str = "torax_output.gif",
         interval: int = 200,
-        frame_step: int = 2,
+        frame_skip: int = 2,
     ) -> None:
         """Save the data as a GIF file.
 
@@ -477,14 +473,14 @@ class BaseEnv(gym.Env, ABC):
             filename: Path to save the GIF file.
                 If it does not end with ".gif", the suffix will be added.
             interval: Delay between frames in ms.
-            frame_step: Save every Nth frame (default 2 = all frames).
+            frame_skip: Save every Nth frame (default 2 = all frames).
                 The last frame is always included.
         """
         if self.plotter is not None:
             # verify that the suffix is correct
             if not filename.endswith(".gif"):
                 filename += ".gif"
-            self.plotter.save_gif(filename, interval=interval, frame_step=frame_step)
+            self.plotter.save_gif(filename, interval=interval, frame_skip=frame_skip)
         else:
             logger.warning("No plotter available to save GIF.")
 

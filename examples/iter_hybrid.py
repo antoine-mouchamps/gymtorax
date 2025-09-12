@@ -83,5 +83,5 @@ if __name__ == "__main__":
         "tmp/outputs_iter_torax.nc",
         filename="tmp/output_torax.gif",
         interval=200,
-        frame_step=5,
+        frame_skip=5,
     )
