@@ -24,15 +24,12 @@ Example:
     ...         kwargs.setdefault("log_level", "info")
     ...         super().__init__(render_mode=render_mode, **kwargs)
     ...
-    ...     @property
     ...     def _define_observation_space(self):
     ...         return AllObservation(exclude=["n_impurity"])
     ...
-    ...     @property
     ...     def _define_action_space(self):
     ...         return [IpAction(), EcrhAction()]
     ...
-    ...     @property
     ...     def _get_torax_config(self):
     ...         return CONFIG
     ...
@@ -531,7 +528,6 @@ class BaseEnv(gym.Env, ABC):
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================
 
-    @property
     @abstractmethod
     def _define_observation_space(self) -> Observation:
         """Define the observation space variables for this environment.
@@ -555,7 +551,6 @@ class BaseEnv(gym.Env, ABC):
         """
         raise NotImplementedError
 
-    @property
     @abstractmethod
     def _define_action_space(self) -> list[Action]:
         """Define the available control actions for this environment.
@@ -580,7 +575,6 @@ class BaseEnv(gym.Env, ABC):
         """
         raise NotImplementedError
 
-    @property
     @abstractmethod
     def _get_torax_config(self) -> dict[str, Any]:
         """Define the TORAX simulation configuration.

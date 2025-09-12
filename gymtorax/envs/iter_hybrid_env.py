@@ -206,7 +206,6 @@ class IterHybridEnv(BaseEnv):
 
         super().__init__(render_mode=render_mode, **kwargs)
 
-    @property
     def _define_action_space(self):  # noqa: D102
         actions = [
             IpAction(
@@ -219,11 +218,9 @@ class IterHybridEnv(BaseEnv):
 
         return actions
 
-    @property
     def _define_observation_space(self):  # noqa: D102
         return AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
 
-    @property
     def _get_torax_config(self):  # noqa: D102
         return {
             "config": CONFIG,

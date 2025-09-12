@@ -54,17 +54,14 @@ Here is the environment:
                 store_state_history=store_state_history,
             )
 
-        @property
         def _define_action_space(self):
             actions = [ah.IpAction(), ah.NbiAction(), ah.EcrhAction()]
 
             return actions
 
-        @property
         def _define_observation_space(self):
             return oh.AllObservation()
 
-        @property
         def _get_torax_config(self):
             return {
                 "config": CONFIG, # -> see Configuration Example

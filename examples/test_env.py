@@ -200,18 +200,15 @@ class TestEnv(BaseEnv):
 
         super().__init__(**kwargs)
 
-    @property
     def _define_action_space(self):  # noqa: D102
         actions = [
             ah.IpAction(),
         ]
         return actions
 
-    @property
     def _define_observation_space(self):  # noqa: D102
         return oh.AllObservation()
 
-    @property
     def _get_torax_config(self):  # noqa: D102
         return {"config": CONFIG, "discretization": "auto", "delta_t_a": 1.0}
 
