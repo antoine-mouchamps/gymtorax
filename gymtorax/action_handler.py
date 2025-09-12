@@ -367,7 +367,6 @@ class Action(ABC):
                 # Apply the factor during initialization as well for consistency
                 d[key] = ({0: self.values[idx] * factor}, "STEP")
             else:
-                print(f"{key}: {self.values[idx] * factor}")
                 d[key][0].update({time: self.values[idx] * factor})
 
     def get_mapping(self) -> dict[tuple[str, ...], int]:
