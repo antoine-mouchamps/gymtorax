@@ -1,5 +1,6 @@
 from gymnasium.envs.registration import register
 
+from .agents import IterHybridAgent, PIDAgent
 from .envs import BaseEnv, IterHybridEnv
 
 # Register environments with Gymnasium
@@ -16,4 +17,4 @@ register(
     kwargs={},
 )
 
-__all__ = ["BaseEnv", "IterHybridEnv"]
+__all__ = ["BaseEnv", "IterHybridEnv", "PIDAgent", "IterHybridAgent"]
