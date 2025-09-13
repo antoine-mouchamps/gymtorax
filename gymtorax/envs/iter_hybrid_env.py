@@ -209,11 +209,15 @@ class IterHybridEnv(BaseEnv):
     def _define_action_space(self):  # noqa: D102
         actions = [
             IpAction(
-                max=[15e6],  # 15 MA max plasma current
+                max=[17e6],  # 17 MA max plasma current
                 ramp_rate=[0.2e6],
             ),  # 0.2 MA/s ramp rate limit
-            NbiAction(),
-            EcrhAction(),
+            NbiAction(
+                max=[33e6, 1.0, 1.0],  # 33 MW max NBI power
+            ),
+            EcrhAction(
+                max=[20e6, 1.0, 1.0],  # 20 MW max ECRH power
+            ),
         ]
 
         return actions
@@ -250,7 +254,7 @@ class IterHybridEnv(BaseEnv):
             float: reward associated to the transition (state, action, next_state)
         """
         # Customize weights and sigma as needed
-        weight_list = [2, 1, 2, 1, 1, 1]
+        weight_list = [2, 1, 1, 1]
 
         def _is_H_mode():  # noqa: N802
             if (
@@ -271,10 +275,7 @@ class IterHybridEnv(BaseEnv):
         def _r_h98():
             h98 = reward.get_h98(next_state)
             if _is_H_mode():
-                if h98 >= 1:
-                    return 1
-                else:
-                    return 0
+                return h98
             else:
                 return 0
 
@@ -294,9 +295,9 @@ class IterHybridEnv(BaseEnv):
 
         # Calculate individual reward components
         r_fusion_gain = weight_list[0] * _r_fusion_gain() / 50
-        r_h98 = weight_list[2] * _r_h98() / 50
-        r_q_min = weight_list[3] * _r_q_min() / 150
-        r_q_95 = weight_list[4] * _r_q_95() / 150
+        r_h98 = weight_list[1] * _r_h98() / 50
+        r_q_min = weight_list[2] * _r_q_min() / 150
+        r_q_95 = weight_list[3] * _r_q_95() / 150
 
         total_reward = r_fusion_gain + r_h98 + r_q_min + r_q_95
 
