@@ -210,6 +210,18 @@ class ConfigLoader:
         # Update the TORAX config accordingly
         self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
 
+    def get_current_action_values(self) -> dict[str, Any]:
+        """Get the current action values from the action handler.
+
+        Returns:
+            Dictionary of current action values
+        """
+        current_values = {}
+        for action in self.action_handler.get_actions().values():
+            current_values[action.name] = action.values
+
+        return current_values
+
     def _validate(self) -> None:
         """Validate the configuration dictionary.
 

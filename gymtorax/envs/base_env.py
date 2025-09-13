@@ -274,6 +274,10 @@ class BaseEnv(gym.Env, ABC):
 
         if self.store_history:
             self.observation_history = [self.observation]
+            self.actual_action_history = [
+                self.torax_app.config.get_current_action_values()
+            ]
+            self.action_history = [self.torax_app.config.get_current_action_values()]
 
         if self.plotter is not None:
             self.plotter.update(
@@ -318,6 +322,18 @@ class BaseEnv(gym.Env, ABC):
 
         # Apply action by updating TORAX configuration parameters
         self.torax_app.update_config(action)
+        actual_action_value = self.torax_app.config.get_current_action_values()
+
+        # Check if action was clipped (due to bounds or ramp rate constraints)
+        action_clipped = False
+        clipped_actions = {}
+        for key in action.keys():
+            if not np.allclose(action[key], actual_action_value[key], rtol=1e-9, atol=1e-9):
+                action_clipped = True
+                clipped_actions[key] = {
+                    "requested": action[key].copy() if hasattr(action[key], 'copy') else action[key],
+                    "actual": actual_action_value[key].copy() if hasattr(actual_action_value[key], 'copy') else actual_action_value[key]
+                }
 
         # Execute simulation step
         success, terminated_simulation = self.torax_app.run()
@@ -343,6 +359,8 @@ class BaseEnv(gym.Env, ABC):
 
         if self.store_history:
             self.observation_history.append(self.observation)
+            self.actual_action_history.append(actual_action_value)
+            self.action_history.append(action)
 
         # Compute reward based on state transition
         if not success or not self.observation_space.contains(self.observation):
@@ -364,6 +382,11 @@ class BaseEnv(gym.Env, ABC):
                 action_input=self.last_action_dict,
                 t=self.current_time,
             )
+
+        # Add action clipping information to info dict
+        info["action_clipped"] = action_clipped
+        if action_clipped:
+            info["clipped_actions"] = clipped_actions
 
         return observation, reward, self.terminated, truncated, info
 
