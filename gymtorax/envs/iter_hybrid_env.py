@@ -209,7 +209,7 @@ class IterHybridEnv(BaseEnv):
     def _define_action_space(self):  # noqa: D102
         actions = [
             IpAction(
-                max=[17e6],  # 17 MA max plasma current
+                max=[15e6],  # 15 MA max plasma current
                 ramp_rate=[0.2e6],
             ),  # 0.2 MA/s ramp rate limit
             NbiAction(

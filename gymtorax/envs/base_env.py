@@ -431,7 +431,7 @@ class BaseEnv(gym.Env, ABC):
     def save_gif_torax(
         self,
         filename: str = "torax_evolution.gif",
-        config_plot: str = "simple",
+        config_plot: str = "default",
         interval: int = 200,
         frame_skip: int = 2,
         beginning: int = 0,
@@ -445,7 +445,7 @@ class BaseEnv(gym.Env, ABC):
         attribute. The simulation must have been run with `store_history=True` for this to work.
 
         Args:
-            config_plot (str): Name of the plot configuration to use (e.g., "simple").
+            config_plot (str): Name of the plot configuration to use (e.g., "default").
             filename (str): Output GIF filename.
             interval (int): Delay between frames in milliseconds.
             frame_skip (int): Save every Nth frame (default 2 = every other frame).

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import minimize
 
-from gymtorax import IterHybridAgent, IterHybridEnv, PIDAgent
+from gymtorax import IterHybridAgent, IterHybridEnv, PIDAgent, RandomAgent
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -154,7 +154,8 @@ def _plot_j_evolution(
     action_history,
     j_target_history,
     j_actual_history,
-    ip_reference,
+    action_reference,
+    action_random,
 ):
     fig, ax = plt.subplots()
 
@@ -165,14 +166,14 @@ def _plot_j_evolution(
     ax.plot(
         j_actual_ma,
         "b-",
-        label=r"$j_{actual}$",
+        label=r"$\pi_{PI}$",
         linewidth=2,
     )
 
     ax.plot(
         j_target_ma[:100],
         "r--",
-        label=r"$j_{target}$",
+        label=r"target",
         linewidth=1.5,
     )
 
@@ -194,18 +195,26 @@ def _plot_j_evolution(
     fig, ax = plt.subplots()
     ax.plot(
         np.array(action_history) / 1e6,
-        linewidth=2,
+        linewidth=1.5,
         color="blue",
-        label=r"$I_p$",
+        label=r"$\pi_{PI}$",
     )
-    if ip_reference is not None:
+    if action_reference is not None:
         ax.plot(
-            np.array(ip_reference),
+            np.array(action_reference) / 1e6,
             linewidth=1.5,
-            label=r"$I_{p,ref}$",
-            color="blue",
-            alpha=0.6,
-            linestyle="dotted",
+            label=r"$\pi_{OL}$",
+            color="green",
+            alpha=1,
+        )
+
+    if action_random is not None:
+        ax.plot(
+            np.array(action_random) / 1e6,
+            linewidth=1.5,
+            label=r"$\pi_{R}$",
+            color="orange",
+            alpha=1,
         )
 
     # Add vertical line at t=100 with LH transition text
@@ -269,6 +278,8 @@ if __name__ == "__main__":
         verbose=2,
     )
 
+    action_hist_pi = [a["Ip"][0] for a in env.actual_action_history.copy()]
+
     j_target_history = [get_j_target(t) for t in range(150)]
 
     # Save a gif of the final simulation
@@ -290,10 +301,24 @@ if __name__ == "__main__":
         verbose=2,
     )
 
+    action_hist_ol = [a["Ip"][0] for a in env.actual_action_history.copy()]
+
+    # And with RandomAgent
+    agent_random = RandomAgent(env.action_space)
+
+    simulate(
+        env,
+        agent_random,
+        verbose=2,
+    )
+
+    action_hist_ran = [a["Ip"][0] for a in env.actual_action_history.copy()]
+
     _plot_j_evolution(
         "tmp/pid_optimized",
-        agent_pid.action_history,
+        action_hist_pi,
         agent_pid.j_target_history,
         agent_pid.j_actual_history,
-        agent_classic.action_history,
+        action_hist_ol,
+        action_random=action_hist_ran,
     )
