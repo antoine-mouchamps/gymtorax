@@ -26,9 +26,9 @@ Gym-TORAX lowers the entry barrier for RL researchers to explore plasma control 
    :maxdepth: 1
    :caption: Contents
 
-   About GymTorax
-   Installation
-   User guide
-   Developer guide
-   Examples
-   Citing
+   about_gymtorax
+   installation
+   user_guide/index
+   developer_guide/index
+   examples/index
+   citing

@@ -33,25 +33,25 @@ To illustrate this agreement, we compare current density profiles at four repres
 .. grid:: 2
 
     .. grid-item::
-        .. figure:: Images/comparison_50.jpg
+        .. figure:: ../Images/comparison_50.jpg
             :align: center
 
             : t = 50s
 
     .. grid-item::
-        .. figure:: Images/comparison_99.jpg
+        .. figure:: ../Images/comparison_99.jpg
             :align: center
 
             : t = 99s
 
     .. grid-item::
-        .. figure:: Images/comparison_105.jpg
+        .. figure:: ../Images/comparison_105.jpg
             :align: center
 
             : t = 105s
 
     .. grid-item::
-        .. figure:: Images/comparison_150.jpg
+        .. figure:: ../Images/comparison_150.jpg
             :align: center
 
             : t = 150s
@@ -67,7 +67,7 @@ captures realistic control dynamics.
 .. grid:: 1
 
     .. grid-item::
-        .. figure:: Images/pid_control_ip.jpg
+        .. figure:: ../Images/pid_control_ip.jpg
             :align: center
             :width: 70%
 

@@ -40,7 +40,7 @@ agent interacts at a higher-level control frequency.
 The Environment Design
 --------------------------
 
-Every Gym-TORAX environment is built on top of a :doc:`BaseEnv<Environment Designers>` class. To create a new 
+Every Gym-TORAX environment is built on top of a :doc:`BaseEnv<user_guide/environment_designers>` class. To create a new 
 environment, four aspects must be specified:
 
 - TORAX configuration → time discretization, physical models, geometry, and initial 
@@ -54,8 +54,8 @@ environment, four aspects must be specified:
 - Reward function → combination of predefined reward terms to target control objectives 
   (stability, performance, etc.).
 
-Helper classes (:doc:`Action <RL Users>`, :doc:`Observation <RL Users>`) and methods 
-(in :doc:`reward <Environment Designers>`) simplify this process, so that new environments can 
+Helper classes (:doc:`Action <user_guide/rl_users>`, :doc:`Observation <user_guide/rl_users>`) and methods 
+(in :doc:`reward <user_guide/environment_designers>`) simplify this process, so that new environments can 
 be created with minimal boilerplate.
 
 Additional Features

@@ -23,6 +23,11 @@ pytest-cov = "*"
 ruff = "*"
 docformatter = "*"
 
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-design = "*"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

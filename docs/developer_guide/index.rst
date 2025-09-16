@@ -6,6 +6,6 @@ This section explains how the code is organized and how to contribute to the Gym
 .. toctree::
    :maxdepth: 1
 
-   TORAX Wrapper
-   Environment Design
-   Other Modules
+   torax_wrapper
+   environment_design
+   other_modules
