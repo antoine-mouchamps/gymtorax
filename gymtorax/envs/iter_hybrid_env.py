@@ -254,7 +254,7 @@ class IterHybridEnv(BaseEnv):
             float: reward associated to the transition (state, action, next_state)
         """
         # Customize weights and sigma as needed
-        weight_list = [2, 1, 1, 1]
+        weight_list = [1, 1, 1, 1]
 
         def _is_H_mode():  # noqa: N802
             if (
@@ -275,21 +275,24 @@ class IterHybridEnv(BaseEnv):
         def _r_h98():
             h98 = reward.get_h98(next_state)
             if _is_H_mode():
-                return h98
+                if h98 <= 1:
+                    return h98
+                else:
+                    return 1
             else:
                 return 0
 
         def _r_q_min():
             q_min = reward.get_q_min(next_state)
             if q_min <= 1:
-                return 0
+                return q_min
             elif q_min > 1:
                 return 1
 
         def _r_q_95():
             q_95 = reward.get_q95(next_state)
-            if q_95 <= 3:
-                return 0
+            if q_95 / 3 <= 1:
+                return q_95 / 3
             else:
                 return 1
 
