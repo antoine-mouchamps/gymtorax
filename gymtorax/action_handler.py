@@ -373,7 +373,7 @@ class Action(ABC):
         """Get the mapping of configuration dictionary paths to action indices and factors.
 
         Returns:
-            dict[tuple[str, ...], tuple[int, float]]: Mapping of config dictionary paths 
+            dict[tuple[str, ...], tuple[int, float]]: Mapping of config dictionary paths
                 to tuples of (action_parameter_index, scaling_factor).
         """
         return self.config_mapping
@@ -672,7 +672,7 @@ class NbiAction(Action):
         - config_mapping: Maps to generic heat and current source parameters in TORAX configuration
         - state_var: {'scalars': ['P_aux_generic_total']} -
           modifies total auxiliary power scalar
-    
+
     Instance Attributes:
         nbi_w_to_ma: Conversion factor from heating power (W) to current drive (MA).
                      Default is 1/16e6, meaning 16MW of heating produces 1MA of current.
@@ -686,11 +686,11 @@ class NbiAction(Action):
     Example:
         >>> nbi_action = NbiAction()
         >>> nbi_action._set_values([10e6, 0.4, 0.2])  # 10MW heating, r/a=0.4, width=0.2
-        
+
         >>> # NBI with custom conversion factor
         >>> nbi_custom = NbiAction(nbi_w_to_ma=1/20e6)  # 20MW per 1MA
         >>> nbi_custom._set_values([20e6, 0.3, 0.15])
-        
+
         >>> # NBI with current drive disabled
         >>> nbi_heating_only = NbiAction(nbi_w_to_ma=0)
         >>> nbi_heating_only._set_values([15e6, 0.5, 0.1])
@@ -717,10 +717,10 @@ class NbiAction(Action):
         Example:
             >>> # Default conversion (16MW -> 1MA)
             >>> nbi = NbiAction()
-            
-            >>> # Custom conversion (20MW -> 1MA)  
+
+            >>> # Custom conversion (20MW -> 1MA)
             >>> nbi = NbiAction(nbi_w_to_ma=1/20e6)
-            
+
             >>> # Heating only, no current drive
             >>> nbi = NbiAction(nbi_w_to_ma=0)
         """
@@ -730,9 +730,12 @@ class NbiAction(Action):
             ("sources", "generic_current", "I_generic"): (0, nbi_w_to_ma),
             ("sources", "generic_heat", "gaussian_location"): (1, 1),
             ("sources", "generic_heat", "gaussian_width"): (2, 1),
-            ("sources", "generic_current", "gaussian_location"): (1, 1),  # Shared location
+            ("sources", "generic_current", "gaussian_location"): (
+                1,
+                1,
+            ),  # Shared location
             ("sources", "generic_current", "gaussian_width"): (2, 1),  # Shared width
         }
-        
+
         super().__init__(**kwargs)
         self.nbi_w_to_ma = nbi_w_to_ma

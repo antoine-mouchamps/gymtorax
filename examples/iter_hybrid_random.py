@@ -3,7 +3,7 @@ import numpy as np
 from gymtorax import IterHybridEnv, RandomAgent
 
 
-def simulation_run(env, agent):
+def _simulation_run(env, agent):
     observation, _ = env.reset()
     terminated = False
 
@@ -21,13 +21,14 @@ def simulation_run(env, agent):
 
     return cumulative_reward
 
+
 if __name__ == "__main__":
     env = IterHybridEnv(log_level="critical")
     agent = RandomAgent(env.action_space)
 
     rewards = []
     while True:
-        rewards.append(simulation_run(env, agent))
+        rewards.append(_simulation_run(env, agent))
         average_reward = np.mean(rewards)
         std_var_reward = np.std(rewards)
         print(

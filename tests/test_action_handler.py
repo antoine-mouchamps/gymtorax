@@ -22,7 +22,10 @@ class CustomAction(Action):
     default_min = [0.0, -1.0]
     default_max = [10.0, 1.0]
     default_ramp_rate = [None, None]
-    config_mapping = {("some_config", "param1"): (0, 1), ("some_config", "param2"): (1, 1)}
+    config_mapping = {
+        ("some_config", "param1"): (0, 1),
+        ("some_config", "param2"): (1, 1),
+    }
     state_var = {"scalars": ["param1", "param2"]}
 
 
@@ -337,7 +340,9 @@ def test_ecrh_action_init_dict_and_update():
 def test_nbi_action_init_dict_and_update():
     # Test init_dict and update_to_config for NbiAction
     nbi = NbiAction()
-    nbi._set_values([10e6, 0.4, 0.2])  # Updated for 3 dimensions: power, location, width
+    nbi._set_values(
+        [10e6, 0.4, 0.2]
+    )  # Updated for 3 dimensions: power, location, width
     config = {
         "sources": {
             "generic_heat": {
@@ -366,7 +371,10 @@ def test_nbi_action_init_dict_and_update():
     nbi.update_to_config(config, time=3.0)
     assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 11e6
     expected_current_updated = 11e6 * nbi.nbi_w_to_ma
-    assert config["sources"]["generic_current"]["I_generic"][0][3.0] == expected_current_updated
+    assert (
+        config["sources"]["generic_current"]["I_generic"][0][3.0]
+        == expected_current_updated
+    )
     assert config["sources"]["generic_heat"]["gaussian_location"][0][3.0] == 0.5
     assert config["sources"]["generic_heat"]["gaussian_width"][0][3.0] == 0.3
     assert config["sources"]["generic_current"]["gaussian_location"][0][3.0] == 0.5

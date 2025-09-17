@@ -90,7 +90,7 @@ class BaseEnv(gym.Env, ABC):
         timestep (int): Current timestep counter
         terminated (bool): Episode termination flag
         truncated (bool): Episode truncation flag
-        
+
     Abstract Method:
         - _define_observation_space(): Define observation space variables
         - _define_action_space(): Define available control actions
@@ -328,11 +328,17 @@ class BaseEnv(gym.Env, ABC):
         action_clipped = False
         clipped_actions = {}
         for key in action.keys():
-            if not np.allclose(action[key], actual_action_value[key], rtol=1e-9, atol=1e-9):
+            if not np.allclose(
+                action[key], actual_action_value[key], rtol=1e-9, atol=1e-9
+            ):
                 action_clipped = True
                 clipped_actions[key] = {
-                    "requested": action[key].copy() if hasattr(action[key], 'copy') else action[key],
-                    "actual": actual_action_value[key].copy() if hasattr(actual_action_value[key], 'copy') else actual_action_value[key]
+                    "requested": action[key].copy()
+                    if hasattr(action[key], "copy")
+                    else action[key],
+                    "actual": actual_action_value[key].copy()
+                    if hasattr(actual_action_value[key], "copy")
+                    else actual_action_value[key],
                 }
 
         # Execute simulation step
