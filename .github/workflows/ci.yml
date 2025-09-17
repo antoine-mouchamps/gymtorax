@@ -80,3 +80,5 @@ jobs:
     
     - name: Run tests
       run: poetry run pytest tests/ -v
+      env:
+        MPLBACKEND: Agg

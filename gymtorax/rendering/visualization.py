@@ -8,15 +8,11 @@ All functions accept variable names as in DEFAULT_BOUNDS (see observation_handle
 """
 
 import dataclasses
-
-import matplotlib
-import numpy as np
-
-matplotlib.use("TkAgg")
 import logging
 
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+import numpy as np
 from torax._src.output_tools import output
 from torax._src.plotting import plotruns_lib
 
