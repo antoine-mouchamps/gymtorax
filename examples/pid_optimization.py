@@ -260,7 +260,7 @@ if __name__ == "__main__":
     # )
     # kp, ki = res.x
 
-    kp, ki = 0.32521673, 30.9023307
+    kp, ki = 0.700, 34.257
 
     agent_pid = PIDAgent(
         env.action_space,

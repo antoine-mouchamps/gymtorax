@@ -78,34 +78,37 @@ class PIDAgent:  # noqa: D101
             ip_baseline = 3.0e6
             ip_desired = ip_baseline + pid_output
 
-            # Then apply physical power limits
-            ip_final = np.clip(ip_desired, self.ip_min, self.ip_max)
-
             # Apply ramp rate limiting (0.2 MA/s = 0.2e6 A/s)
             max_ramp_rate = self.ramp_rate
             max_change = max_ramp_rate * self.dt  # Maximum change per time step
 
             is_ramp_limited = False
             if self.time > 0:  # Only apply ramp rate limiting after first step
-                ip_change = ip_final - self.ip_controlled
+                ip_change = ip_desired - self.ip_controlled
                 if abs(ip_change) > max_change:
                     is_ramp_limited = True
                     # Limit the change to the maximum ramp rate
-                    ip_final = self.ip_controlled + np.sign(ip_change) * max_change
+                    ip_ramp_limited = (
+                        self.ip_controlled + np.sign(ip_change) * max_change
+                    )
+                else:
+                    ip_ramp_limited = ip_desired
+            else:
+                ip_ramp_limited = ip_desired  # No ramp limit on first step
+
+            # Then apply physical power limits
+            ip_final = np.clip(ip_ramp_limited, self.ip_min, self.ip_max)
 
             # Check what type of limiting is occurring
-            is_power_limited = ip_final != ip_desired
+            is_power_limited = ip_final != ip_ramp_limited
+            if is_power_limited:
+                ip_actual_change = ip_final - self.ip_controlled
+                if is_ramp_limited is True and abs(ip_actual_change) < max_change:
+                    is_ramp_limited = False
 
-            # Anti-windup: only update integral if not limited, or if error would help
-            if self.anti_windup_enabled and (is_power_limited or is_ramp_limited):
-                # Determine what type of limit we're hitting
-                hitting_upper_power = ip_final > self.ip_max
-                hitting_lower_power = ip_final < self.ip_min
-
-                # Only integrate if error would help reduce the limiting
-                any_limiting = hitting_upper_power or hitting_lower_power
-                if not any_limiting:
-                    self.error_integral += error * self.dt
+            # Anti-windup: only update integral if not limited
+            if self.anti_windup_enabled and (is_ramp_limited or is_power_limited):
+                pass
             else:
                 # Standard integral update (no anti-windup or not limited)
                 self.error_integral += error * self.dt
