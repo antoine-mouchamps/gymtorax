@@ -1,0 +1,27 @@
+# Read the Docs configuration file for Sphinx projects
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the OS, Python version and other tools
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.10"
+
+# Build documentation in the "docs/" directory with Sphinx
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: false
+
+# Python configuration for Poetry projects
+python:
+  install:
+    # Install the project with Poetry including docs dependencies
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
+    # Also install from the docs requirements file as backup
+    - requirements: docs/requirement.txt
