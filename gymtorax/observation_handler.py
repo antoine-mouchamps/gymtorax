@@ -482,12 +482,11 @@ class AllObservation(Observation):
         Creates an observation handler that includes all available TORAX variables
         by default, with flexible configuration through keyword arguments.
 
-        Kwargs:
-            custom_bounds_filename (str, optional): Path to JSON file containing
-                custom bounds for variables.
+        Args:
             exclude (dict[str, list[str]], optional): Variables to exclude.
                 Format: {"profiles": [names], "scalars": [names]}.
-            dtype (np.dtype, optional): Data type for observation arrays.
+            custom_bounds_file (str, optional): Path to JSON file containing
+                custom bounds for variables.
 
         Example:
             >>> obs = AllObservation()

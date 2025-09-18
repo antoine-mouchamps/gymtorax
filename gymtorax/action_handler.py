@@ -670,8 +670,7 @@ class NbiAction(Action):
         - default_max: [np.inf, 1.0, np.inf]
         - default_ramp_rate: [None, None, None]
         - config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        - state_var: {'scalars': ['P_aux_generic_total']} -
-          modifies total auxiliary power scalar
+        - state_var: {'scalars': ['P_aux_generic_total']} - modifies total auxiliary power scalar
 
     Instance Attributes:
         nbi_w_to_ma: Conversion factor from heating power (W) to current drive (MA).

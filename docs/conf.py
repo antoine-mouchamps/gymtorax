@@ -32,6 +32,20 @@ extensions = [
 # Napoleon settings (Google docstring style)
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = True
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_preprocess_types = False
+napoleon_type_aliases = None
+napoleon_attr_annotations = True
+napoleon_custom_sections = ["Returns", "Yields", "Raises", "Warns", "See Also"]
+
 # Intersphinx mapping for cross-references to external docs
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -42,7 +56,20 @@ intersphinx_mapping = {
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# Autodoc settings for type hints
+autodoc_typehints = "both"
+autodoc_typehints_description_target = "all"
+autodoc_typehints_format = "short"
+autodoc_type_aliases = {}
+autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 autodoc_member_order = "bysource"
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": True,
+    "show-inheritance": True,
+    "member-order": "bysource",
+    "special-members": "__init__",
+}
 
 # Mock imports for dependencies that might not be available during doc build
 autodoc_mock_imports = [

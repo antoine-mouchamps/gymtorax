@@ -291,9 +291,9 @@ class ToraxApp:
 
         Returns:
             Tuple:
-            - (bool): True if simulation step completed successfully, False if an error
-              occurred or simulation reached final time.
-            - (bool): True if whole simulation is done
+                - (bool): True if simulation step completed successfully, False if an error
+                  occurred or simulation reached final time.
+                - (bool): True if whole simulation is done
 
         Raises:
             RuntimeError: If reset() has not been called before running.

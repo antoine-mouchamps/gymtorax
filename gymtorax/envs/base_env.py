@@ -6,6 +6,7 @@ physics simulations with RL interfaces, handling time discretization, action/obs
 spaces, and the simulation lifecycle.
 
 The BaseEnv class serves as a foundation for creating specific plasma control tasks by:
+
 - Managing TORAX configuration and simulation execution
 - Defining action and observation space structures
 - Handling time discretization and episode management
@@ -19,10 +20,10 @@ Example:
     Create a custom environment by extending BaseEnv:
 
     >>> class PlasmaControlEnv(BaseEnv):
-    ...     def __init__(self, render_mode=None, **kwargs):
+    ...     def __init__(self, render_mode=None, ``**kwargs``):
     ...         # Set environment-specific defaults
     ...         kwargs.setdefault("log_level", "info")
-    ...         super().__init__(render_mode=render_mode, **kwargs)
+    ...         super().__init__(render_mode=render_mode, ``**kwargs``)
     ...
     ...     def _define_observation_space(self):
     ...         return AllObservation(exclude=["n_impurity"])
@@ -49,7 +50,7 @@ import gymnasium as gym
 import numpy as np
 from numpy._typing._array_like import NDArray
 
-import gymtorax.rendering.visualization as viz
+from gymtorax.rendering.visualization import FigureProperties, ToraxStyleRealTimePlotter
 
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
@@ -91,23 +92,22 @@ class BaseEnv(gym.Env, ABC):
         terminated (bool): Episode termination flag
         truncated (bool): Episode truncation flag
 
-    Abstract Method:
+    Note:
+        Subclasses must implement these abstract methods:
+
         - _define_observation_space(): Define observation space variables
         - _define_action_space(): Define available control actions
         - _get_torax_config(): Define TORAX configuration parameters
         - _compute_reward(): Define reward signal (optional override)
     """
 
-    # Gymnasium metadata for rendering configuration
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
-
     def __init__(
         self,
         render_mode: str | None = None,
-        log_level="warning",
-        logfile=None,
-        fig: viz.FigureProperties | None = None,  # TODO: REMOVE FROM HERE
-        store_history=False,
+        log_level: str = "warning",
+        logfile: str | None = None,
+        fig: FigureProperties | None = None,  # TODO: REMOVE FROM HERE
+        store_history: bool = False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
 
@@ -136,13 +136,19 @@ class BaseEnv(gym.Env, ABC):
             KeyError: If required keys are missing from TORAX configuration.
 
         Note:
-            Subclasses should use **kwargs to pass parameters to avoid explicit parameter
+            Subclasses should use ``**kwargs`` to pass parameters to avoid explicit parameter
             listing and maintain flexibility as the base class evolves. Environment-specific
             defaults can be set using kwargs.setdefault() before calling super().__init__().
 
-            The environment must implement the abstract methods _define_observation(),
+            The environment must implement the abstract methods _define_observation_space(),
             _define_action_space(), _get_torax_config(), and _compute_reward().
         """
+        # Set Gymnasium metadata for rendering configuration
+        self.__class__.metadata = {
+            "render_modes": ["human", "rgb_array"],
+            "render_fps": 4,
+        }
+
         setup_logging(getattr(logging, log_level.upper()), logfile)
 
         try:
@@ -221,9 +227,7 @@ class BaseEnv(gym.Env, ABC):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         if fig is not None:
-            self.plotter = viz.ToraxStyleRealTimePlotter(
-                fig, render_mode=self.render_mode
-            )
+            self.plotter = ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
         else:
             self.plotter = None
 
@@ -235,10 +239,11 @@ class BaseEnv(gym.Env, ABC):
         """Reset the environment to its initial state for a new episode.
 
         This method initializes a new simulation episode by:
-          1. Resetting internal counters and flags
-          2. Starting the TORAX simulation from initial conditions
-          3. Extracting the initial observation state
-          4. Optionally rendering the initial state
+
+        1. Resetting internal counters and flags
+        2. Starting the TORAX simulation from initial conditions
+        3. Extracting the initial observation state
+        4. Optionally rendering the initial state
 
         Returns:
             Tuple containing:
@@ -295,13 +300,14 @@ class BaseEnv(gym.Env, ABC):
         """Execute one environment step with the given action.
 
         This method implements the core RL interaction by:
-            1. Capturing the current state before action
-            2. Applying the action to update TORAX configuration
-            3. Running the simulation for one time interval
-            4. Extracting the new observation state
-            5. Computing the reward signal
-            6. Checking for episode termination
-            7. Updating time counters
+
+        1. Capturing the current state before action
+        2. Applying the action to update TORAX configuration
+        3. Running the simulation for one time interval
+        4. Extracting the new observation state
+        5. Computing the reward signal
+        6. Checking for episode termination
+        7. Updating time counters
 
         Args:
             action: Action array containing parameter values for all configured actions.
@@ -611,19 +617,19 @@ class BaseEnv(gym.Env, ABC):
             The dictionary must have the following keys:
 
             - "config" (dict): A dictionary of TORAX configuration parameters.
-            - "discretisation_torax" (str): The time discretization method.
+            - "discretization" (str): The time discretization method.
               Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
             - "ratio_a_sim" (int, optional): The ratio of action timesteps to
-              simulation timesteps. Required if 'discretisation_torax' is "fixed".
+              simulation timesteps. Required if 'discretization' is "fixed".
             - "delta_t_a" (float, optional): The time interval between actions
-              in seconds. Required if 'discretisation_torax' is "auto".
+              in seconds. Required if 'discretization' is "auto".
 
 
         Example:
             >>> def _get_torax_config(self):
             ...     return {
             ...         "config": TORAX_CONFIG,
-            ...         "discretisation_torax": "auto",
+            ...         "discretization": "auto",
             ...         "delta_t_a": 0.05,  # 50 ms between actions
             ...         # "ratio_a_sim": 10, # Only needed if using "fixed" discretization
             ...     }
