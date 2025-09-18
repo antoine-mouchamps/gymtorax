@@ -39,6 +39,7 @@ exclude = [
     "tmp/",
     "__pycache__/",
     "*.egg-info/",
+    "docs/"
 ]
 
 [tool.ruff.lint]

@@ -28,6 +28,7 @@ base_env
 
 .. autoclass:: gymtorax.envs.base_env.BaseEnv
    :members: reset, step, close, render, save_file, save_gif, _define_action_space, _define_observation_space, _get_torax_config, _compute_reward
+   :no-index:
 
 Rewards
 ----------------

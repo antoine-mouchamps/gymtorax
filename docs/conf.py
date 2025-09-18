@@ -22,9 +22,23 @@ release = "2025"
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",  # Pour les formats Google/NumPy
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.coverage",
     "sphinx_design",
 ]
+
+# Napoleon settings (Google docstring style)
+napoleon_google_docstring = True
+napoleon_numpy_docstring = False
+# Intersphinx mapping for cross-references to external docs
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "gymnasium": ("https://gymnasium.farama.org/", None),
+    "torax": ("https://torax.readthedocs.io/en/stable/", None),
+}
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
