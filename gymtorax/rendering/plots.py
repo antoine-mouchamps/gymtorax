@@ -1,4 +1,4 @@
-import gymtorax.rendering.visualization as viz
+from . import visualization as viz
 
 # =====================================
 # Examples of custom figures

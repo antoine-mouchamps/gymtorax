@@ -10,7 +10,7 @@ from typing import Any
 import torax
 from torax import ToraxConfig
 
-import gymtorax.action_handler as act
+from ..action_handler import ActionHandler
 
 
 class ConfigLoader:
@@ -24,7 +24,7 @@ class ConfigLoader:
     def __init__(
         self,
         config: dict[str, Any],
-        action_handler: act.ActionHandler,
+        action_handler: ActionHandler,
     ):
         """Initialize the configuration loader.
 

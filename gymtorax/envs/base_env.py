@@ -50,11 +50,10 @@ import gymnasium as gym
 import numpy as np
 from numpy._typing._array_like import NDArray
 
-from gymtorax.rendering.visualization import FigureProperties, ToraxStyleRealTimePlotter
-
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
+from ..rendering import FigureProperties, ToraxStyleRealTimePlotter
 from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
 
 # Set up logger for this module
