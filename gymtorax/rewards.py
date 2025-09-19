@@ -64,7 +64,7 @@ def get_q_profile(state: dict) -> np.ndarray:
         state (dict): The state dictionary containing profile values.
 
     Returns:
-        np.ndarray: The safety factor profile :math:`q`.
+        numpy.ndarray: The safety factor profile :math:`q`.
     """
     return state["profiles"]["q"]
 
@@ -100,6 +100,6 @@ def get_s_profile(state: dict) -> np.ndarray:
         state (dict): The state dictionary containing profile values.
 
     Returns:
-        np.ndarray: The magnetic shear profile :math:`s`.
+        numpy.ndarray: The magnetic shear profile :math:`s`.
     """
     return state["profiles"]["magnetic_shear"]

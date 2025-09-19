@@ -113,18 +113,18 @@ class BaseEnv(gym.Env, ABC):
         action/observation spaces, time discretization, and rendering components.
 
         Args:
-            render_mode (str, optional): Rendering mode for visualization.
+            render_mode (str or None): Rendering mode for visualization.
                 Options: "human", "rgb_array", or None. Defaults to None.
-            log_level (str, optional): Logging level for environment operations.
+            log_level (str): Logging level for environment operations.
                 Options: "debug", "info", "warning", "error", "critical".
                 Defaults to "warning".
-            logfile (str, optional): Path to log file for writing log messages.
+            logfile (str or None): Path to log file for writing log messages.
                 If None, logs to console. Defaults to None.
-            fig (FigureProperties, optional): Figure properties for visualization
+            fig (FigureProperties or None): Figure properties for visualization
                 configuration. Defines plot layout, variables to display, and styling
                 options for real-time plotting and GIF creation. If None, default
                 visualization settings will be used. Defaults to None.
-            store_history (bool, optional): Whether to store simulation history
+            store_history (bool): Whether to store simulation history
                 for later saving. Set to True if you plan to use ``save_file`` method.
                 Defaults to False.
 
@@ -244,10 +244,10 @@ class BaseEnv(gym.Env, ABC):
         4. Optionally rendering the initial state
 
         Args:
-            seed (int, optional): Random seed for reproducible episode initialization.
+            seed (int or None): Random seed for reproducible episode initialization.
                 Used to seed the environment's random number generator for deterministic
                 behavior across resets. If None, no seeding is performed. Defaults to None.
-            options (dict[str, Any], optional): Additional options for environment reset.
+            options (dict[str, Any] or None): Additional options for environment reset.
                 Currently unused but maintained for Gymnasium compatibility.
                 Defaults to None.
 
@@ -625,9 +625,9 @@ class BaseEnv(gym.Env, ABC):
                 - "config" (dict): A dictionary of TORAX configuration parameters.
                 - "discretization" (str): The time discretization method.
                   Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-                - "ratio_a_sim" (int, optional): The ratio of action timesteps to
+                - "ratio_a_sim" (int or None): The ratio of action timesteps to
                   simulation timesteps. Required if 'discretization' is "fixed".
-                - "delta_t_a" (float, optional): The time interval between actions
+                - "delta_t_a" (float or None): The time interval between actions
                   in seconds. Required if 'discretization' is "auto".
 
 

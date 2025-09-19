@@ -487,9 +487,9 @@ class AllObservation(Observation):
         by default, with flexible configuration through keyword arguments.
 
         Args:
-            exclude (dict[str, list[str]], optional): Variables to exclude.
+            exclude (dict[str, list[str]] or None): Variables to exclude.
                 Format: {"profiles": [names], "scalars": [names]}.
-            custom_bounds_file (str, optional): Path to JSON file containing
+            custom_bounds_file (str or None): Path to JSON file containing
                 custom bounds for variables.
 
         Example:

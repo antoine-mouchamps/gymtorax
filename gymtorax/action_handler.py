@@ -224,7 +224,7 @@ class Action(ABC):
         self.dtype = dtype
 
     @property
-    def min(self) -> NDArray:
+    def min(self) -> NDArray[np.floating]:
         """Minimum bounds for this action parameters.
 
         Returns:
@@ -234,7 +234,7 @@ class Action(ABC):
         return self._min
 
     @property
-    def max(self) -> NDArray:
+    def max(self) -> NDArray[np.floating]:
         """Maximum bounds for this action parameters.
 
         Returns:
@@ -243,7 +243,7 @@ class Action(ABC):
         """
         return self._max
 
-    def _set_values(self, new_values: list[float] | NDArray) -> None:
+    def _set_values(self, new_values: list[float] | NDArray[np.floating]) -> None:
         """Set the current parameter values for this action.
 
         Values are automatically clipped to the action's bounds and ramp rate limits.
@@ -449,7 +449,7 @@ class ActionHandler:
 
         return variables
 
-    def update_actions(self, actions: dict[str, NDArray]) -> None:
+    def update_actions(self, actions: dict[str, NDArray[np.floating]]) -> None:
         """Update the current values of all managed actions.
 
         This method validates that all provided actions exist in the handler,
@@ -458,7 +458,7 @@ class ActionHandler:
         method. The update counter is incremented after successful processing.
 
         Args:
-            actions: Dictionary mapping action names to their new values.
+            actions (dict): Dictionary mapping action names to their new values.
                 Keys must correspond to existing action names in this handler.
                 Values must be numpy arrays compatible with each action expected format and bounds.
 

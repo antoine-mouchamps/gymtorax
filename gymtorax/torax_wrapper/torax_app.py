@@ -430,13 +430,13 @@ class ToraxApp:
         `store_history=True` so that the full history is available.
 
         Args:
-            beginning (int or float, optional): Start time for selection.
+            beginning (int or float): Start time for selection.
                 Defaults to 0.
-            end (int or float, optional): End time for selection. Defaults to
+            end (int or float): End time for selection. Defaults to
                 -1 (no upper limit).
 
         Returns:
-            DataTree: The complete simulation history as an xarray DataTree,
+            xarray.DataTree: The complete simulation history as an xarray DataTree,
                 with all timesteps and outputs, or only the selected time range
                 if specified.
 
@@ -501,7 +501,7 @@ class ToraxApp:
         suitable for observation extraction and analysis.
 
         Returns:
-            DataTree: Current simulation state.
+            xarray.DataTree: Current simulation state.
 
         Raises:
             RuntimeError: If simulation state has not been computed yet.
