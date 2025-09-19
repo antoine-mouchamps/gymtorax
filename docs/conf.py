@@ -42,6 +42,7 @@ intersphinx_mapping = {
     "numpy": ("https://numpy.org/doc/stable/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
     "torax": ("https://torax.readthedocs.io/en/stable/", None),
+    "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
 
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

@@ -45,6 +45,7 @@ from typing import Any
 
 import numpy as np
 from gymnasium import spaces
+from numpy.typing import NDArray
 from torax._src.config.profile_conditions import _MIN_IP_AMPS
 
 # Set up logger for this module
@@ -77,7 +78,7 @@ class Action(ABC):
 
     Instance Attributes:
         - values (list[float]): Current parameter values
-        - ramp_rate (np.ndarray): Ramp rate limits for each parameter.
+        - ramp_rate (numpy.ndarray): Ramp rate limits for each parameter.
           np.inf indicates no ramp rate limit for that parameter.
         - dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
 
@@ -128,12 +129,11 @@ class Action(ABC):
                 Used for creating action spaces.
 
         Raises:
-            ValueError: If any of the following conditions are met:
-                - name class attribute is not defined
-                - dimension class attribute is not defined or not a positive integer
-                - config_mapping class attribute is not defined
-                - default_min, default_max, or default_ramp_rate do not match the dimension
-                - provided min, max, or ramp_rate do not match the dimension
+            ValueError: If name class attribute is not defined
+            ValueError: If dimension class attribute is not defined or not a positive integer
+            ValueError: If config_mapping class attribute is not defined
+            ValueError: If default_min, default_max, or default_ramp_rate do not match the dimension
+            ValueError: If provided min, max, or ramp_rate do not match the dimension
         """
         self.dtype = dtype
         # Validate that required class attributes are properly defined
@@ -224,26 +224,26 @@ class Action(ABC):
         self.dtype = dtype
 
     @property
-    def min(self) -> np.ndarray:
+    def min(self) -> NDArray:
         """Minimum bounds for this action parameters.
 
         Returns:
-            np.ndarray: Array of minimum values, one for each parameter
+            numpy.ndarray: Array of minimum values, one for each parameter
                 controlled by this action.
         """
         return self._min
 
     @property
-    def max(self) -> np.ndarray:
+    def max(self) -> NDArray:
         """Maximum bounds for this action parameters.
 
         Returns:
-            np.ndarray: Array of maximum values, one for each parameter
+            numpy.ndarray: Array of maximum values, one for each parameter
                 controlled by this action.
         """
         return self._max
 
-    def _set_values(self, new_values: list[float] | np.ndarray) -> None:
+    def _set_values(self, new_values: list[float] | NDArray) -> None:
         """Set the current parameter values for this action.
 
         Values are automatically clipped to the action's bounds and ramp rate limits.
@@ -351,7 +351,7 @@ class Action(ABC):
                     elif isinstance(d[key], tuple) and 0 in d[key][0]:
                         if isinstance(d[key][0], list | tuple):
                             pos = d[key][0].index(0)
-                        elif isinstance(d[key][0], np.ndarray):
+                        elif isinstance(d[key][0], NDArray):
                             pos = np.where(d[key][0] == 0)[0][0]
                         self.values[idx] = d[key][1][pos]
                     # TODO: This log is only valid if we do not do a restart from a .nc file, since in such a case,
@@ -449,7 +449,7 @@ class ActionHandler:
 
         return variables
 
-    def update_actions(self, actions: dict[str, np.ndarray]) -> None:
+    def update_actions(self, actions: dict[str, NDArray]) -> None:
         """Update the current values of all managed actions.
 
         This method validates that all provided actions exist in the handler,

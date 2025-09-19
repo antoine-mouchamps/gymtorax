@@ -197,7 +197,7 @@ class IterHybridEnv(BaseEnv):
                 Refer to BaseEnv.__init__() documentation for complete parameter list.
 
         Note:
-            This environment sets log_level to "debug" by default, which can be
+            This environment sets log_level to `"debug"` by default, which can be
             overridden by explicitly passing log_level in kwargs.
         """
         # Set environment-specific defaults
@@ -232,7 +232,7 @@ class IterHybridEnv(BaseEnv):
         }
 
     def _compute_reward(self, state, next_state, action):
-        """Compute the reward. The higher the reward, the more performance and stability of the plasma.
+        r"""Compute the reward. The higher the reward, the more performance and stability of the plasma.
 
         The reward is a weighted sum of several factors:
         - Fusion gain fusion_gain: we want to maximize it.
@@ -243,10 +243,10 @@ class IterHybridEnv(BaseEnv):
         - Magnetic shear at rational surfaces: we want to avoid low shear at rational surfaces.
 
         Args:
-            state (dict[str, Any]): state at time t
-            next_state (dict[str, Any]): state at time t+1
-            action (NDArray[np.floating]): applied action at time t
-            gamma (float): discounted factor (0 < gamma <= 1)
+            state (dict[str, Any]): state at time :math:`t`
+            next_state (dict[str, Any]): state at time :math:`t+1`
+            action (numpy.ndarray): applied action at time :math:`t`
+            gamma (float): discounted factor (:math:`0 < gamma \le 1`)
             n (int): number of steps since the beginning of the episode
 
         Returns:

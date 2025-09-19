@@ -43,12 +43,11 @@ import copy
 import importlib
 import logging
 from abc import ABC, abstractmethod
-from ctypes import ArgumentError
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
-from numpy._typing._array_like import NDArray
+from numpy.typing import NDArray
 
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
@@ -94,10 +93,10 @@ class BaseEnv(gym.Env, ABC):
     Note:
         Subclasses must implement these abstract methods:
 
-        - :meth:`_define_observation_space`: Define observation space variables
-        - :meth:`_define_action_space`: Define available control actions
-        - :meth:`_get_torax_config`: Define TORAX configuration parameters
-        - :meth:`_compute_reward`: Define reward signal (optional override)
+        - ``_define_observation_space``: Define observation space variables
+        - ``_define_action_space``: Define available control actions
+        - ``_get_torax_config``: Define TORAX configuration parameters
+        - ``_compute_reward``: Define reward signal (optional override)
     """
 
     def __init__(
@@ -126,7 +125,7 @@ class BaseEnv(gym.Env, ABC):
                 options for real-time plotting and GIF creation. If None, default
                 visualization settings will be used. Defaults to None.
             store_history (bool, optional): Whether to store simulation history
-                for later saving. Set to True if you plan to use :meth:`save_file` method.
+                for later saving. Set to True if you plan to use ``save_file`` method.
                 Defaults to False.
 
         Raises:
@@ -139,8 +138,8 @@ class BaseEnv(gym.Env, ABC):
             listing and maintain flexibility as the base class evolves. Environment-specific
             defaults can be set using kwargs.setdefault() before calling super().__init__().
 
-            The environment must implement the abstract methods :meth:`_define_observation_space`,
-            :meth:`_define_action_space`, :meth:`_get_torax_config`, and :meth:`_compute_reward`.
+            The environment must implement the abstract methods ``_define_observation_space``,
+            ``_define_action_space``, ``_get_torax_config``, and ``_compute_reward``.
         """
         # Set Gymnasium metadata for rendering configuration
         self.__class__.metadata = {
@@ -244,6 +243,14 @@ class BaseEnv(gym.Env, ABC):
         3. Extracting the initial observation state
         4. Optionally rendering the initial state
 
+        Args:
+            seed (int, optional): Random seed for reproducible episode initialization.
+                Used to seed the environment's random number generator for deterministic
+                behavior across resets. If None, no seeding is performed. Defaults to None.
+            options (dict[str, Any], optional): Additional options for environment reset.
+                Currently unused but maintained for Gymnasium compatibility.
+                Defaults to None.
+
         Returns:
             tuple[dict[str, Any], dict[str, Any]]:
                 - observation (dict): Initial observation of plasma state
@@ -309,7 +316,7 @@ class BaseEnv(gym.Env, ABC):
         7. Updating time counters
 
         Args:
-            action (dict[str, NDArray[np.floating]]): Action dictionary containing parameter values for all configured actions.
+            action (dict[str, numpy.ndarray]): Action dictionary containing parameter values for all configured actions.
 
         Returns:
             tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
@@ -426,13 +433,13 @@ class BaseEnv(gym.Env, ABC):
                 The file format is typically NetCDF (.nc extension).
 
         Raises:
-            ArgumentError: If the environment was created without store_history=True.
+            ctypes.ArgumentError: If the environment was created without store_history=True.
             RuntimeError: If there was an error during the save operation.
         """
         try:
             self.torax_app.save_output_file(file_name)
         except RuntimeError as e:
-            raise ArgumentError(
+            raise AttributeError(
                 "To save the output file, the store_history option must be set to True when creating the environment."
             ) from e
 
@@ -533,7 +540,7 @@ class BaseEnv(gym.Env, ABC):
             organized by category (scalars, profiles, etc.)
 
         Note:
-            This method is called during :meth:`reset` and :meth:`step` to keep track of
+            This method is called during ``reset`` and ``step`` to keep track of
             action variable values for visualization and debugging purposes.
         """
         action_vars = self.action_handler.get_action_variables()
@@ -586,7 +593,7 @@ class BaseEnv(gym.Env, ABC):
         which plasma parameters can be controlled by the RL agent.
 
         Returns:
-            action (list[Action]): List of Action instances representing controllable
+            list[Action]: List of Action instances representing controllable
                 parameters with their bounds and TORAX configuration mappings.
 
         Example:
@@ -652,7 +659,7 @@ class BaseEnv(gym.Env, ABC):
                 Contains complete state with "profiles" and "scalars" dictionaries.
             next_state (dict[str, Any]): New plasma state after action and simulation step.
                 Same structure as state parameter.
-            action (dict[str, NDArray[np.floating]]): Action dictionary that was applied to cause this transition.
+            action (dict[str, numpy.ndarray]): Action dictionary that was applied to cause this transition.
 
         Returns:
             float: Reward value for this state transition.
