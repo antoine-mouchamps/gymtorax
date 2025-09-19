@@ -12,10 +12,11 @@ sys.path.insert(0, os.path.abspath(".."))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "Gymtorax"
+project = "GymTORAX"
 copyright = "2025, Mouchamps Antoine, Malherbe Arthur, Bolland Adrien, Ernst Damien"
 author = "Mouchamps Antoine, Malherbe Arthur, Bolland Adrien, Ernst Damien"
-release = "2025"
+release = "0.1.0a1"
+version = "0.1.0a1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -32,19 +33,8 @@ extensions = [
 # Napoleon settings (Google docstring style)
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-napoleon_include_init_with_doc = False
-napoleon_include_private_with_doc = False
 napoleon_include_special_with_doc = True
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
 napoleon_use_ivar = True
-napoleon_use_param = True
-napoleon_use_rtype = True
-napoleon_preprocess_types = False
-napoleon_type_aliases = None
-napoleon_attr_annotations = True
-napoleon_custom_sections = ["Returns", "Yields", "Raises", "Warns", "See Also"]
 
 # Intersphinx mapping for cross-references to external docs
 intersphinx_mapping = {
@@ -54,13 +44,11 @@ intersphinx_mapping = {
     "torax": ("https://torax.readthedocs.io/en/stable/", None),
 }
 
-templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 # Autodoc settings for type hints
 autodoc_typehints = "both"
 autodoc_typehints_description_target = "all"
 autodoc_typehints_format = "short"
-autodoc_type_aliases = {}
 autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 autodoc_member_order = "bysource"
 autodoc_default_options = {
@@ -82,11 +70,20 @@ autodoc_mock_imports = [
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
 numfig = True
 
 html_theme_options = {
     "navigation_depth": 4,
     "collapse_navigation": False,
-    "titles_only": False,
+    "vcs_pageview_mode": "",
+    'version_selector': True,
+}
+
+# Add navigation configuration for GitHub integration
+html_context = {
+    "display_github": True,
+    "github_user": "antoine-mouchamps",
+    "github_repo": "gymtorax",
+    "github_version": "main",
+    "conf_py_path": "/docs/",
 }
