@@ -290,17 +290,17 @@ class ToraxApp:
         - Time progression tracking
 
         Returns:
-            Tuple:
-                - (bool): True if simulation step completed successfully, False if an error
-                  occurred or simulation reached final time.
-                - (bool): True if whole simulation is done
+            tuple[bool, bool]:
+                - success (bool): True if simulation step completed successfully,
+                    False if an error occurred or simulation reached final time.
+                - done (bool): True if whole simulation is done.
 
         Raises:
             RuntimeError: If reset() has not been called before running.
 
         Note:
             - Call update_config() between runs to modify simulation parameters
-            - Returns True when t_current >= t_final (episode complete)
+            - Returns True when `t_current >= t_final` (episode complete)
             - Performance timing logged at DEBUG level shows interval since last run
             - Errors during simulation return False (environment should reset)
         """

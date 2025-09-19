@@ -36,7 +36,7 @@ class Observation(ABC):
         variables_to_include (dict): Variables to include in observation space.
         variables_to_exclude (dict): Variables to exclude from observation space.
         custom_bounds (dict): Custom bounds for variables.
-        dtype (np.dtype): Data type for observation arrays.
+        dtype (numpy.dtype): Data type for observation arrays.
         action_variables (dict): Variables controlled by actions.
         state_variables (dict): Available variables from TORAX output.
         observation_variables (dict): Final filtered observation variables.
@@ -272,8 +272,12 @@ class Observation(ABC):
             datatree: TORAX simulation output containing profiles and scalars datasets.
 
         Returns:
-            Tuple of (state_dict, observation_dict) with format:
-            {"profiles": {var: array}, "scalars": {var: value}}
+            tuple[dict[str, dict[str, numpy.ndarray]], dict[str, dict[str, numpy.ndarray]]]:
+                - state (dict): Complete state with all variables.
+                    Format {"profiles": {var: array}, "scalars": {var: value}}
+                - observation (dict): Filtered observation with selected variables.
+                    Format {"profiles": {var: array}, "scalars": {var: value}}
+
         """
         state = self._get_state_as_dict(datatree)
 
@@ -345,8 +349,8 @@ class Observation(ABC):
         configured bounds. Validates configuration and finalizes variable selection.
 
         Returns:
-            Gymnasium Dict space with structure:
-            {"profiles": {var: Box}, "scalars": {var: Box}}
+            gymnasium.spaces.Dict: Gymnasium Dict space with structure
+                {"profiles": {var: Box}, "scalars": {var: Box}}
 
         Raises:
             ValueError: If validation fails or required setup incomplete.
@@ -378,7 +382,7 @@ class Observation(ABC):
             var_name: Variable name.
 
         Returns:
-            Box space with appropriate bounds and shape.
+            gymnasium.spaces.Box: Box space with appropriate bounds and shape.
         """
         # Determine variable category and extract bounds
         if var_name in self.bounds["profiles"]:
@@ -403,8 +407,8 @@ class Observation(ABC):
             datatree: TORAX simulation output.
 
         Returns:
-            Dictionary with format:
-            {"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}
+            dict[str, dict[str, Any]]: Dictionary with format
+                {"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}
         """
         # Extract datasets
         profiles: Dataset = datatree["/profiles/"].ds
@@ -428,7 +432,7 @@ def _load_json_file(filename: str) -> dict:
         filename: Path to JSON bounds file.
 
     Returns:
-        Validated bounds dictionary.
+        dict: Validated bounds dictionary.
 
     Raises:
         ValueError: If file format is invalid.

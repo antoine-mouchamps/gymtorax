@@ -354,14 +354,14 @@ class BaseEnv(gym.Env, ABC):
                 }
 
         # Execute simulation step
-        success, terminated_simulation = self.torax_app.run()
+        success, done = self.torax_app.run()
 
         # Simulation failed - mark episode as terminated
         if not success:
             self.terminated = True
 
         # Simulation is done, episode is terminated
-        if terminated_simulation:
+        if done:
             self.terminated = True
 
         # Extract new state and observation after simulation step

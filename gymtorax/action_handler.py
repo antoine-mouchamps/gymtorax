@@ -63,24 +63,24 @@ class Action(ABC):
     specific control parameters. Subclasses must define the class attributes
     to specify the action dimensionality, bounds, and configuration mapping.
 
-    Class Attributes (must be overridden by subclasses):
-        - name (str): Unique identifier for this action type
-        - dimension (int): Number of parameters controlled by this action
-        - default_min (list[float]): Default minimum values for parameters
-        - default_max (list[float]): Default maximum values for parameters
-        - config_mapping (dict[tuple[str, ...], tuple[int, float]]): Mapping from configuration
-          paths to parameter indices and scaling factors. Keys are tuples representing the nested
-          path in the config dictionary, values are tuples of (parameter_index, scaling_factor).
-        - state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
-          state variables directly modified by this action. Each inner tuple
-          contains the path to a state variable (e.g., ('scalars', 'Ip') or
-          ('profiles', 'p_ecrh_e')).
+    Class Attributes:
+        name (str): Unique identifier for this action type
+        dimension (int): Number of parameters controlled by this action
+        default_min (list[float]): Default minimum values for parameters
+        default_max (list[float]): Default maximum values for parameters
+        config_mapping (dict[tuple[str, ...], tuple[int, float]]): Mapping from configuration
+            paths to parameter indices and scaling factors. Keys are tuples representing the nested
+            path in the config dictionary, values are tuples of (parameter_index, scaling_factor).
+        state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
+            state variables directly modified by this action. Each inner tuple
+            contains the path to a state variable (e.g., ('scalars', 'Ip') or
+            ('profiles', 'p_ecrh_e')).
 
-    Instance Attributes:
-        - values (list[float]): Current parameter values
-        - ramp_rate (numpy.ndarray): Ramp rate limits for each parameter.
-          np.inf indicates no ramp rate limit for that parameter.
-        - dtype (np.dtype): NumPy data type for action arrays (default: np.float64)
+    Attributes:
+        values (list[float]): Current parameter values
+        ramp_rate (numpy.ndarray): Ramp rate limits for each parameter.
+            numpy.inf indicates no ramp rate limit for that parameter.
+        dtype (numpy.dtype): NumPy data type for action arrays (default: np.float64)
 
     Example:
         Create a custom action for controlling two parameters:
@@ -500,9 +500,10 @@ class ActionHandler:
         and data type.
 
         Returns:
-            spaces.Dict: Dictionary action space with action names as keys and
-            Box spaces as values. Each Box space uses the action's min/max
-            bounds and dtype for proper numerical handling.
+            gymnasium.spaces.Dict: Action space structure.
+                The action space structure is a dictionnary with action names as keys and
+                Box spaces as values. Each Box space uses the action's min/max
+                bounds and dtype for proper numerical handling.
         """
         return spaces.Dict(
             {
@@ -566,13 +567,16 @@ class IpAction(Action):
     It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        - name: "Ip"
-        - dimension: 1 (single parameter)
-        - default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
-        - default_max: [np.inf]
-        - default_ramp_rate: [None]
-        - config_mapping: Maps to ('profile_conditions', 'Ip')
-        - state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
+        name: "Ip"
+        dimension: 1 (single parameter)
+        default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
+        default_max: [numpy.inf]
+        default_ramp_rate: [None]
+        config_mapping: Maps to ('profile_conditions', 'Ip')
+        state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
+
+    Action Parameters:
+        0: Plasma current (Ip) in Amperes
 
     Example:
         >>> ip_action = IpAction()
@@ -595,13 +599,16 @@ class VloopAction(Action):
     simulations. It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        - name: "V_loop"
-        - dimension: 1 (single parameter)
-        - default_min: [0.0]
-        - default_max: [np.inf]
-        - default_ramp_rate: [None]
-        - config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-        - state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
+        name: "V_loop"
+        dimension: 1 (single parameter)
+        default_min: [0.0]
+        default_max: [numpy.inf]
+        default_ramp_rate: [None]
+        config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
+        state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
+
+    Action Parameters:
+        0: Loop voltage (v_loop_lcfs) in Volts
 
     Example:
         >>> vloop_action = VloopAction()
@@ -624,19 +631,19 @@ class EcrhAction(Action):
     and Gaussian width of the heating profile.
 
     Class Attributes:
-        - name: "ECRH"
-        - dimension: 3 (power, location, width)
-        - default_min: [0.0, 0.0, 0.0]
-        - default_max: [np.inf, np.inf, np.inf]
-        - default_ramp_rate: [None, None, None]
-        - config_mapping: Maps to ECRH source parameters
-        - state_var: {'scalars': ['P_ecrh_e']} -
+        name: "ECRH"
+        dimension: 3 (power, location, width)
+        default_min: [0.0, 0.0, 0.0]
+        default_max: [numpy.inf, numpy.inf, numpy.inf]
+        default_ramp_rate: [None, None, None]
+        config_mapping: Maps to ECRH source parameters
+        state_var: {'scalars': ['P_ecrh_e']} -
                      modifies total electron-cyclotron power scalar
 
-    Parameters:
-        - Index 0: Total power (P_total) in Watts
-        - Index 1: Gaussian location (gaussian_location) - normalized radius [0,1]
-        - Index 2: Gaussian width (gaussian_width) - profile width parameter
+    Action Parameters:
+        0: Total power (P_total) in Watts
+        1: Gaussian location (gaussian_location) - normalized radius [0,1]
+        2: Gaussian width (gaussian_width) - profile width parameter
 
     Example:
         >>> ecrh_action = EcrhAction()
@@ -664,23 +671,23 @@ class NbiAction(Action):
     calculated from the heating power using a configurable conversion factor.
 
     Class Attributes:
-        - name: "NBI"
-        - dimension: 3 (heating power, location, width)
-        - default_min: [0.0, 0.0, 0.01]
-        - default_max: [np.inf, 1.0, np.inf]
-        - default_ramp_rate: [None, None, None]
-        - config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        - state_var: {'scalars': ['P_aux_generic_total']} - modifies total auxiliary power scalar
+        name: "NBI"
+        dimension: 3 (heating power, location, width)
+        default_min: [0.0, 0.0, 0.01]
+        default_max: [numpy.inf, 1.0, numpy.inf]
+        default_ramp_rate: [None, None, None]
+        config_mapping: Maps to generic heat and current source parameters in TORAX configuration
+        state_var: {'scalars': ['P_aux_generic_total']} - modifies total auxiliary power scalar
 
-    Instance Attributes:
+    Attributes:
         nbi_w_to_ma: Conversion factor from heating power (W) to current drive (MA).
-                     Default is 1/16e6, meaning 16MW of heating produces 1MA of current.
+            Default is 1/16e6, meaning 16MW of heating produces 1MA of current.
         config_mapping: Dynamically created in __init__ to use the specified conversion factor.
 
-    Parameters:
-        - Index 0: Heating power (generic_heat P_total) in Watts
-        - Index 1: Gaussian location (shared by heat and current) - normalized radius [0,1]
-        - Index 2: Gaussian width (shared by heat and current) - profile width parameter
+    Action Parameters:
+        0: Heating power (generic_heat P_total) in Watts
+        1: Gaussian location (shared by heat and current) - normalized radius [0,1]
+        2: Gaussian width (shared by heat and current) - profile width parameter
 
     Example:
         >>> nbi_action = NbiAction()

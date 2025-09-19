@@ -36,6 +36,11 @@ napoleon_numpy_docstring = False
 napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 
+napoleon_custom_sections = [
+    ('Class Attributes', 'params_style'),
+    ('Action Parameters', 'params_style'),
+]
+
 # Intersphinx mapping for cross-references to external docs
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
