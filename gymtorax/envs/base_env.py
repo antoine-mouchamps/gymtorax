@@ -49,11 +49,10 @@ import gymnasium as gym
 import numpy as np
 from numpy._typing._array_like import NDArray
 
-import gymtorax.rendering.visualization as viz
-
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
+from ..rendering import FigureProperties, ToraxStyleRealTimePlotter
 from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
 
 # Set up logger for this module
@@ -106,7 +105,7 @@ class BaseEnv(gym.Env, ABC):
         render_mode: str | None = None,
         log_level="warning",
         logfile=None,
-        fig: viz.FigureProperties | None = None,  # TODO: REMOVE FROM HERE
+        fig: FigureProperties | None = None,  # TODO: REMOVE FROM HERE
         store_history=False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
@@ -221,9 +220,7 @@ class BaseEnv(gym.Env, ABC):
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         if fig is not None:
-            self.plotter = viz.ToraxStyleRealTimePlotter(
-                fig, render_mode=self.render_mode
-            )
+            self.plotter = ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
         else:
             self.plotter = None
 

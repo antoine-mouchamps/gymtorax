@@ -1,9 +1,8 @@
-import numpy as np  # noqa: N999
+import numpy as np
 
-import gymtorax.rewards as reward
-from gymtorax.action_handler import EcrhAction, IpAction, NbiAction
-from gymtorax.observation_handler import AllObservation
-
+from .. import rewards as reward
+from ..action_handler import EcrhAction, IpAction, NbiAction
+from ..observation_handler import AllObservation
 from .base_env import BaseEnv
 
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
