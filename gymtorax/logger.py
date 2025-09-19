@@ -5,7 +5,7 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
     """Setup global logging configuration with optional external library suppression.
 
     When using DEBUG level, external libraries (JAX, TORAX, etc.) can generate
-    overwhelming amounts of log messages. This function allows you to debug your
+    overwhelming amounts of log messages. This function allows to debug the
     gymtorax code while keeping external libraries at WARNING level or higher.
 
     Args:

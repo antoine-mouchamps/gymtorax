@@ -71,7 +71,7 @@ class TestDocumentationQuality:
     """Documentation quality and content tests."""
 
     def test_sphinx_warnings(self):
-        """Test Sphinx warnings - report but don't fail unless configured."""
+        """Test Sphinx warnings - report but do not fail unless configured."""
         returncode, stdout, stderr = DocumentationTestHelper.run_sphinx_build(
             extra_args=["-v"]  # Verbose to capture warnings
         )
@@ -186,9 +186,9 @@ class TestDocumentationQuality:
                 broken_msg = "Broken external links found:\n" + "\n".join(
                     broken_external
                 )
-                # Report as informational warning but don't fail
+                # Report as informational warning but do not fail
                 pytest.skip(f"⚠️  {broken_msg}")
-                # Don't fail on external links by default as they can be unreliable
+                # do not fail on external links by default as they can be unreliable
 
 
 class TestDocumentationCoverage:
@@ -227,7 +227,7 @@ class TestDocumentationCoverage:
             msg = "Automodule targets that cannot be imported:\n" + "\n".join(
                 missing_modules
             )
-            # Report as informational warning but don't fail
+            # Report as informational warning but do not fail
             pytest.skip(f"⚠️  {msg}\nℹ️  These modules may need mock imports in conf.py")
 
 
@@ -296,7 +296,7 @@ class TestDocumentationStructure:
 
         if bad_names:
             msg = f"Files not following snake_case convention: {bad_names}"
-            # Report as informational warning but don't fail
+            # Report as informational warning but do not fail
             pytest.skip(f"⚠️  {msg}\nℹ️  Consider renaming to snake_case for consistency")
 
 

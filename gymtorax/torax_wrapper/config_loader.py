@@ -69,7 +69,7 @@ class ConfigLoader:
             Total simulation time in seconds
 
         Raises:
-            KeyError: If the configuration doesn't contain the required keys
+            KeyError: If the configuration does not contain the required keys
             TypeError: If the value is not a number
         """
         try:
@@ -90,7 +90,7 @@ class ConfigLoader:
             time: Total simulation time in seconds
 
         Raises:
-            KeyError: If the configuration doesn't contain the required keys
+            KeyError: If the configuration does not contain the required keys
             TypeError: If the value is not a number
         """
         if not isinstance(time, int | float):
@@ -112,7 +112,7 @@ class ConfigLoader:
             Total simulation time in seconds
 
         Raises:
-            KeyError: If the configuration doesn't contain the required keys
+            KeyError: If the configuration does not contain the required keys
             TypeError: If the value is not a number
         """
         if restart is False:
@@ -138,7 +138,7 @@ class ConfigLoader:
             Simulation timestep in seconds
 
         Raises:
-            KeyError: If the configuration doesn't contain the required keys
+            KeyError: If the configuration does not contain the required keys
             TypeError: If the value is not a number
         """
         try:

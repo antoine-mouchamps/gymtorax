@@ -132,8 +132,8 @@ class Action(ABC):
                 - name class attribute is not defined
                 - dimension class attribute is not defined or not a positive integer
                 - config_mapping class attribute is not defined
-                - default_min, default_max, or default_ramp_rate don't match the dimension
-                - provided min, max, or ramp_rate don't match the dimension
+                - default_min, default_max, or default_ramp_rate do not match the dimension
+                - provided min, max, or ramp_rate do not match the dimension
         """
         self.dtype = dtype
         # Validate that required class attributes are properly defined
@@ -248,7 +248,7 @@ class Action(ABC):
 
         Values are automatically clipped to the action's bounds and ramp rate limits.
         The method ensures all values remain within the defined minimum and maximum
-        bounds, and that changes between timesteps don't exceed the ramp rate limits.
+        bounds, and that changes between timesteps do not exceed the ramp rate limits.
 
         Args:
             new_values: The new parameter values to set. Can be a list or numpy array.
@@ -283,7 +283,7 @@ class Action(ABC):
                 config_mapping.
 
         Raises:
-            KeyError: If the configuration dictionary doesn't have the expected
+            KeyError: If the configuration dictionary does not have the expected
                 structure for this action parameters.
             RuntimeError: If any error occurs during the initialization process.
         """
@@ -354,7 +354,7 @@ class Action(ABC):
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
                         self.values[idx] = d[key][1][pos]
-                    # TODO: This log is only valid if we don't do a restart from a .nc file, since in such a case,
+                    # TODO: This log is only valid if we do not do a restart from a .nc file, since in such a case,
                     # no initial condition are needed. Currently it logs it but (somehow, to be investigated) it is
                     # not taken into account.
                     logger.debug(

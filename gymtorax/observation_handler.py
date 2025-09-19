@@ -320,7 +320,7 @@ class Observation(ABC):
         observation variables are silently skipped (no error raised).
 
         Raises:
-            KeyError: If action variables reference categories that don't exist
+            KeyError: If action variables reference categories that do not exist
                 (i.e., categories other than 'profiles' or 'scalars').
         """
         for cat, var_list in self.action_variables.items():
