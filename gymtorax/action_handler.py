@@ -274,7 +274,7 @@ class Action(ABC):
         """Initialize a TORAX configuration dictionary with this action parameters.
 
         This method sets up the configuration dictionary with the action current
-        values at time=0, creating the proper time-dependent parameter structure
+        values at `time=0`, creating the proper time-dependent parameter structure
         expected by TORAX.
 
         Args:
@@ -436,7 +436,7 @@ class ActionHandler:
 
         Returns:
             dict[str, list[str]]: Dictionary mapping variables categories to lists of
-            modified state variable names.
+                modified state variable names.
         """
         variables = {}
 

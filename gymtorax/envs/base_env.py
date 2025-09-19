@@ -95,10 +95,10 @@ class BaseEnv(gym.Env, ABC):
     Note:
         Subclasses must implement these abstract methods:
 
-        - _define_observation_space(): Define observation space variables
-        - _define_action_space(): Define available control actions
-        - _get_torax_config(): Define TORAX configuration parameters
-        - _compute_reward(): Define reward signal (optional override)
+        - :meth:`_define_observation_space`: Define observation space variables
+        - :meth:`_define_action_space`: Define available control actions
+        - :meth:`_get_torax_config`: Define TORAX configuration parameters
+        - :meth:`_compute_reward`: Define reward signal (optional override)
     """
 
     def __init__(
@@ -127,7 +127,7 @@ class BaseEnv(gym.Env, ABC):
                 options for real-time plotting and GIF creation. If None, default
                 visualization settings will be used. Defaults to None.
             store_history (bool, optional): Whether to store simulation history
-                for later saving. Set to True if you plan to use save_file() method.
+                for later saving. Set to True if you plan to use :meth:`save_file` method.
                 Defaults to False.
 
         Raises:
@@ -140,8 +140,8 @@ class BaseEnv(gym.Env, ABC):
             listing and maintain flexibility as the base class evolves. Environment-specific
             defaults can be set using kwargs.setdefault() before calling super().__init__().
 
-            The environment must implement the abstract methods _define_observation_space(),
-            _define_action_space(), _get_torax_config(), and _compute_reward().
+            The environment must implement the abstract methods :meth:`_define_observation_space`,
+            :meth:`_define_action_space`, :meth:`_get_torax_config`, and :meth:`_compute_reward`.
         """
         # Set Gymnasium metadata for rendering configuration
         self.__class__.metadata = {
@@ -246,9 +246,9 @@ class BaseEnv(gym.Env, ABC):
         4. Optionally rendering the initial state
 
         Returns:
-            Tuple containing:
-            - observation (dict): Initial observation of plasma state
-            - info (dict): Additional information (empty dict)
+            tuple[dict[str, Any], dict[str, Any]]:
+                - observation (dict): Initial observation of plasma state
+                - info (dict): Additional information (empty dict)
         """
         super().reset(seed=seed, options=options)
 
@@ -295,7 +295,7 @@ class BaseEnv(gym.Env, ABC):
         return self.observation, {}
 
     def step(
-        self, action: NDArray[np.floating]
+        self, action: dict[str, NDArray[np.floating]]
     ) -> tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
         """Execute one environment step with the given action.
 
@@ -310,15 +310,15 @@ class BaseEnv(gym.Env, ABC):
         7. Updating time counters
 
         Args:
-            action: Action array containing parameter values for all configured actions.
+            action (dict[str, NDArray[np.floating]]): Action dictionary containing parameter values for all configured actions.
 
         Returns:
-            Tuple containing:
-            - observation (dict): New plasma state observation
-            - reward (float): Reward signal for this step
-            - terminated (bool): True if episode ended due to terminal condition
-            - truncated (bool): True if episode ended due to time/step limits
-            - info (dict): Additional step information
+            tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
+                - observation (dict): New plasma state observation
+                - reward (float): Reward signal for this step
+                - terminated (bool): True if episode ended due to terminal condition
+                - truncated (bool): True if episode ended due to time/step limits
+                - info (dict): Additional step information
         """
         truncated = False
         info = {}
@@ -504,10 +504,10 @@ class BaseEnv(gym.Env, ABC):
         """Save the data as a GIF file.
 
         Args:
-            filename: Path to save the GIF file.
+            filename (str): Path to save the GIF file.
                 If it does not end with ".gif", the suffix will be added.
-            interval: Delay between frames in ms.
-            frame_skip: Save every Nth frame (default 2 = all frames).
+            interval (int): Delay between frames in ms.
+            frame_skip (int): Save every Nth frame (default 2 = all frames).
                 The last frame is always included.
         """
         if self.plotter is not None:
@@ -534,7 +534,7 @@ class BaseEnv(gym.Env, ABC):
             organized by category (scalars, profiles, etc.)
 
         Note:
-            This method is called during reset() and step() to keep track of
+            This method is called during :meth:`reset` and :meth:`step` to keep track of
             action variable values for visualization and debugging purposes.
         """
         action_vars = self.action_handler.get_action_variables()
@@ -565,7 +565,7 @@ class BaseEnv(gym.Env, ABC):
 
         Returns:
             Observation: Configured observation handler that defines which
-            plasma state variables are visible to the RL agent.
+                plasma state variables are visible to the RL agent.
 
         Example:
             >>> def _define_observation_space(self):
@@ -587,8 +587,8 @@ class BaseEnv(gym.Env, ABC):
         which plasma parameters can be controlled by the RL agent.
 
         Returns:
-            List[Action]: List of Action instances representing controllable
-            parameters with their bounds and TORAX configuration mappings.
+            action (list[Action]): List of Action instances representing controllable
+                parameters with their bounds and TORAX configuration mappings.
 
         Example:
             >>> def _define_action_space(self):
@@ -613,16 +613,16 @@ class BaseEnv(gym.Env, ABC):
         the control time step, and the ratio between simulation and control time steps.
 
         Returns:
-            Dict[str, Any]: A dictionary containing the TORAX configuration.
-            The dictionary must have the following keys:
+            dict[str, Any]: A dictionary containing the TORAX configuration.
+                The dictionary must have the following keys:
 
-            - "config" (dict): A dictionary of TORAX configuration parameters.
-            - "discretization" (str): The time discretization method.
-              Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-            - "ratio_a_sim" (int, optional): The ratio of action timesteps to
-              simulation timesteps. Required if 'discretization' is "fixed".
-            - "delta_t_a" (float, optional): The time interval between actions
-              in seconds. Required if 'discretization' is "auto".
+                - "config" (dict): A dictionary of TORAX configuration parameters.
+                - "discretization" (str): The time discretization method.
+                  Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
+                - "ratio_a_sim" (int, optional): The ratio of action timesteps to
+                  simulation timesteps. Required if 'discretization' is "fixed".
+                - "delta_t_a" (float, optional): The time interval between actions
+                  in seconds. Required if 'discretization' is "auto".
 
 
         Example:
@@ -641,7 +641,7 @@ class BaseEnv(gym.Env, ABC):
         self,
         state: dict[str, Any],
         next_state: dict[str, Any],
-        action: NDArray[np.floating],
+        action: dict[str, NDArray[np.floating]],
     ) -> float:
         """Define the reward signal for a state transition.
 
@@ -649,11 +649,11 @@ class BaseEnv(gym.Env, ABC):
         task-specific reward functions. The default implementation returns 0.0.
 
         Args:
-            state: Previous plasma state before action was applied.
+            state (dict[str, Any]): Previous plasma state before action was applied.
                 Contains complete state with "profiles" and "scalars" dictionaries.
-            next_state: New plasma state after action and simulation step.
+            next_state (dict[str, Any]): New plasma state after action and simulation step.
                 Same structure as state parameter.
-            action: Action array that was applied to cause this transition.
+            action (dict[str, NDArray[np.floating]]): Action dictionary that was applied to cause this transition.
 
         Returns:
             float: Reward value for this state transition.
