@@ -48,8 +48,10 @@ be performed by typing the following commands:
 Testing
 --------
 
-To manually test your installation, you can type the following commands in a terminal window:
+To verify your installation is working correctly, you can run the test suite using pytest:
 
 .. code-block:: bash
 
-   python test.py
+   pytest
+
+This will run all the tests in the repository and ensure that Gym-TORAX is properly installed and functioning.

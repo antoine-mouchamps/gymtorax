@@ -23,7 +23,7 @@ Key Features:
 Gym-TORAX lowers the entry barrier for RL researchers to explore plasma control problems, while giving physicists a straightforward way to create environments tailored to their needs.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents
 
    about_gymtorax
