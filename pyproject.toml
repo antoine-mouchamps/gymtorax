@@ -27,6 +27,7 @@ docformatter = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinx-design = "*"
+sphinx-copybutton = "*"
 
 [build-system]
 requires = ["poetry-core"]
