@@ -5,21 +5,22 @@
 
 import os
 import sys
+from datetime import datetime
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "GymTORAX"
-copyright = "2025, Mouchamps Antoine, Malherbe Arthur, Bolland Adrien, Ernst Damien"
-author = "Mouchamps Antoine, Malherbe Arthur, Bolland Adrien, Ernst Damien"
+copyright = f"2024-{datetime.now().year}, Antoine Mouchamps, Arthur Malherbe, Adrien Bolland, Damien Ernst"
+author = "Antoine Mouchamps, Arthur Malherbe, Adrien Bolland, Damien Ernst"
+
+# The version info for the project
 release = "0.1.0a1"
 version = "0.1.0a1"
 
 # -- General configuration ---------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -27,7 +28,10 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "sphinx.ext.coverage",
+    "sphinx.ext.doctest",
+    "sphinx.ext.mathjax",
     "sphinx_design",
+    "sphinx_copybutton",
 ]
 
 # Napoleon settings (Google docstring style)
@@ -45,24 +49,42 @@ napoleon_custom_sections = [
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
+    "matplotlib": ("https://matplotlib.org/stable/", None),
     "gymnasium": ("https://gymnasium.farama.org/", None),
     "torax": ("https://torax.readthedocs.io/en/stable/", None),
     "xarray": ("https://docs.xarray.dev/en/stable/", None),
 }
 
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+# General settings
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store", ".coverage"]
+templates_path = ["_templates"]
+language = "en"
+
+# Math settings
+mathjax3_config = {
+    "tex": {
+        "inlineMath": [["$", "$"], ["\\(", "\\)"]],
+        "displayMath": [["$$", "$$"], ["\\[", "\\]"]],
+    }
+}
+
+# -- Autodoc configuration ---------------------------------------------------
+
 # Autodoc settings for type hints
 autodoc_typehints = "both"
 autodoc_typehints_description_target = "all"
 autodoc_typehints_format = "short"
 autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 autodoc_member_order = "bysource"
+autodoc_preserve_defaults = True
+
 autodoc_default_options = {
     "members": True,
     "undoc-members": True,
     "show-inheritance": True,
     "member-order": "bysource",
     "special-members": "__init__",
+    "exclude-members": "__weakref__",
 }
 
 # Mock imports for dependencies that might not be available during doc build
@@ -72,8 +94,14 @@ autodoc_mock_imports = [
     "jaxlib",
 ]
 
+# -- Copy button configuration -----------------------------------------------
+
+copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
+copybutton_prompt_is_regexp = True
+copybutton_only_copy_prompt_lines = True
+copybutton_remove_prompts = True
+
 # -- Options for HTML output -------------------------------------------------
-# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
 numfig = True
@@ -84,8 +112,6 @@ html_theme_options = {
     "vcs_pageview_mode": "",
     'version_selector': True,
 }
-
-# Add navigation configuration for GitHub integration
 html_context = {
     "display_github": True,
     "github_user": "antoine-mouchamps",
