@@ -1,37 +1,66 @@
 Environment Design
-===========================
+==================
 
-This section describes the implementation of the environment design modules.
-Some of them are mentioned in the :doc:`User Guide <../user_guide/index>`.
-
-Four main components are covered:
+This section describes the core environment components that make up GymTorax:
+environments, actions, observations, and rewards. These are the building blocks
+for creating plasma control tasks.
 
 .. contents::
     :local:
+    :depth: 2
 
-action_handler
-----------------
-
-.. automodule:: gymtorax.action_handler
-   :members:
-
-observation_handler
---------------------
-
-.. automodule:: gymtorax.observation_handler
-   :members:
-
-base_env
+Base Environment
 ----------------
 
 .. automodule:: gymtorax.envs.base_env
 
-.. autoclass:: gymtorax.envs.base_env.BaseEnv
-   :members: reset, step, close, render, save_file, save_gif, _define_action_space, _define_observation_space, _get_torax_config, _compute_reward
-   :no-index:
+Action Handling
+---------------
 
-Rewards
+The action handling system defines what parameters the RL agent can control
+and how these map to TORAX configuration updates.
+
+Action Handler
+~~~~~~~~~~~~~~
+
+.. autoclass:: gymtorax.action_handler.ActionHandler
+
+Base Action Class
+~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gymtorax.action_handler.Action
+
+Concrete Actions
+~~~~~~~~~~~~~~~~
+
+.. autoclass:: gymtorax.action_handler.IpAction
+
+.. autoclass:: gymtorax.action_handler.VloopAction
+
+.. autoclass:: gymtorax.action_handler.EcrhAction
+
+.. autoclass:: gymtorax.action_handler.NbiAction
+
+Observation Handling
+--------------------
+
+The observation system extracts relevant plasma state information and formats
+it for RL agents.
+
+Base Observation Class
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gymtorax.observation_handler.Observation
+
+Concrete Observations
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autoclass:: gymtorax.observation_handler.AllObservation
+
+Reward Functions
 ----------------
- 
+
+Reward functions define the control objectives and translate plasma performance
+into scalar signals for RL training.
+
 .. automodule:: gymtorax.rewards
-    :members:

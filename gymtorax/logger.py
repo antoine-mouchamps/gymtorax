@@ -9,22 +9,22 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
     gymtorax code while keeping external libraries at WARNING level or higher.
 
     Args:
-        level (int): Logging level for gymtorax modules (e.g., logging.DEBUG,
-            logging.INFO, logging.WARNING, ...).
-        logfile (str, optional): If provided, logs will also be written to this file.
-        suppress_external (bool): If True and level=DEBUG, suppress verbose output
+        level (int): Logging level for gymtorax modules (e.g., :data:`logging.DEBUG`,
+            :data:`logging.INFO`, :data:`logging.WARNING`, ...).
+        logfile (str or None): If provided, logs will also be written to this file.
+        suppress_external (bool): If True and ``level=DEBUG``, suppress verbose output
             from external libraries (JAX, TORAX, TensorFlow, etc.) by setting them
             to WARNING level. Default: True.
 
     Example:
-        # Debug gymtorax only, suppress external libraries
-        setup_logging(level=logging.DEBUG)
-
-        # Debug everything including external libraries
-        setup_logging(level=logging.DEBUG, suppress_external=False)
-
-        # Normal usage (unchanged behavior)
-        setup_logging(level=logging.WARNING)
+        >>> # Debug gymtorax only, suppress external libraries
+        >>> setup_logging(level=logging.DEBUG)
+        >>>
+        >>> # Debug everything including external libraries
+        >>> setup_logging(level=logging.DEBUG, suppress_external=False)
+        >>>
+        >>> # Normal usage (unchanged behavior)
+        >>> setup_logging(level=logging.WARNING)
     """
     handlers = [logging.StreamHandler()]
     if logfile is not None:
@@ -50,7 +50,6 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
             "h5netcdf",
             "h5py",
             "xarray",
-            "scipy",
             "sklearn",
             "pandas",
             "absl",
