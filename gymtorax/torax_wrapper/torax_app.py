@@ -452,9 +452,7 @@ class ToraxApp:
 
         state_history = output.StateHistory(
             state_history=state_history[start:end],
-            post_processed_outputs_history=post_processed_outputs_history[
-                start:end
-            ],
+            post_processed_outputs_history=post_processed_outputs_history[start:end],
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )

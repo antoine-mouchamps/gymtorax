@@ -265,7 +265,9 @@ class IterHybridEnv(BaseEnv):
                 return False
 
         def _r_fusion_gain():
-            fusion_gain = reward.get_fusion_gain(next_state) / 10  # Normalize with ITER target
+            fusion_gain = (
+                reward.get_fusion_gain(next_state) / 10
+            )  # Normalize with ITER target
             if _is_H_mode():
                 return fusion_gain
             else:
