@@ -451,7 +451,7 @@ class BaseEnv(gym.Env, ABC):
         config_plot: str = "default",
         interval: int = 200,
         frame_skip: int = 2,
-        beginning: int = 0,
+        start: int = 0,
         end: int = -1,
     ) -> None:
         """Generate and save an GIF of the simulation.
@@ -466,7 +466,7 @@ class BaseEnv(gym.Env, ABC):
             filename (str): Output GIF filename.
             interval (int): Delay between frames in milliseconds.
             frame_skip (int): Save every Nth frame (default 2 = every other frame).
-            beginning (int): Start time for the GIF (inclusive).
+            start (int): Start time for the GIF (inclusive).
             end (int): End time for the GIF (inclusive, -1 for no upper limit).
 
         Raises:
@@ -489,7 +489,7 @@ class BaseEnv(gym.Env, ABC):
                          in `torax.plotting.configs`""")
             return
 
-        data_tree = self.torax_app.get_output_datatree(beginning, end)
+        data_tree = self.torax_app.get_output_datatree(start, end)
 
         torax_plot_extensions.plot_run_to_gif(
             plot_config=PLOT_CONFIG,
