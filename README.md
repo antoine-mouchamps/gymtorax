@@ -62,6 +62,8 @@ env.close()
 
 ### Basic Usage
 
+Out of the box, Gym-TORAX current provides a single environment based on the Iter-Hybrid ramp-up scenario. The environment is named `IterHybrid-v0` and can be used in the following way:
+
 ```python
 import gymnasium as gym
 import gymtorax
@@ -100,19 +102,21 @@ class CustomPlasmaEnv(BaseEnv):
     """Custom environment for beta_N control with current and heating."""
     
     def _define_action_space(self):
-        return [
+        return [ # [A]
             IpAction(
                 min=[1e6], max=[15e6], 
                 ramp_rate=[0.2e6]  # MA/s ramp limit
             ),
-            EcrhAction(
+            EcrhAction( # [W, r/a, width]
                 min=[0.0, 0.1, 0.01], 
-                max=[20e6, 0.9, 0.5]   # [W, r/a, width]
+                max=[20e6, 0.9, 0.5]   
             ),
         ]
     
     def _define_observation_space(self):
-        return AllObservation()
+        return AllObservation(
+            expect={'profiles': ['n_e']} # Remove data from the observation 
+        )
     
     def _get_torax_config(self):
         return {
@@ -122,25 +126,48 @@ class CustomPlasmaEnv(BaseEnv):
         }
     
     def _compute_reward(self, state, next_state, action):
-        """Multi-objective reward for beta_N control."""
-        # Performance: track normalized beta
-        target_beta = 0.02
-        current_beta = next_state["/"]["plasma_geometry"]["beta_N"][0]
-        performance = -abs(current_beta - target_beta)
-        
-        # Safety: penalize q < 2 (kink instability)
-        q_min = next_state["/"]["plasma_physics"]["q_safety_factor"].min()
-        safety = -max(0, 2.0 - q_min) * 10
-        
-        # Efficiency: penalize excessive control effort
-        control_effort = -0.01 * sum(np.sum(a**2) for a in action.values())
-        
-        return performance + safety + control_effort
+        """Multi-objective reward for plasma control."""
+        def _is_H_mode():  # Rought estimate of the LH transition
+            if (
+                next_state["profiles"]["T_e"][0] > 10
+                and next_state["profiles"]["T_i"][0] > 10
+            ):
+                return True
+            else:
+                return False
+
+        def _r_fusion_gain(): # Reward based on the fusion gain in H mode
+            fusion_gain = reward.get_fusion_gain(next_state) / 10  # Normalize with ITER target
+            if _is_H_mode():
+                return fusion_gain
+            else:
+                return 0
+
+        def _r_q_min(): # Reward if safety factor is always > 1
+            q_min = reward.get_q_min(next_state)
+            if q_min <= 1:
+                return q_min
+            elif q_min > 1:
+                return 1
+
+        def _r_q_95(): # Reward if edge safety factor is > 3
+            q_95 = reward.get_q95(next_state)
+            if q_95 / 3 <= 1:
+                return q_95 / 3
+            else:
+                return 1
+
+        # Normalize reward components
+        r_fusion_gain = weight_list[0] * _r_fusion_gain() / 50
+        r_q_min = weight_list[2] * _r_q_min() / 150
+        r_q_95 = weight_list[3] * _r_q_95() / 150
+
+        return r_fusion_gain r_q_min + r_q_95 # Return total reward
 
 # Register and use
 import gymnasium as gym
-gym.register(id='MyPlasma-v0', entry_point=CustomPlasmaEnv)
-env = gym.make('MyPlasma-v0')
+gym.register(id='MyPlasmaEnv-v0', entry_point=CustomPlasmaEnv)
+env = gym.make('MyPlasmaEnv-v0')
 ```
 
 ## Advanced Usage
@@ -151,14 +178,22 @@ env = gym.make('MyPlasma-v0')
 # Configure comprehensive logging
 env = gym.make('gymtorax/IterHybrid-v0', 
                log_level="debug",           # debug, info, warning, error
-               logfile="simulation.log",    # File output
-               store_history=True)          # Keep full simulation history
+               logfile="simulation.log",    # Log output
+               store_history=True)          # Keep full simulation history for postprocessing
 
 # Access simulation data
 env.reset()
 env.step(env.action_space.sample())
-torax_state = env.torax_app.get_state_data()  # Raw TORAX state
-history = env.torax_app.get_output_datatree()  # Full xarray DataTree
+
+env.save_file("output.nc")
+env.save_gif_torax(
+    filename: str = "torax_evolution.gif", # Path to the .gif file
+    config_plot: str = "default", # Plot config (see TORAX documentation)
+    interval: int = 200, # ms/frame
+    frame_skip: int = 2, # skip 1 out of 2 time step in the gif
+    start: int = 0, # time step at which to start the gif generation
+    end: int = -1, # time step at which to end the gif generation
+)
 ```
 
 ### Visualization and Monitoring
