@@ -90,8 +90,11 @@ env.close()
 ```
 
 ### Custom Environment
-
-Create your own plasma control task:
+To create a custom plasma control environment, four abstract methods need to be implemented:
+- `_get_torax_config`: specifies the TORAX configuration file and the discretization to use.
+- `_define_action_space`: defines which actions are considered in this enviroment, and optional bounds and ramp-rates contraints by returning a list of `Action` objects.
+- `_define_observation_space`: defines the variables present in the observation and optional bounds by returning an `Observation` object.
+- `_compute_reward`: computes the reward base on `state`, `next_state` and `action`.
 
 ```python
 from gymtorax import BaseEnv
@@ -100,7 +103,13 @@ from gymtorax.observation_handler import AllObservation
 
 class CustomPlasmaEnv(BaseEnv):
     """Custom environment for beta_N control with current and heating."""
-    
+    def _get_torax_config(self):
+        return {
+            "config": YOUR_TORAX_CONFIG,  # See docs for config examples
+            "discretization": "auto", 
+            "delta_t_a": 1.0  # 1 second control timestep
+        }
+
     def _define_action_space(self):
         return [ # [A]
             IpAction(
@@ -117,13 +126,6 @@ class CustomPlasmaEnv(BaseEnv):
         return AllObservation(
             expect={'profiles': ['n_e']} # Remove data from the observation 
         )
-    
-    def _get_torax_config(self):
-        return {
-            "config": YOUR_TORAX_CONFIG,  # See docs for config examples
-            "discretization": "auto", 
-            "delta_t_a": 1.0  # 1 second control timestep
-        }
     
     def _compute_reward(self, state, next_state, action):
         """Multi-objective reward for plasma control."""
