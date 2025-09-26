@@ -197,14 +197,7 @@ env.save_gif_torax(
 ```
 
 ### Visualization and Monitoring
-WIP
-```python
-WIP
-```
-
-## Contributing
-
-We welcome contributions!
+This feature has not been fully implemented yet. The section will be updated as soon as the visualization feature is complete.
 
 ### Development Workflow
 
