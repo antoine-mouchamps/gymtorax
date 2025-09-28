@@ -11,7 +11,9 @@
 
 GymTORAX transforms the [TORAX plasma simulator](https://torax.readthedocs.io/) into a set of reinforcement learning (RL) environments, bridging the gap between plasma physics simulation and RL research. It provides ready-to-use Gymnasium-compliant environments for training RL agents on realistic plasma control problems, and allows the creation of new environments.
 
-The documentation is available at [https://gymtorax.readthedocs.io](https://gymtorax.readthedocs.io)
+In its current version, one environment is readily available, based on a ramp-up scenario of the International Thermonuclear Experimental Reactor (ITER).
+
+The documentation of the package is available at [https://gymtorax.readthedocs.io](https://gymtorax.readthedocs.io)
 
 ## Key Features
 
@@ -23,13 +25,13 @@ The documentation is available at [https://gymtorax.readthedocs.io](https://gymt
 
 TORAX is an open-source plasma simulator that models the time evolution of plasma quantities (temperatures, densities, magnetic flux, ...) using 1D transport equations. GymTORAX transforms TORAX from an open-loop simulator into a closed-loop control environment suitable for reinforcement learning.
 
-More information in the official TORAX documentation at [https://torax.readthedocs.io/](https://torax.readthedocs.io/).
+More information about TORAX are available in the official documentation at [https://torax.readthedocs.io/](https://torax.readthedocs.io/).
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Python 3.10+** (required for modern typing features)
+- **Python 3.10+**
 
 ### Installation
 
@@ -216,7 +218,6 @@ This feature has not been fully implemented yet. The section will be updated as 
    ```bash
    pytest                    # Run test suite
    ruff check && ruff format # Linting and formatting
-   pytest --cov=gymtorax     # Coverage report
    ```
 7. **Commit** and **push** changes
 8. **Open** a Pull Request with description
