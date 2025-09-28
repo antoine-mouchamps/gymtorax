@@ -574,7 +574,6 @@ class BaseEnv(gym.Env, ABC):
             frame_skip=frame_skip,
         )
 
-
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
     # =============================================================================

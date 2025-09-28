@@ -24,29 +24,31 @@ main_prop_fig = viz.FigureProperties(
                 "Auxiliary Current",
             ),
             ylabel="Current, [A]",
-            plot_type=plotruns_lib.PlotType.TIME_SERIES
+            plot_type=plotruns_lib.PlotType.TIME_SERIES,
         ),
         plotruns_lib.PlotProperties(
             attrs=("n_e", "n_i"),
             labels=("Electron Density", "Ion Density"),
             ylabel="Density, [1/m^3]",
-            plot_type=plotruns_lib.PlotType.SPATIAL
+            plot_type=plotruns_lib.PlotType.SPATIAL,
         ),
         plotruns_lib.PlotProperties(
             attrs=("T_i", "T_e"),
             labels=("Ion Temperature", "Electron Temperature"),
             ylabel="Temperature, [keV]",
-            plot_type=plotruns_lib.PlotType.SPATIAL
+            plot_type=plotruns_lib.PlotType.SPATIAL,
         ),
         plotruns_lib.PlotProperties(
-            attrs=("Q_fusion",), labels=("Fusion Power gain",), ylabel="Power gain, [-]",
-            plot_type=plotruns_lib.PlotType.TIME_SERIES
+            attrs=("Q_fusion",),
+            labels=("Fusion Power gain",),
+            ylabel="Power gain, [-]",
+            plot_type=plotruns_lib.PlotType.TIME_SERIES,
         ),
         plotruns_lib.PlotProperties(
             attrs=("q", "magnetic_shear"),
             labels=("Safety factor", "Magnetic shear"),
             ylabel="[-]",
-            plot_type=plotruns_lib.PlotType.SPATIAL
+            plot_type=plotruns_lib.PlotType.SPATIAL,
         ),
     ),
     default_legend_fontsize=10,

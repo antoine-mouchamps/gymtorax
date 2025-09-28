@@ -1,15 +1,6 @@
 import cProfile
 
 import numpy as np
-from torax.plotting.configs.default_plot_config import (
-    PLOT_CONFIG as default_torax_plot_config,  # noqa: N811
-)
-from torax.plotting.configs.simple_plot_config import (
-    PLOT_CONFIG as simple_torax_plot_config,  # noqa: N811
-)
-from torax.plotting.configs.sources_plot_config import (
-    PLOT_CONFIG as sources_torax_plot_config,  # noqa: N811
-)
 
 from gymtorax import IterHybridEnv
 from gymtorax.rendering.plots import main_prop_fig
@@ -93,7 +84,7 @@ if __name__ == "__main__":
         config_plot=main_prop_fig,
         interval=200,
         frame_skip=5,
-        )
+    )
     # env.save_gif_torax(
     #     filename="tmp/source_output_torax.gif",
     #     config_plot=main_prop_fig,

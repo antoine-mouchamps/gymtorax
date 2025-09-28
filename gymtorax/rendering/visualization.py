@@ -6,6 +6,7 @@ Features:
 
 All functions accept variable names as in DEFAULT_BOUNDS (see observation_handler.py).
 """
+
 import dataclasses
 import logging
 
@@ -268,9 +269,10 @@ class ToraxStyleRealTimePlotter:
             )
             ax.legend(fontsize=legend_fontsize)
             # Make empty axes invisible
-            for ax in axes[len(self.plot_config.axes):]:
+            for ax in axes[len(self.plot_config.axes) :]:
                 ax.set_visible(False)
         return fig, axes, lines
+
 
 @dataclasses.dataclass
 class FigureProperties(plotruns_lib.FigureProperties):
