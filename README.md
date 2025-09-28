@@ -3,7 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
 [![PyPI Version](https://img.shields.io/pypi/v/gymtorax.svg)](https://pypi.org/project/gymtorax/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/github/actions/workflow/status/antoine-mouchamps/gymtorax/tests.yml?branch=main&label=tests)](https://github.com/antoine-mouchamps/gymtorax/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/antoine-mouchamps/gymtorax/ci.yml?branch=main&label=tests)](https://github.com/antoine-mouchamps/gymtorax/actions)
 [![Documentation](https://img.shields.io/badge/docs-sphinx-brightgreen.svg)](https://gymtorax.readthedocs.io)
 [![Code Style](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
