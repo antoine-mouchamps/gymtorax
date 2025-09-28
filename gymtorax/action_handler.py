@@ -351,7 +351,7 @@ class Action(ABC):
                     elif isinstance(d[key], tuple) and 0 in d[key][0]:
                         if isinstance(d[key][0], list | tuple):
                             pos = d[key][0].index(0)
-                        elif isinstance(d[key][0], NDArray):
+                        elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]
                         self.values[idx] = d[key][1][pos]
                     # TODO: This log is only valid if we do not do a restart from a .nc file, since in such a case,

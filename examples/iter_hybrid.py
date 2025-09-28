@@ -1,9 +1,18 @@
 import cProfile
 
 import numpy as np
+from torax.plotting.configs.default_plot_config import (
+    PLOT_CONFIG as default_torax_plot_config,  # noqa: N811
+)
+from torax.plotting.configs.simple_plot_config import (
+    PLOT_CONFIG as simple_torax_plot_config,  # noqa: N811
+)
+from torax.plotting.configs.sources_plot_config import (
+    PLOT_CONFIG as sources_torax_plot_config,  # noqa: N811
+)
 
-import gymtorax.rendering.visualization as viz
 from gymtorax import IterHybridEnv
+from gymtorax.rendering.plots import main_prop_fig
 
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
@@ -37,19 +46,17 @@ class IterHybridAgent:  # noqa: D101
         """
         action = {
             "Ip": [3e6],
-            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "NBI": [nbi_powers[0], r_nbi, w_nbi],
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
         if self.time == 98:
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
-            action["NBI"][1] = nbi_cd[1]
 
         if self.time >= 99:
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
-            action["NBI"][1] = nbi_cd[2]
 
         if self.time < 99:
             action["Ip"][0] = 3e6 + (self.time + 1) * (12.5e6 - 3e6) / 100
@@ -64,7 +71,7 @@ class IterHybridAgent:  # noqa: D101
 if __name__ == "__main__":
     profiler = cProfile.Profile()
 
-    env = IterHybridEnv(render_mode="human", store_history=True)
+    env = IterHybridEnv(render_mode="human", store_history=True, fig=main_prop_fig)
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
@@ -79,9 +86,17 @@ if __name__ == "__main__":
             env.render()
 
     env.save_file("tmp/outputs_iter_torax.nc")
-    viz.save_gif_from_nc(
-        "tmp/outputs_iter_torax.nc",
+
+    env.save_gif_nc(
+        nc_file="tmp/outputs_iter_torax.nc",
         filename="tmp/output_torax.gif",
+        config_plot=main_prop_fig,
         interval=200,
         frame_skip=5,
-    )
+        )
+    # env.save_gif_torax(
+    #     filename="tmp/source_output_torax.gif",
+    #     config_plot=main_prop_fig,
+    #     interval=200,
+    #     frame_skip=5,
+    #     )

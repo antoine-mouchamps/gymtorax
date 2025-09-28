@@ -7,7 +7,7 @@ processing logic, spacing, and matplotlib configurations as the original.
 
 import matplotlib
 
-matplotlib.use("Agg")  # Non-interactive backend
+#matplotlib.use("Agg")  # Non-interactive backend
 import inspect
 import io
 import logging

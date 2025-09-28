@@ -47,7 +47,9 @@ from typing import Any
 
 import gymnasium as gym
 import numpy as np
+import torax._src.output_tools.output as output
 from numpy.typing import NDArray
+from torax._src.plotting import plotruns_lib
 
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
@@ -275,8 +277,6 @@ class BaseEnv(gym.Env, ABC):
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
 
         self.current_time = torax_state["/"]["time"][0].item()
-        # Update last_action_dict with initial state
-        self._update_last_action_dict(torax_state)
 
         # Extract initial observation
         self.state, self.observation = (
@@ -292,8 +292,7 @@ class BaseEnv(gym.Env, ABC):
 
         if self.plotter is not None:
             self.plotter.update(
-                current_state=self.state,
-                action_input=self.last_action_dict,
+                current_state=torax_state,
                 t=self.current_time,
             )
         logger.debug(" environment reset complete.")
@@ -367,9 +366,6 @@ class BaseEnv(gym.Env, ABC):
         # Extract new state and observation after simulation step
         next_torax_state = self.torax_app.get_state_data()
 
-        # Update last_action_dict with new state
-        self._update_last_action_dict(next_torax_state)
-
         next_state, observation = self.observation_handler.extract_state_observation(
             next_torax_state
         )
@@ -395,8 +391,7 @@ class BaseEnv(gym.Env, ABC):
 
         if self.plotter is not None:
             self.plotter.update(
-                current_state=self.state,
-                action_input=self.last_action_dict,
+                current_state=next_torax_state,
                 t=self.current_time,
             )
 
@@ -448,7 +443,7 @@ class BaseEnv(gym.Env, ABC):
     def save_gif_torax(
         self,
         filename: str = "torax_evolution.gif",
-        config_plot: str = "default",
+        config_plot: str | plotruns_lib.FigureProperties = "default",
         interval: int = 200,
         frame_skip: int = 2,
         beginning: int = 0,
@@ -474,20 +469,25 @@ class BaseEnv(gym.Env, ABC):
             AttributeError: If the module does not contain a PLOT_CONFIG attribute.
             RuntimeError: If the simulation was not run with state history enabled.
         """
-        try:
-            module = importlib.import_module(
-                f"torax.plotting.configs.{config_plot}_plot_config"
-            )
-        except ImportError:
-            logger.error(f"""Plot config: {config_plot} not found
-                         in `torax.plotting.configs`""")
-            return
-        try:
-            PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
-        except AttributeError:
-            logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
-                         in `torax.plotting.configs`""")
-            return
+        if isinstance(config_plot, str):
+            try:
+                module = importlib.import_module(
+                    f"torax.plotting.configs.{config_plot}_plot_config"
+                )
+            except ImportError:
+                logger.error(f"""Plot config: {config_plot} not found
+                            in `torax.plotting.configs`""")
+                return
+            try:
+                PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
+            except AttributeError:
+                logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
+                            in `torax.plotting.configs`""")
+                return
+        elif isinstance(config_plot, plotruns_lib.FigureProperties):
+            PLOT_CONFIG = config_plot
+        else:
+            raise TypeError("config_plot must be a string or FigureProperties instance")
 
         data_tree = self.torax_app.get_output_datatree(beginning, end)
 
@@ -501,62 +501,79 @@ class BaseEnv(gym.Env, ABC):
             frame_skip=frame_skip,
         )
 
-    def save_gif(
+    def save_gif_nc(
         self,
-        filename: str = "torax_output.gif",
+        nc_file: str,
+        filename: str = "torax_evolution.gif",
+        config_plot: str | plotruns_lib.FigureProperties = "default",
         interval: int = 200,
         frame_skip: int = 2,
-    ) -> None:
-        """Save the data as a GIF file.
+        beginning: int = 0,
+        end: int = -1,
+    ):
+        """Generate and save a GIF of the simulation from a NetCDF output file.
+
+        This method loads a NetCDF output file, loads a plotting configuration by name or object,
+        and generates an animated GIF visualizing the evolution of the simulation. The plot configuration
+        must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG` attribute, or be
+        provided directly as a FigureProperties instance.
 
         Args:
-            filename (str): Path to save the GIF file.
-                If it does not end with ".gif", the suffix will be added.
-            interval (int): Delay between frames in ms.
-            frame_skip (int): Save every Nth frame (default 2 = all frames).
-                The last frame is always included.
+            nc_file (str): Path to the NetCDF output file containing simulation data.
+            filename (str): Output GIF filename.
+            config_plot (str or FigureProperties): Name of the plot configuration to use (e.g., "default"),
+                or a FigureProperties instance.
+            interval (int): Delay between frames in milliseconds.
+            frame_skip (int): Save every Nth frame (default 2 = every other frame).
+            beginning (int): Start time for the GIF (inclusive).
+            end (int): End time for the GIF (inclusive, -1 for no upper limit).
+
+        Raises:
+            FileNotFoundError: If the NetCDF file cannot be found.
+            ImportError: If the plot configuration module cannot be found.
+            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
+            TypeError: If config_plot is not a string or FigureProperties instance.
+            Exception: If there is an error loading the NetCDF file.
         """
-        if self.plotter is not None:
-            # verify that the suffix is correct
-            if not filename.endswith(".gif"):
-                filename += ".gif"
-            self.plotter.save_gif(filename, interval=interval, frame_skip=frame_skip)
+        try:
+            dt = output.load_state_file(nc_file)
+        except FileNotFoundError:
+            logger.error(f"NetCDF file not found: {nc_file}")
+            return
+        except Exception as e:
+            logger.error(f"Error loading NetCDF file: {e}")
+            return
+
+        if isinstance(config_plot, str):
+            try:
+                module = importlib.import_module(
+                    f"torax.plotting.configs.{config_plot}_plot_config"
+                )
+            except ImportError:
+                logger.error(f"""Plot config: {config_plot} not found
+                            in `torax.plotting.configs`""")
+                return
+            try:
+                PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
+            except AttributeError:
+                logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
+                            in `torax.plotting.configs`""")
+                return
+        elif isinstance(config_plot, plotruns_lib.FigureProperties):
+            PLOT_CONFIG = config_plot
         else:
-            logger.warning("No plotter available to save GIF.")
+            raise TypeError("config_plot must be a string or FigureProperties instance")
 
-    def _update_last_action_dict(self, state):
-        """Update the last action dictionary with current state values.
+        torax_plot_extensions.plot_run_to_gif(
+            plot_config=PLOT_CONFIG,
+            data_tree=dt,
+            gif_filename=filename,
+            n_frames=50,
+            duration=interval,
+            optimize=False,
+            frame_skip=frame_skip,
+        )
 
-        This internal method maintains a dictionary tracking the most recent values
-        of action variables from the simulation state. It initializes the dictionary
-        structure on first call and updates values on subsequent calls.
-
-        The dictionary follows the structure: {'scalars': {...}, 'profiles': {...}}
-        where keys correspond to action variable categories and values are the
-        current state values for those variables.
-
-        Args:
-            state (dict): Current simulation state containing variable values
-            organized by category (scalars, profiles, etc.)
-
-        Note:
-            This method is called during ``reset`` and ``step`` to keep track of
-            action variable values for visualization and debugging purposes.
-        """
-        action_vars = self.action_handler.get_action_variables()
-        # Initialize structure only if empty
-        if not self.last_action_dict:
-            self.last_action_dict = {"scalars": {}, "profiles": {}}
-            for cat, var_list in action_vars.items():
-                if cat not in self.last_action_dict:
-                    self.last_action_dict[cat] = {}
-                for var in var_list:
-                    self.last_action_dict[cat][var] = None
-        # Update values
-        for cat, var_list in action_vars.items():
-            for var in var_list:
-                value = state.get(cat, {}).get(var, None)
-                self.last_action_dict[cat][var] = value
 
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
