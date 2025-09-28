@@ -418,7 +418,7 @@ class ToraxApp:
             )
         )
 
-    def get_output_datatree(self, beginning: int = 0, end: int = -1) -> DataTree:
+    def get_output_datatree(self, start: int = 0, end: int = -1) -> DataTree:
         """Return the full simulation history as an xarray DataTree.
 
         This method reconstructs the complete trajectory of the simulation,
@@ -430,7 +430,7 @@ class ToraxApp:
         `store_history=True` so that the full history is available.
 
         Args:
-            beginning (int or float): Start time for selection.
+            start (int or float): Start time for selection.
                 Defaults to 0.
             end (int or float): End time for selection. Defaults to
                 -1 (no upper limit).
@@ -451,10 +451,8 @@ class ToraxApp:
         post_processed_outputs_history = [output[1] for output in self.history_list]
 
         state_history = output.StateHistory(
-            state_history=state_history[beginning:end],
-            post_processed_outputs_history=post_processed_outputs_history[
-                beginning:end
-            ],
+            state_history=state_history[start:end],
+            post_processed_outputs_history=post_processed_outputs_history[start:end],
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )

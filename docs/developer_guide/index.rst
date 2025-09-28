@@ -1,7 +1,7 @@
 Developer Guide
-===========================
+===============
 
-This section explains how the code is organized and how to contribute to the Gym-TORAX package.
+This section explains how the code is organized in the Gym-TORAX package.
 
 .. toctree::
    :maxdepth: 1

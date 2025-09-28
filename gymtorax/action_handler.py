@@ -344,12 +344,12 @@ class Action(ABC):
             if time == "init":
                 # Check if there is no value associated to the existing key
                 if d[key] != {}:
-                    if isinstance(d[key], float | int):
+                    if isinstance(d[key], (float, int)):  # noqa: UP038
                         self.values[idx] = d[key]
                     elif isinstance(d[key], dict):
                         self.values[idx] = d[key][0]
                     elif isinstance(d[key], tuple) and 0 in d[key][0]:
-                        if isinstance(d[key][0], list | tuple):
+                        if isinstance(d[key][0], (list, tuple)):  # noqa: UP038
                             pos = d[key][0].index(0)
                         elif isinstance(d[key][0], np.ndarray):
                             pos = np.where(d[key][0] == 0)[0][0]

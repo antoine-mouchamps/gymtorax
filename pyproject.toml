@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gymtorax"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "A Gymnasium environment for Torax simulations"
 authors = [
     "Antoine Mouchamps <antoine.mouchamps@gmail.com>",
@@ -27,6 +27,7 @@ docformatter = "*"
 sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinx-design = "*"
+sphinx-copybutton = "*"
 
 [build-system]
 requires = ["poetry-core"]
