@@ -28,7 +28,7 @@ Logging Configuration
    # Configure comprehensive logging
    setup_logging(
        level=logging.DEBUG,
-       logfile="simulation.log",
+       log_file="simulation.log",
        suppress_external=True  # Quiet JAX/TORAX messages
    )
 

@@ -79,76 +79,6 @@ def simulate(env: IterHybridEnv, agent, verbose=0):
     return -cumulative_reward
 
 
-def optimize(function, bounds, n_starts=5):
-    """Optimize PID parameters using multiple evenly distributed starting points.
-
-    Args:
-        function: Objective function to minimize
-        bounds: Bounds for optimization [(kp_min, kp_max), (ki_min, ki_max)]
-        n_starts: Number of evenly distributed starting points (default: 5)
-
-    Returns:
-        scipy.optimize.OptimizeResult: Best optimization result
-    """
-    start_time = time.time()
-
-    # Extract bounds
-    kp_bounds, ki_bounds = bounds
-    kp_min, kp_max = kp_bounds
-    ki_min, ki_max = ki_bounds
-
-    # Create evenly distributed initial conditions avoiding borders
-    # Use n_starts+1 points and exclude the first and last (border) points
-    kp_starts = np.linspace(kp_min, kp_max, n_starts + 2)[1:-1]
-    ki_starts = np.linspace(ki_min, ki_max, n_starts + 2)[1:-1]
-
-    # Create all combinations of starting points
-    initial_conditions = []
-    for kp in kp_starts:
-        for ki in ki_starts:
-            initial_conditions.append([kp, ki])
-
-    print(
-        f"Starting optimization with {len(initial_conditions)} evenly distributed initial conditions..."
-    )
-
-    # Run minimize from each starting point
-    best = None
-    best_val = np.inf
-    results = []
-
-    for i, (kp0, ki0) in enumerate(initial_conditions):
-        print(
-            f"Starting point {i + 1}/{len(initial_conditions)}: kp={kp0:.4e}, ki={ki0:.4e}"
-        )
-
-        res = minimize(
-            function,
-            np.array([kp0, ki0]),
-            method="Powell",
-            options={"xtol": 1e-3, "ftol": 1e-4},
-            bounds=bounds,
-        )
-
-        results.append(res)
-        print(
-            f"  Result: kp={res.x[0]:.4e}, ki={res.x[1]:.4e}, objective={res.fun:.4f}"
-        )
-
-        if res.fun < best_val:
-            best_val = res.fun
-            best = res
-
-    total_time = time.time() - start_time
-
-    print(f"\nOptimization completed in {total_time:.2f}s")
-    print(
-        f"Best solution: kp={best.x[0]:.4e}, ki={best.x[1]:.4e}, reward={-best.fun:.4f}"
-    )
-
-    return best
-
-
 def _plot_j_evolution(
     filename,
     action_history,
@@ -240,26 +170,6 @@ if __name__ == "__main__":
 
     observation, _ = env.reset()
 
-    def _simulate_pid(k):
-        agent = PIDAgent(
-            env.action_space,
-            get_j_target,
-            env.action_handler.get_actions()["Ip"].ramp_rate[0],
-            kp=k[0],
-            ki=k[1],
-            kd=0.0,
-        )
-
-        return simulate(env, agent, verbose=1)
-
-    # Run the main optimization sequence
-    # res = optimize(
-    #     lambda k: _simulate_pid(k),
-    #     bounds=[(0, 50), (0, 50)],
-    #     n_starts=3,
-    # )
-    # kp, ki = res.x
-
     kp, ki = 0.700, 34.257
 
     agent_pid = PIDAgent(
@@ -283,7 +193,7 @@ if __name__ == "__main__":
     j_target_history = [get_j_target(t) for t in range(150)]
 
     # Save a gif of the final simulation
-    # env.save_gif_torax(
+    # env.save_gif(
     #     filename="tmp/pid_optimized.gif",
     #     interval=250,
     #     frame_skip=2,

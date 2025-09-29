@@ -193,7 +193,7 @@ class IterHybridEnv(BaseEnv):
             render_mode (str, optional): Rendering mode for visualization.
                 See BaseEnv documentation for details. Defaults to None.
             **kwargs: Additional keyword arguments passed to BaseEnv.__init__().
-                Common options include log_level, logfile, fig, and store_history.
+                Common options include log_level, log_file, fig, and store_history.
                 Refer to BaseEnv.__init__() documentation for complete parameter list.
 
         Note:

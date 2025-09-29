@@ -182,7 +182,7 @@ env = gym.make('MyPlasmaEnv-v0')
 # Configure comprehensive logging
 env = gym.make('gymtorax/IterHybrid-v0', 
                log_level="debug",           # debug, info, warning, error
-               logfile="simulation.log",    # Log output
+               log_file="simulation.log",    # Log output
                store_history=True)          # Keep full simulation history for postprocessing
 
 # Access simulation data

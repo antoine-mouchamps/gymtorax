@@ -120,7 +120,7 @@ class BaseEnv(gym.Env, ABC):
             log_level (str): Logging level for environment operations.
                 Options: "debug", "info", "warning", "error", "critical".
                 Defaults to "warning".
-            logfile (str or None): Path to log file for writing log messages.
+            log_file (str or None): Path to log file for writing log messages.
                 If None, logs to console. Defaults to None.
             fig (FigureProperties or None): Figure properties for visualization
                 configuration. Defines plot layout, variables to display, and styling
@@ -145,11 +145,10 @@ class BaseEnv(gym.Env, ABC):
         """
         # Set Gymnasium metadata for rendering configuration
         self.__class__.metadata = {
-            "render_modes": ["human", "rgb_array"],
-            "render_fps": 4,
+            "render_modes": ["human"],
         }
 
-        setup_logging(getattr(logging, log_level.upper()), logfile)
+        setup_logging(getattr(logging, log_level.upper()), log_file)
 
         try:
             config = copy.deepcopy(self._get_torax_config()["config"])
@@ -218,13 +217,10 @@ class BaseEnv(gym.Env, ABC):
         )
 
         # Build Gymnasium spaces
-        # WARNING: At this stage, the observation space cannot be fully
-        # determined. It is first set to the maximal possible space.
         self.action_space = self.action_handler.build_action_space()
         self.observation_space = self.observation_handler.build_observation_space()
 
         # Validate and set rendering mode
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
         if fig is not None:
             self.plotter = ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)

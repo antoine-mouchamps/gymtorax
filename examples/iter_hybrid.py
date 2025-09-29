@@ -1,5 +1,3 @@
-import cProfile
-
 import numpy as np
 
 from gymtorax import IterHybridEnv
@@ -60,8 +58,6 @@ class IterHybridAgent:  # noqa: D101
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
-
     env = IterHybridEnv(render_mode="human", store_history=True, fig=main_prop_fig)
     agent = IterHybridAgent(env.action_space)
 

@@ -185,7 +185,7 @@ class TestEnv(BaseEnv):
 
         Args:
             **kwargs: Keyword arguments passed to BaseEnv.__init__().
-                Common options include render_mode, log_level, logfile, fig,
+                Common options include render_mode, log_level, log_file, fig,
                 and store_history. Refer to BaseEnv.__init__() documentation
                 for complete parameter list.
 
@@ -217,15 +217,8 @@ class TestEnv(BaseEnv):
 
 
 if __name__ == "__main__":
-    import cProfile
-
-    profiler = cProfile.Profile()
     env = TestEnv()
     env.reset()
 
     for i in range(10):
-        if i == 4:
-            profiler.enable()
         env.step({"Ip": [3e6]})
-
-    profiler.disable()
