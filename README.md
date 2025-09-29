@@ -190,7 +190,7 @@ env.reset()
 env.step(env.action_space.sample())
 
 env.save_file("output.nc")
-env.save_gif_torax(
+env.save_gif(
     filename: str = "torax_evolution.gif", # Path to the .gif file
     config_plot: str = "default", # Plot config (see TORAX documentation)
     interval: int = 200, # ms/frame

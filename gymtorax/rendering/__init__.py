@@ -1,3 +1,3 @@
-from .visualization import FigureProperties, ToraxStyleRealTimePlotter
+from .visualization import Plotter
 
-__all__ = ["FigureProperties", "ToraxStyleRealTimePlotter"]
+__all__ = ["Plotter"]

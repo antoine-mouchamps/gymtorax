@@ -40,21 +40,20 @@ Example:
 """
 
 import copy
-import importlib
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 import gymnasium as gym
 import numpy as np
-import torax._src.output_tools.output as output
 from numpy.typing import NDArray
-from torax._src.plotting import plotruns_lib
+from torax._src.plotting.plotruns_lib import FigureProperties
 
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
-from ..rendering import FigureProperties, ToraxStyleRealTimePlotter
+from ..render import process_plot_config
+from ..rendering import Plotter
 from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
 
 # Set up logger for this module
@@ -105,8 +104,8 @@ class BaseEnv(gym.Env, ABC):
         self,
         render_mode: str | None = None,
         log_level: str = "warning",
-        logfile: str | None = None,
-        fig: FigureProperties | None = None,  # TODO: REMOVE FROM HERE
+        log_file: str | None = None,
+        plot_config: str | FigureProperties = "default",
         store_history: bool = False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
@@ -122,10 +121,9 @@ class BaseEnv(gym.Env, ABC):
                 Defaults to "warning".
             log_file (str or None): Path to log file for writing log messages.
                 If None, logs to console. Defaults to None.
-            fig (FigureProperties or None): Figure properties for visualization
-                configuration. Defines plot layout, variables to display, and styling
-                options for real-time plotting and GIF creation. If None, default
-                visualization settings will be used. Defaults to None.
+            plot_config (str or FigureProperties): Name of the plot configuration to use
+                (e.g., "default"). Can also be a torax FigureProperties instance for
+                custom plot configuration.
             store_history (bool): Whether to store simulation history
                 for later saving. Set to True if you plan to use ``save_file`` method.
                 Defaults to False.
@@ -222,10 +220,11 @@ class BaseEnv(gym.Env, ABC):
 
         # Validate and set rendering mode
         self.render_mode = render_mode
-        if fig is not None:
-            self.plotter = ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
+        if render_mode == "human":
+            plot_config = process_plot_config(plot_config)
+            self.renderer = Plotter(plot_config, render_mode=self.render_mode)
         else:
-            self.plotter = None
+            self.renderer = None
 
         self.store_history = store_history
 
@@ -265,8 +264,9 @@ class BaseEnv(gym.Env, ABC):
         # Initialize last_action_dict for storing last actions
         self.last_action_dict = {}
 
-        if self.plotter is not None:
-            self.plotter.reset()
+        # Reset renderer if applicable
+        if self.renderer is not None:
+            self.renderer.reset()
 
         # Initialize TORAX simulation
         self.torax_app.reset()  # Set up initial simulation state
@@ -286,8 +286,9 @@ class BaseEnv(gym.Env, ABC):
             ]
             self.action_history = [self.torax_app.config.get_current_action_values()]
 
-        if self.plotter is not None:
-            self.plotter.update(
+        # Update renderer with initial state if applicable
+        if self.renderer is not None:
+            self.renderer.update(
                 current_state=torax_state,
                 t=self.current_time,
             )
@@ -385,8 +386,9 @@ class BaseEnv(gym.Env, ABC):
         if self.current_time > self.T:
             self.terminated = True
 
-        if self.plotter is not None:
-            self.plotter.update(
+        # Update the renderer with current state if applicable
+        if self.renderer is not None:
+            self.renderer.update(
                 current_state=next_torax_state,
                 t=self.current_time,
             )
@@ -400,17 +402,13 @@ class BaseEnv(gym.Env, ABC):
 
     def close(self) -> None:
         """Clean up environment resources."""
-        if self.plotter is not None:
-            self.plotter.close()
+        if self.renderer is not None:
+            self.renderer.close()
 
     def render(self) -> None:
-        """Render the current environment state following Gymnasium convention.
-
-        Note:
-            For 'human' mode, this calls the plotter's update method for live visualization.
-        """
-        if self.render_mode == "human" and self.plotter is not None:
-            self.plotter.render_frame(t=self.current_time)
+        """Render the current environment state following Gymnasium convention."""
+        if self.render_mode == "human" and self.renderer is not None:
+            self.renderer.render_frame(t=self.current_time)
 
     def save_file(self, file_name):
         """Save the simulation output data to a file.
@@ -436,10 +434,10 @@ class BaseEnv(gym.Env, ABC):
 
         logger.debug(f"Saved simulation history to {file_name}")
 
-    def save_gif_torax(
+    def save_gif(
         self,
         filename: str = "torax_evolution.gif",
-        config_plot: str | plotruns_lib.FigureProperties = "default",
+        plot_config: str = "default",
         interval: int = 200,
         frame_skip: int = 2,
         start: int = 0,
@@ -453,7 +451,9 @@ class BaseEnv(gym.Env, ABC):
         attribute. The simulation must have been run with `store_history=True` for this to work.
 
         Args:
-            config_plot (str): Name of the plot configuration to use (e.g., "default").
+            plot_config (str or FigureProperties): Name of the plot configuration to use
+                (e.g., "default"). Can also be a torax FigureProperties instance for
+                custom plot configuration.
             filename (str): Output GIF filename.
             interval (int): Delay between frames in milliseconds.
             frame_skip (int): Save every Nth frame (default 2 = every other frame).
@@ -465,104 +465,13 @@ class BaseEnv(gym.Env, ABC):
             AttributeError: If the module does not contain a PLOT_CONFIG attribute.
             RuntimeError: If the simulation was not run with state history enabled.
         """
-        if isinstance(config_plot, str):
-            try:
-                module = importlib.import_module(
-                    f"torax.plotting.configs.{config_plot}_plot_config"
-                )
-            except ImportError:
-                logger.error(f"""Plot config: {config_plot} not found
-                            in `torax.plotting.configs`""")
-                return
-            try:
-                PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
-            except AttributeError:
-                logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
-                            in `torax.plotting.configs`""")
-                return
-        elif isinstance(config_plot, plotruns_lib.FigureProperties):
-            PLOT_CONFIG = config_plot
-        else:
-            raise TypeError("config_plot must be a string or FigureProperties instance")
+        plot_config = process_plot_config(plot_config)
 
         data_tree = self.torax_app.get_output_datatree(start, end)
 
         torax_plot_extensions.plot_run_to_gif(
-            plot_config=PLOT_CONFIG,
+            plot_config=plot_config,
             data_tree=data_tree,
-            gif_filename=filename,
-            n_frames=50,
-            duration=interval,
-            optimize=False,
-            frame_skip=frame_skip,
-        )
-
-    def save_gif_nc(
-        self,
-        nc_file: str,
-        filename: str = "torax_evolution.gif",
-        config_plot: str | plotruns_lib.FigureProperties = "default",
-        interval: int = 200,
-        frame_skip: int = 2,
-        beginning: int = 0,
-        end: int = -1,
-    ):
-        """Generate and save a GIF of the simulation from a NetCDF output file.
-
-        This method loads a NetCDF output file, loads a plotting configuration by name or object,
-        and generates an animated GIF visualizing the evolution of the simulation. The plot configuration
-        must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG` attribute, or be
-        provided directly as a FigureProperties instance.
-
-        Args:
-            nc_file (str): Path to the NetCDF output file containing simulation data.
-            filename (str): Output GIF filename.
-            config_plot (str or FigureProperties): Name of the plot configuration to use (e.g., "default"),
-                or a FigureProperties instance.
-            interval (int): Delay between frames in milliseconds.
-            frame_skip (int): Save every Nth frame (default 2 = every other frame).
-            beginning (int): Start time for the GIF (inclusive).
-            end (int): End time for the GIF (inclusive, -1 for no upper limit).
-
-        Raises:
-            FileNotFoundError: If the NetCDF file cannot be found.
-            ImportError: If the plot configuration module cannot be found.
-            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
-            TypeError: If config_plot is not a string or FigureProperties instance.
-            Exception: If there is an error loading the NetCDF file.
-        """
-        try:
-            dt = output.load_state_file(nc_file)
-        except FileNotFoundError:
-            logger.error(f"NetCDF file not found: {nc_file}")
-            return
-        except Exception as e:
-            logger.error(f"Error loading NetCDF file: {e}")
-            return
-
-        if isinstance(config_plot, str):
-            try:
-                module = importlib.import_module(
-                    f"torax.plotting.configs.{config_plot}_plot_config"
-                )
-            except ImportError:
-                logger.error(f"""Plot config: {config_plot} not found
-                            in `torax.plotting.configs`""")
-                return
-            try:
-                PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
-            except AttributeError:
-                logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
-                            in `torax.plotting.configs`""")
-                return
-        elif isinstance(config_plot, plotruns_lib.FigureProperties):
-            PLOT_CONFIG = config_plot
-        else:
-            raise TypeError("config_plot must be a string or FigureProperties instance")
-
-        torax_plot_extensions.plot_run_to_gif(
-            plot_config=PLOT_CONFIG,
-            data_tree=dt,
             gif_filename=filename,
             n_frames=50,
             duration=interval,

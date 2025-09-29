@@ -1,7 +1,6 @@
 import numpy as np
 
 from gymtorax import IterHybridEnv
-from gymtorax.rendering.plots import main_prop_fig
 
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
@@ -58,7 +57,7 @@ class IterHybridAgent:  # noqa: D101
 
 
 if __name__ == "__main__":
-    env = IterHybridEnv(render_mode="human", store_history=True, fig=main_prop_fig)
+    env = IterHybridEnv(render_mode="human", store_history=True, log_level="debug")
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
@@ -69,19 +68,12 @@ if __name__ == "__main__":
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
         i += 1
-        if i % 10 == 0:
+        if i % 2 == 0:
             env.render()
 
     env.save_file("tmp/outputs_iter_torax.nc")
 
-    env.save_gif_nc(
-        nc_file="tmp/outputs_iter_torax.nc",
-        filename="tmp/output_torax.gif",
-        config_plot=main_prop_fig,
-        interval=200,
-        frame_skip=5,
-    )
-    # env.save_gif_torax(
+    # env.save_gif(
     #     filename="tmp/source_output_torax.gif",
     #     config_plot=main_prop_fig,
     #     interval=200,

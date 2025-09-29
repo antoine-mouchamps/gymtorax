@@ -201,7 +201,8 @@ class IterHybridEnv(BaseEnv):
             overridden by explicitly passing log_level in kwargs.
         """
         # Set environment-specific defaults
-        kwargs.setdefault("log_level", "debug")
+        kwargs.setdefault("log_level", "warning")
+        kwargs.setdefault("plot_config", "simple")
 
         super().__init__(render_mode=render_mode, **kwargs)
 

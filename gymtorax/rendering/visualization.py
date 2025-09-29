@@ -29,7 +29,7 @@ logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class ToraxStyleRealTimePlotter:
+class Plotter:
     """Real-time plotter using TORAX plot style and axis conventions.
 
     This class provides real-time visualization capabilities for TORAX plasma
