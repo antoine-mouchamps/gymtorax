@@ -16,14 +16,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from torax._src.plotting import plotruns_lib
 
-from ..torax_wrapper import create_figure, get_line_at_time, load_data
+from ..torax_wrapper import create_figure, get_line_at_time, load_data, validate_plotdata
 
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Font scaling constants
-FONT_SCALE_BASE = 1.0  # Base scaling factor
-FONT_SCALE_PER_ROW = 0.3  # Additional scaling per row
 
 
 class Plotter:
@@ -64,7 +60,7 @@ class Plotter:
         """
         self.plot_config = plot_config
         self.lines = []
-        self.fig, self.axes = self._setup_figure_and_lines()
+        self.fig, self.axes = create_figure(self.plot_config, 1)
         self.first_update = True
 
     def reset(self):
@@ -97,6 +93,7 @@ class Plotter:
             t (float, optional): Current simulation time.
         """
         plotdata = load_data(current_state)
+        validate_plotdata(plotdata, self.plot_config)
 
         line_idx = 0
         for ax, cfg in zip(self.axes, self.plot_config.axes):
@@ -183,38 +180,3 @@ class Plotter:
         and resources. Should be called when the plotter is no longer needed.
         """
         plt.close(self.fig)
-
-    def _setup_figure_and_lines(self):
-        """Create figure, axes, and line objects with proper labels and layout.
-
-        This internal method sets up the matplotlib figure structure based on the
-        plot configuration. It creates axes in a grid layout with proper spacing
-        and margins, initializes plot lines for each variable, and sets up labels
-        and legends.
-
-        Returns:
-            tuple: A tuple:
-                - fig (matplotlib.figure.Figure): The main figure object
-                - axes (list): List of matplotlib axes objects
-                - lines (list): List of matplotlib line objects for plotting
-        """
-            # Calculate font scaling based on rows
-        rows = self.plot_config.rows
-
-        font_scale = 1
-
-        # EXACT same matplotlib RC settings as original, but with scaling
-        matplotlib.rc("xtick", labelsize=self.plot_config.tick_fontsize * font_scale)
-        matplotlib.rc("ytick", labelsize=self.plot_config.tick_fontsize * font_scale)
-        matplotlib.rc("axes", labelsize=self.plot_config.axes_fontsize * font_scale)
-        matplotlib.rc("figure", titlesize=self.plot_config.title_fontsize * font_scale)
-
-        # Scale the font size of legend
-        self.plot_config.default_legend_fontsize *= font_scale
-        for ax_cfg in self.plot_config.axes:
-            if ax_cfg.legend_fontsize is not None:
-                ax_cfg.legend_fontsize *= font_scale
-
-        fig, axes = create_figure(self.plot_config)
-
-        return fig, axes

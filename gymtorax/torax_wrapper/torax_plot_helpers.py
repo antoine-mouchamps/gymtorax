@@ -27,11 +27,23 @@ FONT_SCALE_BASE = 1.0  # Base scaling factor
 FONT_SCALE_PER_ROW = 0.3  # Additional scaling per row
 
 
-def create_figure(plot_config: plotruns_lib.FigureProperties):
+def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float = 1):
     """Create figure without slider subplot.
 
     Returns only fig and axes, no slider_ax.
     """
+    # EXACT same matplotlib RC settings as original, but with scaling
+    matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("ytick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("axes", labelsize=plot_config.axes_fontsize * font_scale)
+    matplotlib.rc("figure", titlesize=plot_config.title_fontsize * font_scale)
+
+    # Scale the font size of legend
+    plot_config.default_legend_fontsize *= font_scale
+    for ax_cfg in plot_config.axes:
+        if ax_cfg.legend_fontsize is not None:
+            ax_cfg.legend_fontsize *= font_scale
+
     # Calculate font scaling based on rows and columns
     rows = plot_config.rows
     cols = plot_config.cols
@@ -87,21 +99,7 @@ def plot_run_to_gif(
     plotdata1 = load_data(data_tree)
     plotdata2 = load_data(data_tree_2) if data_tree_2 else None
 
-    # EXACT same attribute validation as plot_run()
-    plotdata_fields = set(plotdata1.__dataclass_fields__)
-    plotdata_properties = {
-        name
-        for name, _ in inspect.getmembers(
-            type(plotdata1), lambda o: isinstance(o, property)
-        )
-    }
-    plotdata_attrs = plotdata_fields.union(plotdata_properties)
-    for cfg in plot_config.axes:
-        for attr in cfg.attrs:
-            if attr not in plotdata_attrs:
-                raise ValueError(
-                    f"Attribute '{attr}' in plot_config does not exist in PlotData"
-                )
+    validate_plotdata(plotdata1, plot_config)
 
     # Select time indices for animation with frame_skip
     n_times = len(plotdata1.t)
@@ -120,8 +118,8 @@ def plot_run_to_gif(
         time_indices = [available_indices[i] for i in selected_indices]
 
     logger.info(
-        f"🎬 Creating animated GIF with {actual_frames} frames"
-        + f"(frame_skip={frame_skip})..."
+        f"Creating animated GIF with {actual_frames} frames"
+        + f" (frame_skip={frame_skip})..."
     )
 
     frames = []
@@ -131,63 +129,61 @@ def plot_run_to_gif(
 
     font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
 
-    # EXACT same matplotlib RC settings as original, but with scaling
-    matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
-    matplotlib.rc("ytick", labelsize=plot_config.tick_fontsize * font_scale)
-    matplotlib.rc("axes", labelsize=plot_config.axes_fontsize * font_scale)
-    matplotlib.rc("figure", titlesize=plot_config.title_fontsize * font_scale)
+    # Create figure without slider using our custom function        
+    fig, axes = create_figure(plot_config, font_scale)
 
-    # Scale the font size of legend
-    plot_config.default_legend_fontsize *= font_scale
-    for ax_cfg in plot_config.axes:
-        if ax_cfg.legend_fontsize is not None:
-            ax_cfg.legend_fontsize *= font_scale
+    if logger.isEnabledFor(logging.INFO):
+        progress_bar = True
+    else:
+        progress_bar = False
+    with tqdm.tqdm(
+        total=100,
+        desc='Creating gif',
+        disable=not progress_bar,
+        leave=True,
+    ) as pbar:
+        for frame_idx, time_idx in enumerate(time_indices):
+            time_val = plotdata1.t[time_idx]
 
-    for frame_idx, time_idx in enumerate(time_indices):
-        time_val = plotdata1.t[time_idx]
+            # EXACT same title handling as plot_run()
+            title_lines = [f"(1)={''} - t = {time_val:.3f} s"]
+            if data_tree_2:
+                title_lines.append(f"(2)={''}")
+            fig.suptitle("\n".join(title_lines))
 
-        # Create figure without slider using our custom function
-        fig, axes = create_figure(plot_config)
+            # EXACT same line generation as plot_run(), but at specific time
+            _ = get_line_at_time(plot_config, plotdata1, axes, time_idx)
+            if plotdata2:
+                _ = get_line_at_time(
+                    plot_config, plotdata2, axes, time_idx, comp_plot=True
+                )
 
-        # EXACT same title handling as plot_run()
-        title_lines = [f"(1)={''} - t = {time_val:.3f} s"]
-        if data_tree_2:
-            title_lines.append(f"(2)={''}")
-        fig.suptitle("\n".join(title_lines))
+            # EXACT same plot formatting as plot_run()
+            plotruns_lib.format_plots(plot_config, plotdata1, plotdata2, axes)
 
-        # EXACT same line generation as plot_run(), but at specific time
-        _ = get_line_at_time(plot_config, plotdata1, axes, time_idx)
-        if plotdata2:
-            _ = get_line_at_time(
-                plot_config, plotdata2, axes, time_idx, comp_plot=True
+            # Convert plot to image
+            buf = io.BytesIO()
+            fig.canvas.draw()
+            plt.savefig(
+                buf,
+                format="png",
+                dpi=100,
+                bbox_inches="tight",
+                facecolor="white",
+                edgecolor="none",
             )
+            buf.seek(0)
+            frames.append(Image.open(buf))
+            plt.close(fig)
+            
+            # Calculate progress ratio and update pbar.n
+            progress_ratio = frame_idx / actual_frames
 
-        # EXACT same plot formatting as plot_run()
-        plotruns_lib.format_plots(plot_config, plotdata1, plotdata2, axes)
-
-        # Convert plot to image
-        buf = io.BytesIO()
-        fig.canvas.draw()
-        plt.savefig(
-            buf,
-            format="png",
-            dpi=100,
-            bbox_inches="tight",
-            facecolor="white",
-            edgecolor="none",
-        )
-        buf.seek(0)
-        frames.append(Image.open(buf))
-        plt.close(fig)
-
-        # Progress indicator
-        if (frame_idx + 1) % 2 == 0:
-            logger.info(f"  📸 Generated {frame_idx + 1}/{actual_frames} frames")
-    logger.info("")
+            pbar.n = int(progress_ratio * pbar.total)
+            pbar.set_description(f'Frame {frame_idx + 1}/{actual_frames}')
+            pbar.refresh()
 
     # Save animated GIF
-    logger.info(f"🎥 Saving animated GIF: {gif_filename}")
-
     frames[0].save(
         gif_filename,
         save_all=True,
@@ -197,7 +193,7 @@ def plot_run_to_gif(
         optimize=optimize,
     )
 
-    logger.info(f"✅ Animated GIF saved: {gif_filename}")
+    logger.info(f" gif saved: {gif_filename}")
     return gif_filename
 
 
@@ -259,6 +255,22 @@ def get_line_at_time(
 
     return lines
 
+def validate_plotdata(plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties):
+    # EXACT same attribute validation as plot_run()
+    plotdata_fields = set(plotdata.__dataclass_fields__)
+    plotdata_properties = {
+        name
+        for name, _ in inspect.getmembers(
+            type(plotdata), lambda o: isinstance(o, property)
+        )
+    }
+    plotdata_attrs = plotdata_fields.union(plotdata_properties)
+    for cfg in plot_config.axes:
+        for attr in cfg.attrs:
+            if attr not in plotdata_attrs:
+                raise ValueError(
+                    f"Attribute '{attr}' in plot_config does not exist in PlotData"
+                )
 
 # COPY PASTE FROM TORAX, but without the filename as argument
 def load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
