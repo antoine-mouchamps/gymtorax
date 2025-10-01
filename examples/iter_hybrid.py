@@ -1,9 +1,9 @@
-import matplotlib
+import os
+
 import numpy as np
+from gymnasium.wrappers import RecordVideo
 
 from gymtorax import IterHybridEnv
-
-matplotlib.use("qt5agg")
 
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
@@ -60,7 +60,24 @@ class IterHybridAgent:  # noqa: D101
 
 
 if __name__ == "__main__":
-    env = IterHybridEnv(render_mode="human", store_history=True, log_level="debug")
+    # Create videos directory if it doesn't exist
+    os.makedirs("videos", exist_ok=True)
+    import cProfile
+
+    # Create base environment with rgb_array mode for video recording
+    base_env = IterHybridEnv(
+        render_mode="rgb_array", store_history=False, log_level="debug"
+    )
+
+    # Wrap with video recorder
+    env = RecordVideo(
+        base_env,
+        video_folder="./videos",
+        episode_trigger=lambda x: True,  # Record every episode
+        video_length=0,  # Record entire episode
+        name_prefix="iter_hybrid_episode",
+    )
+
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
@@ -71,14 +88,7 @@ if __name__ == "__main__":
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
         i += 1
-        if i % 1 == 0:
-            env.render()
 
-    env.save_file("tmp/outputs_iter_torax.nc")
+    env.close()
+    print("Video saved to ./videos/ directory")
 
-    # env.save_gif(
-    #     filename="tmp/source_output_torax.gif",
-    #     config_plot=main_prop_fig,
-    #     interval=200,
-    #     frame_skip=5,
-    #     )

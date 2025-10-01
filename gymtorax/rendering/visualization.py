@@ -8,15 +8,19 @@ All functions accept variable names as in DEFAULT_BOUNDS (see observation_handle
 """
 
 import logging
+
 import matplotlib
-
-import xarray as xr
-
 import matplotlib.pyplot as plt
 import numpy as np
+import xarray as xr
 from torax._src.plotting import plotruns_lib
 
-from ..torax_wrapper import create_figure, get_line_at_time, load_data, validate_plotdata
+from ..torax_wrapper import (
+    create_figure,
+    get_line_at_time,
+    load_data,
+    validate_plotdata,
+)
 
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +46,7 @@ class Plotter:
     def __init__(
         self,
         plot_config: plotruns_lib.FigureProperties,
+        render_mode: str | None = None,
     ):
         """Initialize the real-time plotter with configuration and display settings.
 
@@ -58,9 +63,14 @@ class Plotter:
             the plot_config. Data histories are initialized as empty and will be populated
             through subsequent update() calls.
         """
+        if render_mode == "rgb_array":
+            rows = plot_config.rows
+            font_scale = 1 + (rows - 1) * 0.3
+        else:
+            font_scale = 1.0
         self.plot_config = plot_config
         self.lines = []
-        self.fig, self.axes = create_figure(self.plot_config, 1)
+        self.fig, self.axes = create_figure(self.plot_config, font_scale)
         self.first_update = True
 
     def reset(self):
@@ -98,14 +108,14 @@ class Plotter:
         line_idx = 0
         for ax, cfg in zip(self.axes, self.plot_config.axes):
             line_idx_color = 0
-            cfg.include_first_timepoint = True # I don't know why, but it is needed...
+            cfg.include_first_timepoint = True  # I don't know why, but it is needed...
 
             if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
                 for attr, label in zip(cfg.attrs, cfg.labels):
                     data = getattr(plotdata, attr)
                     # if cfg.suppress_zero_values and np.all(data == 0):
                     #     continue
-                    
+
                     rho = plotruns_lib.get_rho(plotdata, attr)
                     if self.first_update is True:
                         (line,) = ax.plot(
@@ -180,3 +190,32 @@ class Plotter:
         and resources. Should be called when the plotter is no longer needed.
         """
         plt.close(self.fig)
+
+    def render_rgb_array(self, t: float | None = None) -> np.ndarray:
+        """Render the current frame as RGB array for video recording.
+
+        Args:
+            t: Current simulation time for title display
+
+        Returns:
+            np.ndarray: RGB array of shape (height, width, 3) with values in [0, 255]
+        """
+        # Update the plot without displaying it
+        for ax, cfg in zip(self.axes, self.plot_config.axes):
+            ax.relim()
+            ax.autoscale_view()
+            if not ax.get_legend():
+                ax.legend()
+        if t is not None:
+            self.fig.suptitle(f"t = {t:.3f}")
+
+        # Draw to canvas without showing
+        self.fig.canvas.draw()
+
+        # Convert to RGB array using modern matplotlib API
+        buf = self.fig.canvas.buffer_rgba()
+        buf = np.asarray(buf).copy()  # Make a copy to avoid reference issues
+        # Convert RGBA to RGB by dropping alpha channel
+        buf = buf[:, :, :3]
+
+        return buf

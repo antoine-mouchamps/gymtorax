@@ -45,6 +45,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import gymnasium as gym
+import matplotlib
 import numpy as np
 from numpy.typing import NDArray
 from torax._src.plotting.plotruns_lib import FigureProperties
@@ -143,7 +144,8 @@ class BaseEnv(gym.Env, ABC):
         """
         # Set Gymnasium metadata for rendering configuration
         self.__class__.metadata = {
-            "render_modes": ["human"],
+            "render_modes": ["human", "rgb_array"],
+            "render_fps": 4,
         }
 
         setup_logging(getattr(logging, log_level.upper()), log_file)
@@ -220,9 +222,16 @@ class BaseEnv(gym.Env, ABC):
 
         # Validate and set rendering mode
         self.render_mode = render_mode
-        if render_mode == "human":
+        if render_mode in ["human", "rgb_array"]:
             plot_config = process_plot_config(plot_config)
-            self.renderer = Plotter(plot_config)
+
+            # Use non-interactive backend for rgb_array mode
+            if render_mode == "rgb_array":
+                matplotlib.use("Agg")  # Non-interactive backend
+            if render_mode == "human":
+                matplotlib.use("Qt5Agg")  # Interactive backend
+
+            self.renderer = Plotter(plot_config, render_mode)
         else:
             self.renderer = None
 
@@ -405,10 +414,20 @@ class BaseEnv(gym.Env, ABC):
         if self.renderer is not None:
             self.renderer.close()
 
-    def render(self) -> None:
-        """Render the current environment state following Gymnasium convention."""
-        if self.render_mode == "human" and self.renderer is not None:
-            self.renderer.render_frame(t=self.current_time)
+    def render(self) -> np.ndarray | None:
+        """Render the current environment state following Gymnasium convention.
+
+        Returns:
+            np.ndarray: RGB array of shape (height, width, 3) if render_mode is "rgb_array"
+            None: If render_mode is "human" or renderer is not available
+        """
+        if self.renderer is not None:
+            if self.render_mode == "human":
+                self.renderer.render_frame(t=self.current_time)
+                return None
+            elif self.render_mode == "rgb_array":
+                return self.renderer.render_rgb_array(t=self.current_time)
+        return None
 
     def save_file(self, file_name):
         """Save the simulation output data to a file.
