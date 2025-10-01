@@ -9,6 +9,7 @@ import inspect
 import io
 import logging
 from typing import Any
+import tqdm
 
 import matplotlib
 import matplotlib.gridspec as gridspec
@@ -70,189 +71,57 @@ def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float 
 
     return fig, axes
 
-
-def plot_run_to_gif(
-    plot_config: plotruns_lib.FigureProperties,
-    data_tree: xr.DataTree,
-    data_tree_2: xr.DataTree | None = None,
-    gif_filename: str = "torax_evolution.gif",
-    n_frames: int = 50,
-    duration: int = 200,
-    optimize: bool = True,
-    frame_skip: int = 1,
-) -> str:
-    """Generate animated GIF from TORAX simulation data.
-
-    Args:
-        plot_config: FigureProperties object defining the plot layout and content
-        data_tree: Datatree of the TORAX simulation output file
-        data_tree_2: Optional Datatree of the second file for comparison
-        gif_filename: Output GIF filename
-        n_frames: Maximum number of frames in the animation
-        duration: Duration per frame in milliseconds
-        optimize: Whether to optimize the GIF file size
-        frame_skip: Skip every N frames from the original data (default=1, no skip)
-
-    Returns:
-        Path to the generated GIF file
-    """
-    plotdata1 = load_data(data_tree)
-    plotdata2 = load_data(data_tree_2) if data_tree_2 else None
-
-    validate_plotdata(plotdata1, plot_config)
-
-    # Select time indices for animation with frame_skip
-    n_times = len(plotdata1.t)
-
-    # Apply frame_skip to reduce the data
-    available_indices = list(range(0, n_times, frame_skip))
-    actual_frames = min(n_frames, len(available_indices))
-
-    # Select evenly spaced frames from the skipped data
-    if actual_frames == len(available_indices):
-        time_indices = available_indices
-    else:
-        selected_indices = np.linspace(
-            0, len(available_indices) - 1, actual_frames, dtype=int
-        )
-        time_indices = [available_indices[i] for i in selected_indices]
-
-    logger.info(
-        f"Creating animated GIF with {actual_frames} frames"
-        + f" (frame_skip={frame_skip})..."
-    )
-
-    frames = []
-
-    # Calculate font scaling based on rows
-    rows = plot_config.rows
-
-    font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
-
-    # Create figure without slider using our custom function        
-    fig, axes = create_figure(plot_config, font_scale)
-
-    if logger.isEnabledFor(logging.INFO):
-        progress_bar = True
-    else:
-        progress_bar = False
-    with tqdm.tqdm(
-        total=100,
-        desc='Creating gif',
-        disable=not progress_bar,
-        leave=True,
-    ) as pbar:
-        for frame_idx, time_idx in enumerate(time_indices):
-            time_val = plotdata1.t[time_idx]
-
-            # EXACT same title handling as plot_run()
-            title_lines = [f"(1)={''} - t = {time_val:.3f} s"]
-            if data_tree_2:
-                title_lines.append(f"(2)={''}")
-            fig.suptitle("\n".join(title_lines))
-
-            # EXACT same line generation as plot_run(), but at specific time
-            _ = get_line_at_time(plot_config, plotdata1, axes, time_idx)
-            if plotdata2:
-                _ = get_line_at_time(
-                    plot_config, plotdata2, axes, time_idx, comp_plot=True
-                )
-
-            # EXACT same plot formatting as plot_run()
-            plotruns_lib.format_plots(plot_config, plotdata1, plotdata2, axes)
-
-            # Convert plot to image
-            buf = io.BytesIO()
-            fig.canvas.draw()
-            plt.savefig(
-                buf,
-                format="png",
-                dpi=100,
-                bbox_inches="tight",
-                facecolor="white",
-                edgecolor="none",
-            )
-            buf.seek(0)
-            frames.append(Image.open(buf))
-            plt.close(fig)
-            
-            # Calculate progress ratio and update pbar.n
-            progress_ratio = frame_idx / actual_frames
-
-            pbar.n = int(progress_ratio * pbar.total)
-            pbar.set_description(f'Frame {frame_idx + 1}/{actual_frames}')
-            pbar.refresh()
-
-    # Save animated GIF
-    frames[0].save(
-        gif_filename,
-        save_all=True,
-        append_images=frames[1:],
-        duration=duration,
-        loop=0,
-        optimize=optimize,
-    )
-
-    logger.info(f" gif saved: {gif_filename}")
-    return gif_filename
-
-
-def get_line_at_time(
-    plot_config: plotruns_lib.FigureProperties,
-    plotdata1: plotruns_lib.PlotData,
-    axes: list[Any],
-    time_idx: int,
-    comp_plot: bool = False,
-) -> list[Any]:
-    """Generate lines at specific time index in the same way as in TORAX native.
-
-    This replicates the exact behavior of plotruns_lib.get_lines() but for a specific
-    time.
-    """
-    lines = []
-    # Same logic as get_lines() - handle comparison plot suffix and dashing
-    suffix = f" ({1 if not comp_plot else 2})"
-    dashed = "--" if comp_plot else ""
-
+def update_lines(lines, axes, plot_config, plotdata, t, first_update):
+    line_idx = 0
     for ax, cfg in zip(axes, plot_config.axes):
-        line_idx = 0  # Reset color selection cycling for each plot
+        line_idx_color = 0
+        cfg.include_first_timepoint = True  # I don't know why, but it is needed...
 
         if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
             for attr, label in zip(cfg.attrs, cfg.labels):
-                data = getattr(plotdata1, attr)
-                if cfg.suppress_zero_values and np.all(data == 0):
-                    continue
+                data = getattr(plotdata, attr)
+                # if cfg.suppress_zero_values and np.all(data == 0):
+                #     continue
 
-                # EXACT same rho calculation as get_lines()
-                rho = plotruns_lib.get_rho(plotdata1, attr)
-
-                # Plot data at specific time instead of time zero
-                (line,) = ax.plot(
-                    rho,
-                    data[time_idx, :],  # Use specified time_idx instead of 0
-                    plot_config.colors[line_idx % len(plot_config.colors)] + dashed,
-                    label=f"{label}{suffix}",
-                )
-                lines.append(line)
+                rho = plotruns_lib.get_rho(plotdata, attr)
+                if first_update is True:
+                    (line,) = ax.plot(
+                        rho,
+                        data[0, :],
+                        plot_config.colors[line_idx_color % len(plot_config.colors)],
+                        label=label,
+                    )
+                    lines.append(line)
+                    line_idx_color += 1
+                else:
+                    lines[line_idx].set_xdata(rho)
+                    lines[line_idx].set_ydata(data[0, :])
                 line_idx += 1
 
         elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
             for attr, label in zip(cfg.attrs, cfg.labels):
-                data = getattr(plotdata1, attr)
-                if cfg.suppress_zero_values and np.all(data == 0):
-                    continue
+                data = getattr(plotdata, attr)
 
-                # EXACT same logic as get_lines() - plot entire time series
-                _ = ax.plot(
-                    plotdata1.t,
-                    data,  # Plot entire time series (same as get_lines)
-                    plot_config.colors[line_idx % len(plot_config.colors)] + dashed,
-                    label=f"{label}{suffix}",
-                )
+                if first_update is True:
+                    # if cfg.suppress_zero_values and np.all(data == 0):
+                    #     continue
+                    # EXACT same logic as get_lines() - plot entire time series
+                    (line,) = ax.plot(
+                        plotdata.t,
+                        data,  # Plot entire time series (same as get_lines)
+                        plot_config.colors[line_idx_color % len(plot_config.colors)],
+                        label=label,
+                    )
+                    lines.append(line)
+                    line_idx_color += 1
+                else:
+                    xdata = lines[line_idx].get_xdata()
+                    ydata = lines[line_idx].get_ydata()
+                    lines[line_idx].set_xdata(np.append(xdata, t))
+                    lines[line_idx].set_ydata(np.append(ydata, data))
                 line_idx += 1
         else:
             raise ValueError(f"Unknown plot type: {cfg.plot_type}")
-
     return lines
 
 def validate_plotdata(plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties):

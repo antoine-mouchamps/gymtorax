@@ -62,7 +62,6 @@ class IterHybridAgent:  # noqa: D101
 if __name__ == "__main__":
     # Create videos directory if it doesn't exist
     os.makedirs("videos", exist_ok=True)
-    import cProfile
 
     # Create base environment with rgb_array mode for video recording
     base_env = IterHybridEnv(
@@ -83,12 +82,9 @@ if __name__ == "__main__":
     observation, _ = env.reset()
     terminated = False
 
-    i = 0
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-        i += 1
 
     env.close()
     print("Video saved to ./videos/ directory")
-

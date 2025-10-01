@@ -183,6 +183,7 @@ cython_debug/
 .cursorindexingignore
 *.gif
 *.json
+videos/*
 # Exceptions:
 !examples/*.json
 !gymtorax/envs/*.json

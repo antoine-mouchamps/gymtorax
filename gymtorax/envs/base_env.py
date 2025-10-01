@@ -53,8 +53,7 @@ from torax._src.plotting.plotruns_lib import FigureProperties
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
-from ..render import process_plot_config
-from ..rendering import Plotter
+from ..rendering import Plotter, process_plot_config
 from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_helpers
 
 # Set up logger for this module
@@ -166,6 +165,7 @@ class BaseEnv(gym.Env, ABC):
         # Load and validate TORAX configuration
         self.config: ConfigLoader = ConfigLoader(config, self.action_handler)
         self.config.validate_discretization(discretization_torax)
+
         # Get total simulation time from configuration
         self.T: float = self.config.get_total_simulation_time()  # [seconds]
 

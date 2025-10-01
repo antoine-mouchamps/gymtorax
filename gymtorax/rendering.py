@@ -7,23 +7,47 @@ Features:
 All functions accept variable names as in DEFAULT_BOUNDS (see observation_handler.py).
 """
 
+import importlib
 import logging
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from torax._src.plotting import plotruns_lib
 
-from ..torax_wrapper import (
+from .torax_wrapper import (
     create_figure,
-    get_line_at_time,
     load_data,
+    update_lines,
     validate_plotdata,
 )
 
 logging.getLogger("PIL.PngImagePlugin").setLevel(logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+def process_plot_config(plot_config: str) -> plotruns_lib.FigureProperties:
+    if isinstance(plot_config, str):
+        try:
+            module = importlib.import_module(
+                f"torax.plotting.configs.{plot_config}_plot_config"
+            )
+        except ImportError:
+            logger.error(f"""Plot config: {plot_config} not found
+                        in `torax.plotting.configs`""")
+            return
+        try:
+            plot_config = getattr(module, "PLOT_CONFIG")
+        except AttributeError:
+            logger.error(f"""Plot config: {plot_config} does not have a PLOT_CONFIG attribute
+                        in `torax.plotting.configs`""")
+            return
+    elif isinstance(plot_config, plotruns_lib.FigureProperties):
+        pass
+    else:
+        raise TypeError("config_plot must be a string or FigureProperties instance")
+
+    return plot_config
 
 
 class Plotter:
@@ -103,58 +127,13 @@ class Plotter:
             t (float, optional): Current simulation time.
         """
         plotdata = load_data(current_state)
+
         validate_plotdata(plotdata, self.plot_config)
 
-        line_idx = 0
-        for ax, cfg in zip(self.axes, self.plot_config.axes):
-            line_idx_color = 0
-            cfg.include_first_timepoint = True  # I don't know why, but it is needed...
+        update_lines(
+            self.lines, self.axes, self.plot_config, plotdata, t, self.first_update
+        )
 
-            if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
-                for attr, label in zip(cfg.attrs, cfg.labels):
-                    data = getattr(plotdata, attr)
-                    # if cfg.suppress_zero_values and np.all(data == 0):
-                    #     continue
-
-                    rho = plotruns_lib.get_rho(plotdata, attr)
-                    if self.first_update is True:
-                        (line,) = ax.plot(
-                            rho,
-                            data[0, :],
-                            self.plot_config.colors[line_idx_color % len(self.plot_config.colors)],
-                            label=label,
-                        )
-                        self.lines.append(line)
-                        line_idx_color += 1
-                    else:
-                        self.lines[line_idx].set_xdata(rho)
-                        self.lines[line_idx].set_ydata(data[0, :])
-                    line_idx += 1
-
-            elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
-                for attr, label in zip(cfg.attrs, cfg.labels):
-                    data = getattr(plotdata, attr)
-
-                    if self.first_update is True:
-                        # if cfg.suppress_zero_values and np.all(data == 0):
-                        #     continue
-                        # EXACT same logic as get_lines() - plot entire time series
-                        (line,) = ax.plot(
-                            plotdata.t,
-                            data,  # Plot entire time series (same as get_lines)
-                            self.plot_config.colors[line_idx_color % len(self.plot_config.colors)],
-                            label=label,
-                        )
-                        self.lines.append(line)
-                        line_idx_color += 1
-                    else:
-                        xdata = self.lines[line_idx].get_xdata()
-                        ydata = self.lines[line_idx].get_ydata()
-                        self.lines[line_idx].set_xdata(np.append(xdata, t))
-                        self.lines[line_idx].set_ydata(np.append(ydata, data))
-                    line_idx += 1
-            else:
-                raise ValueError(f"Unknown plot type: {cfg.plot_type}")
         if self.first_update is False:
             plotruns_lib.format_plots(self.plot_config, plotdata, None, self.axes)
         if self.first_update is True:
