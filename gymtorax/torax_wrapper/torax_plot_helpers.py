@@ -84,8 +84,8 @@ def plot_run_to_gif(
     Returns:
         Path to the generated GIF file
     """
-    plotdata1 = _load_data(data_tree)
-    plotdata2 = _load_data(data_tree_2) if data_tree_2 else None
+    plotdata1 = load_data(data_tree)
+    plotdata2 = load_data(data_tree_2) if data_tree_2 else None
 
     # EXACT same attribute validation as plot_run()
     plotdata_fields = set(plotdata1.__dataclass_fields__)
@@ -156,9 +156,9 @@ def plot_run_to_gif(
         fig.suptitle("\n".join(title_lines))
 
         # EXACT same line generation as plot_run(), but at specific time
-        _ = _get_lines_at_time(plot_config, plotdata1, axes, time_idx)
+        _ = get_line_at_time(plot_config, plotdata1, axes, time_idx)
         if plotdata2:
-            _ = _get_lines_at_time(
+            _ = get_line_at_time(
                 plot_config, plotdata2, axes, time_idx, comp_plot=True
             )
 
@@ -201,7 +201,7 @@ def plot_run_to_gif(
     return gif_filename
 
 
-def _get_lines_at_time(
+def get_line_at_time(
     plot_config: plotruns_lib.FigureProperties,
     plotdata1: plotruns_lib.PlotData,
     axes: list[Any],
@@ -219,7 +219,7 @@ def _get_lines_at_time(
     dashed = "--" if comp_plot else ""
 
     for ax, cfg in zip(axes, plot_config.axes):
-        line_idx = 0  # Reset color selection cycling for each plot (same as get_lines)
+        line_idx = 0  # Reset color selection cycling for each plot
 
         if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
             for attr, label in zip(cfg.attrs, cfg.labels):
@@ -261,7 +261,7 @@ def _get_lines_at_time(
 
 
 # COPY PASTE FROM TORAX, but without the filename as argument
-def _load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
+def load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
     """Loads an xr.Dataset from a file, handling potential coordinate name changes."""
     # Handle potential time coordinate name variations
     time = data_tree[output.TIME].to_numpy()

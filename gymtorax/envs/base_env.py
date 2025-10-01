@@ -54,7 +54,7 @@ from ..logger import setup_logging
 from ..observation_handler import Observation
 from ..render import process_plot_config
 from ..rendering import Plotter
-from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
+from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_helpers
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -469,7 +469,7 @@ class BaseEnv(gym.Env, ABC):
 
         data_tree = self.torax_app.get_output_datatree(start, end)
 
-        torax_plot_extensions.plot_run_to_gif(
+        torax_plot_helpers.plot_run_to_gif(
             plot_config=plot_config,
             data_tree=data_tree,
             gif_filename=filename,
