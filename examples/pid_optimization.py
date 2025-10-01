@@ -1,9 +1,7 @@
 import logging
-import time
 
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.optimize import minimize
 
 from gymtorax import IterHybridAgent, IterHybridEnv, PIDAgent, RandomAgent
 

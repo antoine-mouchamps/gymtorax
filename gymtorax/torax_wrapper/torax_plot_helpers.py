@@ -6,17 +6,13 @@ processing logic, spacing, and matplotlib configurations as the original.
 """
 
 import inspect
-import io
 import logging
-from typing import Any
-import tqdm
 
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from PIL import Image
 from torax._src.output_tools import output
 from torax._src.plotting import plotruns_lib
 
@@ -71,6 +67,7 @@ def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float 
 
     return fig, axes
 
+
 def update_lines(lines, axes, plot_config, plotdata, t, first_update):
     line_idx = 0
     for ax, cfg in zip(axes, plot_config.axes):
@@ -124,7 +121,10 @@ def update_lines(lines, axes, plot_config, plotdata, t, first_update):
             raise ValueError(f"Unknown plot type: {cfg.plot_type}")
     return lines
 
-def validate_plotdata(plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties):
+
+def validate_plotdata(
+    plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties
+):
     # EXACT same attribute validation as plot_run()
     plotdata_fields = set(plotdata.__dataclass_fields__)
     plotdata_properties = {
@@ -140,6 +140,7 @@ def validate_plotdata(plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib
                 raise ValueError(
                     f"Attribute '{attr}' in plot_config does not exist in PlotData"
                 )
+
 
 # COPY PASTE FROM TORAX, but without the filename as argument
 def load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
