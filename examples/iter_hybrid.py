@@ -1,6 +1,9 @@
+import matplotlib
 import numpy as np
 
 from gymtorax import IterHybridEnv
+
+matplotlib.use("qt5agg")
 
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
@@ -68,7 +71,7 @@ if __name__ == "__main__":
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
         i += 1
-        if i % 2 == 0:
+        if i % 1 == 0:
             env.render()
 
     env.save_file("tmp/outputs_iter_torax.nc")

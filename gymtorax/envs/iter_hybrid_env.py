@@ -202,7 +202,7 @@ class IterHybridEnv(BaseEnv):
         """
         # Set environment-specific defaults
         kwargs.setdefault("log_level", "warning")
-        kwargs.setdefault("plot_config", "simple")
+        kwargs.setdefault("plot_config", "default")
 
         super().__init__(render_mode=render_mode, **kwargs)
 

@@ -1,8 +1,11 @@
+import matplotlib
 import numpy as np
 
 import gymtorax.action_handler as ah
 import gymtorax.observation_handler as oh
 from gymtorax import BaseEnv
+
+matplotlib.use("qt5agg")
 
 # fmt: off
 """Config for ITER hybrid scenario based parameters with nonlinear solver.

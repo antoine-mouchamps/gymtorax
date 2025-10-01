@@ -222,7 +222,7 @@ class BaseEnv(gym.Env, ABC):
         self.render_mode = render_mode
         if render_mode == "human":
             plot_config = process_plot_config(plot_config)
-            self.renderer = Plotter(plot_config, render_mode=self.render_mode)
+            self.renderer = Plotter(plot_config)
         else:
             self.renderer = None
 
