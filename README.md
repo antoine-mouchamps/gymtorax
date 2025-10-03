@@ -77,7 +77,8 @@ env = gym.make('gymtorax/IterHybrid-v0')
 observation, info = env.reset()
 
 # Run episode
-for step in range(100):
+terminated = False
+while not terminated:
     # Random action (replace with your RL agent)
     action = env.action_space.sample()
     
@@ -190,18 +191,61 @@ env.reset()
 env.step(env.action_space.sample())
 
 env.save_file("output.nc")
-env.save_gif(
-    filename: str = "torax_evolution.gif", # Path to the .gif file
-    config_plot: str = "default", # Plot config (see TORAX documentation)
-    interval: int = 200, # ms/frame
-    frame_skip: int = 2, # skip 1 out of 2 time step in the gif
-    start: int = 0, # time step at which to start the gif generation
-    end: int = -1, # time step at which to end the gif generation
-)
 ```
 
 ### Visualization and Monitoring
-This feature has not been fully implemented yet. The section will be updated as soon as the visualization feature is complete.
+
+GymTORAX provides real-time visualization capabilities for plasma simulation monitoring and analysis.
+
+#### Custom Visualization Configuration
+
+Customize the visualization layout and content using either a default configuration name or a custom TORAX `FigureProperties` object:
+
+```python
+# Using default configuration
+env = gym.make('gymtorax/IterHybrid-v0', 
+               render_mode="human",
+               plot_config="default")  # Built-in TORAX plot configuration
+
+# Using custom TORAX FigureProperties object
+from torax._src.plotting.plotruns_lib import FigureProperties
+custom_config = FigureProperties(...)  # Define custom plot layout
+env = gym.make('gymtorax/IterHybrid-v0', 
+               render_mode="human",
+               plot_config=custom_config)
+```
+
+#### Video Recording
+
+Record simulation videos for analysis, presentations, or documentation:
+
+```python
+import gymnasium as gym
+from gymnasium.wrappers import RecordVideo
+import gymtorax
+
+# Setup video recording wrapper
+env = gym.make('gymtorax/IterHybrid-v0', render_mode="rgb_array")
+env = RecordVideo(
+    env,
+    video_folder="./videos",
+    episode_trigger=lambda x: True,  # Record every episode
+    name_prefix="plasma_simulation"
+)
+
+# Run simulation with automatic video recording
+observation, info = env.reset()
+terminated = False
+while not terminated:
+    action = env.action_space.sample()
+    observation, reward, terminated, truncated, info = env.step(action)
+    
+    if terminated or truncated:
+        break
+
+env.close()
+# Video saved automatically to ./videos/plasma_simulation-episode-0.mp4
+```
 
 ### Development Workflow
 
