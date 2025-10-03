@@ -8,7 +8,8 @@ import pytest
 # Set matplotlib to headless backend for CI environments
 if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
     import matplotlib
-    matplotlib.use('Agg')
+
+    matplotlib.use("Agg")
 
 # Import gymtorax to trigger environment registration
 import gymtorax  # noqa: F401
@@ -73,7 +74,9 @@ class TestEnvironmentRegistration:
         # Skip human rendering in CI environments where no display is available
         if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
             # Use rgb_array mode in CI to avoid Qt dependency
-            env2 = gym.make("gymtorax/Test-v0", render_mode="rgb_array", log_level="debug")
+            env2 = gym.make(
+                "gymtorax/Test-v0", render_mode="rgb_array", log_level="debug"
+            )
         else:
             env2 = gym.make("gymtorax/Test-v0", render_mode="human", log_level="debug")
         assert env2 is not None
