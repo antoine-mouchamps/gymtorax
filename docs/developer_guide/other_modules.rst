@@ -71,7 +71,8 @@ The visualization system provides live plotting during simulation episodes with 
    env = gym.make('gymtorax/IterHybrid-v0', render_mode="human")
    obs, info = env.reset()
    
-   for _ in range(100):
+   terminated = False
+   while not terminated:
        action = env.action_space.sample()
        obs, reward, terminated, truncated, info = env.step(action)
        env.render()  # Live matplotlib display

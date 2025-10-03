@@ -49,11 +49,9 @@ For video recording without interactive display:
     env = RecordVideo(env, video_folder="videos")
     
     obs, info = env.reset()
-    for step in range(1000):
+    terminated = False
+    while not terminated:
         action = agent.act(obs)
         obs, reward, terminated, truncated, info = env.step(action)
-        
-        if terminated or truncated:
-            obs, info = env.reset()
     
     env.close()

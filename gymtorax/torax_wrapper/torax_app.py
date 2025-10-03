@@ -44,13 +44,13 @@ class ToraxApp:
         4. Call ``update_config()`` between runs to update action parameters
 
     Attributes:
-        config (`ConfigLoader`): Current configuration loader instance
-        initial_config (`ConfigLoader`): Original configuration for resetting
+        config (ConfigLoader): Current configuration loader instance
+        initial_config (ConfigLoader): Original configuration for resetting
         delta_t_a (float): Action timestep - simulation duration per ``run()``
         store_history (bool): Whether to store complete simulation history
-        current_sim_state (`ToraxSimState`): Current simulation state
-        current_sim_output (`PostProcessedOutputs`): Current post-processed outputs
-        state (`StateHistory`): Current state history (single timestep)
+        current_sim_state (ToraxSimState): Current simulation state
+        current_sim_output (PostProcessedOutputs): Current post-processed outputs
+        state (StateHistory): Current state history (single timestep)
         history_list (list): Complete history list (if ``store_history=True``)
         is_started (bool): Whether the application has been initialized
         t_current (float): Current simulation time
