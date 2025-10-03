@@ -10,6 +10,8 @@ maintaining full compatibility with TORAX plot configurations and styling conven
 It supports multiple rendering modes and provides optimized performance for video generation.
 """
 
+from __future__ import annotations
+
 import importlib
 import logging
 
@@ -194,7 +196,7 @@ class Plotter:
         if self.first_update is True:
             self.first_update = False
 
-    def render_frame(self, t: float):
+    def render_frame(self, t: float | None = None):
         """Render and display a single frame for interactive visualization.
 
         This method completes the visualization pipeline by updating axis limits and legends
@@ -227,7 +229,7 @@ class Plotter:
         """
         plt.close(self.fig)
 
-    def render_rgb_array(self, t: float) -> np.ndarray:
+    def render_rgb_array(self, t: float | None = None) -> np.ndarray:
         """Render the current visualization state as RGB array for video recording.
 
         This method captures the current plot state as a RGB image
@@ -240,7 +242,7 @@ class Plotter:
                 in the figure title. Formats as "t = {value:.3f}".
 
         Returns:
-            np.ndarray: RGB image array with shape (height, width, 3) and dtype
+            numpy.ndarray: RGB image array with shape (height, width, 3) and dtype
                 uint8. Values are in the range [0, 255] representing RGB color
                 channels. The array can be directly used by video encoding
                 libraries or saved as image files.

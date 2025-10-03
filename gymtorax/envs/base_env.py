@@ -39,6 +39,8 @@ Example:
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
 
+from __future__ import annotations
+
 import copy
 import logging
 from abc import ABC, abstractmethod
@@ -54,7 +56,7 @@ from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
 from ..rendering import Plotter, process_plot_config
-from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_helpers
+from ..torax_wrapper import ConfigLoader, ToraxApp
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -105,7 +107,7 @@ class BaseEnv(gym.Env, ABC):
         render_mode: str | None = None,
         log_level: str = "warning",
         log_file: str | None = None,
-        plot_config: str | FigureProperties = "default",
+        plot_config: FigureProperties | str = "default",
         store_history: bool = False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
@@ -418,12 +420,12 @@ class BaseEnv(gym.Env, ABC):
         """Render the current environment state following Gymnasium convention.
 
         Returns:
-            np.ndarray: RGB array of shape (height, width, 3) if render_mode is "rgb_array"
+            numpy.ndarray: RGB array of shape (height, width, 3) if render_mode is "rgb_array"
             None: If render_mode is "human" or renderer is not available
         """
         if self.renderer is not None:
             if self.render_mode == "human":
-                self.renderer.render_frame(t=self.current_time)
+                self.renderer.render_frame(self.current_time)
                 return None
             elif self.render_mode == "rgb_array":
                 return self.renderer.render_rgb_array(t=self.current_time)
@@ -452,51 +454,6 @@ class BaseEnv(gym.Env, ABC):
             ) from e
 
         logger.debug(f"Saved simulation history to {file_name}")
-
-    def save_gif(
-        self,
-        filename: str = "torax_evolution.gif",
-        plot_config: str = "default",
-        interval: int = 200,
-        frame_skip: int = 2,
-        start: int = 0,
-        end: int = -1,
-    ) -> None:
-        """Generate and save an GIF of the simulation.
-
-        This method loads a plotting configuration by name, extracts the simulation history (optionally
-        selecting a time range), and generates an animated GIF visualizing the evolution of the simulation.
-        The plot configuration must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG`
-        attribute. The simulation must have been run with `store_history=True` for this to work.
-
-        Args:
-            plot_config (str or FigureProperties): Name of the plot configuration to use
-                (e.g., "default"). Can also be a torax FigureProperties instance for
-                custom plot configuration.
-            filename (str): Output GIF filename.
-            interval (int): Delay between frames in milliseconds.
-            frame_skip (int): Save every Nth frame (default 2 = every other frame).
-            start (int): Start time for the GIF (inclusive).
-            end (int): End time for the GIF (inclusive, -1 for no upper limit).
-
-        Raises:
-            ImportError: If the plot configuration module cannot be found.
-            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
-            RuntimeError: If the simulation was not run with state history enabled.
-        """
-        plot_config = process_plot_config(plot_config)
-
-        data_tree = self.torax_app.get_output_datatree(start, end)
-
-        torax_plot_helpers.plot_run_to_gif(
-            plot_config=plot_config,
-            data_tree=data_tree,
-            gif_filename=filename,
-            n_frames=50,
-            duration=interval,
-            optimize=False,
-            frame_skip=frame_skip,
-        )
 
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses

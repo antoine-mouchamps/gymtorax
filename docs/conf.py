@@ -94,6 +94,18 @@ autodoc_mock_imports = [
     "jaxlib",
 ]
 
+# Remove warnings related to TORAX types that are not referenced in their docs
+nitpick_ignore = [
+    ("py:class", "FigureProperties"),
+    ("py:class", "plotruns_lib.FigureProperties"), 
+    ("py:class", "torax._src.plotting.plotruns_lib.FigureProperties"),
+    ("py:class", "plotruns_lib.PlotData"),
+    ("py:class", "torax._src.plotting.plotruns_lib.PlotData"),
+    ("py:class", "ToraxSimState"),
+    ("py:class", "PostProcessedOutputs"),
+    ("py:class", "StateHistory"),
+]
+
 # -- Copy button configuration -----------------------------------------------
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "

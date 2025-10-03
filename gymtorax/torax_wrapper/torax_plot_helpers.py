@@ -40,9 +40,9 @@ def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float 
     Sets up a matplotlib figure using TORAX plot configuration, applies matplotlib
     RC settings for consistent styling, and creates a grid of subplots. Font sizes
     are scaled according to the font_scale parameter and applied to the plot_config
-    object in-place. As side effects, this function:
-        - Modifies matplotlib global RC settings for tick, axes, and figure fonts
-        - Modifies `plot_config.default_legend_fontsize` and axes `legend_fontsize` in-place
+    object in-place. As side effects, this function modifies matplotlib global RC
+    settings for tick, axes, and figure fonts, and modifies
+    `plot_config.default_legend_fontsize` and axes `legend_fontsize` in-place.
 
     Args:
         plot_config (plotruns_lib.FigureProperties): TORAX plot configuration
@@ -98,10 +98,9 @@ def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float 
 def update_lines(lines, axes, plot_config, plotdata, t, first_update):
     """Update or create plot lines with simulation data.
 
-    Handles two plot types from TORAX configuration:
-        - SPATIAL: Plots data[0, :] vs rho coordinate (spatial profiles at current time)
-        - TIME_SERIES: For first_update, plots entire data vs plotdata.t; for subsequent
-        updates, appends new (t, data) point to existing line data
+    As side effects, this function sets `cfg.include_first_timepoint = True`
+    on each axis config, and for TIME_SERIES on subsequent updates, appends
+    data to existing line coordinates.
 
     Args:
         lines (list): Existing matplotlib Line2D objects. Empty on first call.
@@ -111,9 +110,6 @@ def update_lines(lines, axes, plot_config, plotdata, t, first_update):
         plotdata (plotruns_lib.PlotData): Simulation data with plasma variables.
         t (float): Current simulation time (used for TIME_SERIES updates).
         first_update (bool): If True, creates new lines; if False, updates existing.
-        As side effects, this function:
-            - Sets `cfg.include_first_timepoint = True` on each axis config
-            - For TIME_SERIES on subsequent updates: appends data to existing line coordinates
 
     Returns:
         list: Updated list of Line2D objects for future calls.

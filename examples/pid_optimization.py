@@ -190,16 +190,6 @@ if __name__ == "__main__":
 
     j_target_history = [get_j_target(t) for t in range(150)]
 
-    # Save a gif of the final simulation
-    # env.save_gif(
-    #     filename="tmp/pid_optimized.gif",
-    #     interval=250,
-    #     frame_skip=2,
-    #     config_plot="default",
-    #     beginning=0,
-    #     end=-1,
-    # )
-
     # Also run a simulation with the IterHybridAgent for comparison
     agent_classic = IterHybridAgent(env.action_space)
 
