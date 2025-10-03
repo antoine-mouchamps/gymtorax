@@ -22,3 +22,8 @@ config_loader
 Configuration system for managing TORAX physics parameters and simulation settings.
 
 .. automodule:: gymtorax.torax_wrapper.config_loader
+
+torax_plot_helpers
+------------------
+
+.. automodule:: gymtorax.torax_wrapper.torax_plot_helpers

@@ -1,8 +1,8 @@
-import cProfile
+import os
 
 import numpy as np
+from gymnasium.wrappers import RecordVideo
 
-import gymtorax.rendering.visualization as viz
 from gymtorax import IterHybridEnv
 
 _NBI_W_TO_MA = 1 / 16e6
@@ -37,19 +37,17 @@ class IterHybridAgent:  # noqa: D101
         """
         action = {
             "Ip": [3e6],
-            "NBI": [nbi_powers[0], nbi_cd[0], r_nbi, w_nbi],
+            "NBI": [nbi_powers[0], r_nbi, w_nbi],
             "ECRH": [eccd_power[0], 0.35, 0.05],
         }
 
         if self.time == 98:
             action["ECRH"][0] = eccd_power[99]
             action["NBI"][0] = nbi_powers[1]
-            action["NBI"][1] = nbi_cd[1]
 
         if self.time >= 99:
             action["ECRH"][0] = eccd_power[100]
             action["NBI"][0] = nbi_powers[2]
-            action["NBI"][1] = nbi_cd[2]
 
         if self.time < 99:
             action["Ip"][0] = 3e6 + (self.time + 1) * (12.5e6 - 3e6) / 100
@@ -62,26 +60,31 @@ class IterHybridAgent:  # noqa: D101
 
 
 if __name__ == "__main__":
-    profiler = cProfile.Profile()
+    # Create videos directory if it doesn't exist
+    os.makedirs("videos", exist_ok=True)
 
-    env = IterHybridEnv(render_mode="human", store_history=True)
+    # Create base environment with rgb_array mode for video recording
+    base_env = IterHybridEnv(
+        render_mode="rgb_array", store_history=False, log_level="debug"
+    )
+
+    # Wrap with video recorder
+    env = RecordVideo(
+        base_env,
+        video_folder="./videos",
+        episode_trigger=lambda x: True,  # Record every episode
+        video_length=0,  # Record entire episode
+        name_prefix="iter_hybrid_episode",
+    )
+
     agent = IterHybridAgent(env.action_space)
 
     observation, _ = env.reset()
     terminated = False
 
-    i = 0
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
-        i += 1
-        if i % 10 == 0:
-            env.render()
 
-    env.save_file("tmp/outputs_iter_torax.nc")
-    viz.save_gif_from_nc(
-        "tmp/outputs_iter_torax.nc",
-        filename="tmp/output_torax.gif",
-        interval=200,
-        frame_skip=5,
-    )
+    env.close()
+    print("Video saved to ./videos/ directory")

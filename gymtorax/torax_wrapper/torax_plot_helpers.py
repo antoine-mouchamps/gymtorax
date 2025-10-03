@@ -1,23 +1,28 @@
-"""Enhanced TORAX Plotting Functions - PNG and GIF Generation.
+"""TORAX plotting helper functions for visualization.
 
-This module provides functions similar to plotruns_lib.plot_run() but for generating
-PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
-processing logic, spacing, and matplotlib configurations as the original.
+This module provides utilities for creating matplotlib figures and updating plots
+with TORAX simulation data. The functions are designed to work with TORAX
+plotting system while supporting both static image generation and real-time
+visualization updates.
+
+Key functions:
+    - `create_figure()`: Sets up matplotlib figure with TORAX styling and font scaling
+    - `update_lines()`: Updates plot lines with simulation data (spatial profiles or time series)
+    - `validate_plotdata()`: Ensures plot configuration matches available data attributes
+    - `load_data()`: Processes TORAX `DataTree` output into `PlotData` format with unit conversions
+
+All of these functions are adapted from TORAX ``plotruns_lib`` module, with modifications
+to be able to apply them in the GymTORAX environments.
 """
 
-import matplotlib
-
-matplotlib.use("Agg")  # Non-interactive backend
 import inspect
-import io
 import logging
-from typing import Any
 
+import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
-from PIL import Image
 from torax._src.output_tools import output
 from torax._src.plotting import plotruns_lib
 
@@ -29,11 +34,40 @@ FONT_SCALE_BASE = 1.0  # Base scaling factor
 FONT_SCALE_PER_ROW = 0.3  # Additional scaling per row
 
 
-def create_figure(plot_config: plotruns_lib.FigureProperties):
-    """Create figure without slider subplot.
+def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float = 1):
+    """Create matplotlib figure with TORAX styling and configurable font scaling.
 
-    Returns only fig and axes, no slider_ax.
+    Sets up a matplotlib figure using TORAX plot configuration, applies matplotlib
+    RC settings for consistent styling, and creates a grid of subplots. Font sizes
+    are scaled according to the `font_scale` parameter and applied to the `plot_config`
+    object in-place. As side effects, this function modifies matplotlib global RC
+    settings for tick, axes, and figure fonts, and modifies
+    ``plot_config.default_legend_fontsize`` and axes ``legend_fontsize`` in-place.
+
+    Args:
+        plot_config (plotruns_lib.FigureProperties): TORAX plot configuration
+            containing subplot layout (`rows`, `cols`), font sizes, figure size factor,
+            and axes configurations. Modified in-place to apply font scaling.
+        font_scale (float): Multiplier for all font sizes. Applied to
+            tick labels, axis labels, titles, and legend fonts. Defaults to ``1.0``.
+
+    Returns:
+        tuple[matplotlib.figure.Figure, list[matplotlib.axes.Axes]]:
+            - fig (matplotlib.figure.Figure): Figure object
+            - axes (list[matplotlib.axes.Axes]): list of axes in row-major order (left-to-right, top-to-bottom).
     """
+    # EXACT same matplotlib RC settings as original, but with scaling
+    matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("ytick", labelsize=plot_config.tick_fontsize * font_scale)
+    matplotlib.rc("axes", labelsize=plot_config.axes_fontsize * font_scale)
+    matplotlib.rc("figure", titlesize=plot_config.title_fontsize * font_scale)
+
+    # Scale the font size of legend
+    plot_config.default_legend_fontsize *= font_scale
+    for ax_cfg in plot_config.axes:
+        if ax_cfg.legend_fontsize is not None:
+            ax_cfg.legend_fontsize *= font_scale
+
     # Calculate font scaling based on rows and columns
     rows = plot_config.rows
     cols = plot_config.cols
@@ -61,40 +95,109 @@ def create_figure(plot_config: plotruns_lib.FigureProperties):
     return fig, axes
 
 
-def plot_run_to_gif(
-    plot_config: plotruns_lib.FigureProperties,
-    data_tree: xr.DataTree,
-    data_tree_2: xr.DataTree | None = None,
-    gif_filename: str = "torax_evolution.gif",
-    n_frames: int = 50,
-    duration: int = 200,
-    optimize: bool = True,
-    frame_skip: int = 1,
-) -> str:
-    """Generate animated GIF from TORAX simulation data.
+def update_lines(lines, axes, plot_config, plotdata, t, first_update):
+    """Update or create plot lines with simulation data.
+
+    As side effects, this function sets ``cfg.include_first_timepoint = True``
+    on each axis config, and for `TIME_SERIES` on subsequent updates, appends
+    data to existing line coordinates.
 
     Args:
-        plot_config: FigureProperties object defining the plot layout and content
-        data_tree: Datatree of the TORAX simulation output file
-        data_tree_2: Optional Datatree of the second file for comparison
-        gif_filename: Output GIF filename
-        n_frames: Maximum number of frames in the animation
-        duration: Duration per frame in milliseconds
-        optimize: Whether to optimize the GIF file size
-        frame_skip: Skip every N frames from the original data (default=1, no skip)
+        lines (list): Existing matplotlib `Line2D` objects. Empty on first call.
+        axes (list): Matplotlib axes objects matching `plot_config` layout.
+        plot_config (plotruns_lib.FigureProperties): Defines subplot configurations,
+            each with `plot_type`, `attrs` (variable names), `labels`, and `colors`.
+        plotdata (plotruns_lib.PlotData): Simulation data with plasma variables.
+        t (float): Current simulation time (used for `TIME_SERIES` updates).
+        first_update (bool): If `True`, creates new lines; if `False`, updates existing.
 
     Returns:
-        Path to the generated GIF file
-    """
-    plotdata1 = _load_data(data_tree)
-    plotdata2 = _load_data(data_tree_2) if data_tree_2 else None
+        list: Updated list of `Line2D` objects for future calls.
 
+    Raises:
+        ValueError: If `plot_type` is not `SPATIAL` or `TIME_SERIES`.
+
+    Note:
+        Uses ``plotruns_lib.get_rho()`` to determine x-coordinate for spatial plots.
+        Color cycling follows ``plot_config.colors`` list with modulo indexing.
+    """
+    line_idx = 0
+    for ax, cfg in zip(axes, plot_config.axes):
+        line_idx_color = 0
+        cfg.include_first_timepoint = True  # I don't know why, but it is needed...
+
+        if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
+            for attr, label in zip(cfg.attrs, cfg.labels):
+                data = getattr(plotdata, attr)
+                # if cfg.suppress_zero_values and np.all(data == 0):
+                #     continue
+
+                rho = plotruns_lib.get_rho(plotdata, attr)
+                if first_update is True:
+                    (line,) = ax.plot(
+                        rho,
+                        data[0, :],
+                        plot_config.colors[line_idx_color % len(plot_config.colors)],
+                        label=label,
+                    )
+                    lines.append(line)
+                    line_idx_color += 1
+                else:
+                    lines[line_idx].set_xdata(rho)
+                    lines[line_idx].set_ydata(data[0, :])
+                line_idx += 1
+
+        elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
+            for attr, label in zip(cfg.attrs, cfg.labels):
+                data = getattr(plotdata, attr)
+
+                if first_update is True:
+                    # if cfg.suppress_zero_values and np.all(data == 0):
+                    #     continue
+                    # EXACT same logic as get_lines() - plot entire time series
+                    (line,) = ax.plot(
+                        plotdata.t,
+                        data,  # Plot entire time series (same as get_lines)
+                        plot_config.colors[line_idx_color % len(plot_config.colors)],
+                        label=label,
+                    )
+                    lines.append(line)
+                    line_idx_color += 1
+                else:
+                    xdata = lines[line_idx].get_xdata()
+                    ydata = lines[line_idx].get_ydata()
+                    lines[line_idx].set_xdata(np.append(xdata, t))
+                    lines[line_idx].set_ydata(np.append(ydata, data))
+                line_idx += 1
+        else:
+            raise ValueError(f"Unknown plot type: {cfg.plot_type}")
+    return lines
+
+
+def validate_plotdata(
+    plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties
+):
+    """Check that all plot configuration attributes exist in plotdata.
+
+    Uses introspection to find all available attributes in the `PlotData` object
+    (both dataclass fields and properties), then verifies that every attribute
+    name listed in the plot configuration ``axes.attrs`` lists exists.
+
+    Args:
+        plotdata (plotruns_lib.PlotData): Data object to check.
+        plot_config (plotruns_lib.FigureProperties): Plot configuration with
+            axes definitions. Each axis config has an ``attrs`` list of variable names.
+
+    Raises:
+        ValueError: If any attribute in ``plot_config.axes[*].attrs`` is not found
+            in `plotdata`. Error message identifies the missing attribute name.
+    """
     # EXACT same attribute validation as plot_run()
-    plotdata_fields = set(plotdata1.__dataclass_fields__)
+    plotdata_fields = set(plotdata.__dataclass_fields__)
     plotdata_properties = {
         name
         for name, _ in inspect.getmembers(
-            type(plotdata1), lambda o: isinstance(o, property)
+            type(plotdata), lambda o: isinstance(o, property)
         )
     }
     plotdata_attrs = plotdata_fields.union(plotdata_properties)
@@ -105,166 +208,20 @@ def plot_run_to_gif(
                     f"Attribute '{attr}' in plot_config does not exist in PlotData"
                 )
 
-    # Select time indices for animation with frame_skip
-    n_times = len(plotdata1.t)
 
-    # Apply frame_skip to reduce the data
-    available_indices = list(range(0, n_times, frame_skip))
-    actual_frames = min(n_frames, len(available_indices))
+def load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
+    r"""Convert TORAX DataTree output to PlotData with unit transformations.
 
-    # Select evenly spaced frames from the skipped data
-    if actual_frames == len(available_indices):
-        time_indices = available_indices
-    else:
-        selected_indices = np.linspace(
-            0, len(available_indices) - 1, actual_frames, dtype=int
-        )
-        time_indices = [available_indices[i] for i in selected_indices]
+    Extracts time coordinate and applies unit conversions to match TORAX plotting
+    conventions (A/m² → MA/m², W → MW, m⁻³ → 10²⁰ m⁻³, etc.). Handles hierarchical
+    `DataTree` structure by extracting from ``profiles/`` and ``scalars/`` branches.
 
-    logger.info(
-        f"🎬 Creating animated GIF with {actual_frames} frames"
-        + f"(frame_skip={frame_skip})..."
-    )
+    Args:
+        data_tree (xarray.DataTree): TORAX simulation output.
 
-    frames = []
-
-    # Calculate font scaling based on rows
-    rows = plot_config.rows
-
-    font_scale = FONT_SCALE_BASE + (rows - 1) * FONT_SCALE_PER_ROW
-
-    # EXACT same matplotlib RC settings as original, but with scaling
-    matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
-    matplotlib.rc("ytick", labelsize=plot_config.tick_fontsize * font_scale)
-    matplotlib.rc("axes", labelsize=plot_config.axes_fontsize * font_scale)
-    matplotlib.rc("figure", titlesize=plot_config.title_fontsize * font_scale)
-
-    # Scale the font size of legend
-    plot_config.default_legend_fontsize *= font_scale
-    for ax_cfg in plot_config.axes:
-        if ax_cfg.legend_fontsize is not None:
-            ax_cfg.legend_fontsize *= font_scale
-
-    for frame_idx, time_idx in enumerate(time_indices):
-        time_val = plotdata1.t[time_idx]
-
-        # Create figure without slider using our custom function
-        fig, axes = create_figure(plot_config)
-
-        # EXACT same title handling as plot_run()
-        title_lines = [f"(1)={''} - t = {time_val:.3f} s"]
-        if data_tree_2:
-            title_lines.append(f"(2)={''}")
-        fig.suptitle("\n".join(title_lines))
-
-        # EXACT same line generation as plot_run(), but at specific time
-        _ = _get_lines_at_time(plot_config, plotdata1, axes, time_idx)
-        if plotdata2:
-            _ = _get_lines_at_time(
-                plot_config, plotdata2, axes, time_idx, comp_plot=True
-            )
-
-        # EXACT same plot formatting as plot_run()
-        plotruns_lib.format_plots(plot_config, plotdata1, plotdata2, axes)
-
-        # Convert plot to image
-        buf = io.BytesIO()
-        fig.canvas.draw()
-        plt.savefig(
-            buf,
-            format="png",
-            dpi=100,
-            bbox_inches="tight",
-            facecolor="white",
-            edgecolor="none",
-        )
-        buf.seek(0)
-        frames.append(Image.open(buf))
-        plt.close(fig)
-
-        # Progress indicator
-        if (frame_idx + 1) % 2 == 0:
-            logger.info(f"  📸 Generated {frame_idx + 1}/{actual_frames} frames")
-    logger.info("")
-
-    # Save animated GIF
-    logger.info(f"🎥 Saving animated GIF: {gif_filename}")
-
-    frames[0].save(
-        gif_filename,
-        save_all=True,
-        append_images=frames[1:],
-        duration=duration,
-        loop=0,
-        optimize=optimize,
-    )
-
-    logger.info(f"✅ Animated GIF saved: {gif_filename}")
-    return gif_filename
-
-
-def _get_lines_at_time(
-    plot_config: plotruns_lib.FigureProperties,
-    plotdata1: plotruns_lib.PlotData,
-    axes: list[Any],
-    time_idx: int,
-    comp_plot: bool = False,
-) -> list[Any]:
-    """Generate lines at specific time index in the same way as in TORAX native.
-
-    This replicates the exact behavior of plotruns_lib.get_lines() but for a specific
-    time.
+    Returns:
+        plotruns_lib.PlotData: Object with plasma variables in plotting units.
     """
-    lines = []
-    # Same logic as get_lines() - handle comparison plot suffix and dashing
-    suffix = f" ({1 if not comp_plot else 2})"
-    dashed = "--" if comp_plot else ""
-
-    for ax, cfg in zip(axes, plot_config.axes):
-        line_idx = 0  # Reset color selection cycling for each plot (same as get_lines)
-
-        if cfg.plot_type == plotruns_lib.PlotType.SPATIAL:
-            for attr, label in zip(cfg.attrs, cfg.labels):
-                data = getattr(plotdata1, attr)
-                if cfg.suppress_zero_values and np.all(data == 0):
-                    continue
-
-                # EXACT same rho calculation as get_lines()
-                rho = plotruns_lib.get_rho(plotdata1, attr)
-
-                # Plot data at specific time instead of time zero
-                (line,) = ax.plot(
-                    rho,
-                    data[time_idx, :],  # Use specified time_idx instead of 0
-                    plot_config.colors[line_idx % len(plot_config.colors)] + dashed,
-                    label=f"{label}{suffix}",
-                )
-                lines.append(line)
-                line_idx += 1
-
-        elif cfg.plot_type == plotruns_lib.PlotType.TIME_SERIES:
-            for attr, label in zip(cfg.attrs, cfg.labels):
-                data = getattr(plotdata1, attr)
-                if cfg.suppress_zero_values and np.all(data == 0):
-                    continue
-
-                # EXACT same logic as get_lines() - plot entire time series
-                _ = ax.plot(
-                    plotdata1.t,
-                    data,  # Plot entire time series (same as get_lines)
-                    plot_config.colors[line_idx % len(plot_config.colors)] + dashed,
-                    label=f"{label}{suffix}",
-                )
-                line_idx += 1
-        else:
-            raise ValueError(f"Unknown plot type: {cfg.plot_type}")
-
-    return lines
-
-
-# COPY PASTE FROM TORAX, but without the filename as argument
-def _load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
-    """Loads an xr.Dataset from a file, handling potential coordinate name changes."""
     # Handle potential time coordinate name variations
     time = data_tree[output.TIME].to_numpy()
 

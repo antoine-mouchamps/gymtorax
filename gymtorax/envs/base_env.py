@@ -5,7 +5,7 @@ compatible with the Gymnasium reinforcement learning framework. It integrates TO
 physics simulations with RL interfaces, handling time discretization, action/observation
 spaces, and the simulation lifecycle.
 
-The BaseEnv class serves as a foundation for creating specific plasma control tasks by:
+The `BaseEnv` class serves as a foundation for creating specific plasma control tasks by:
 
 - Managing TORAX configuration and simulation execution
 - Defining action and observation space structures
@@ -14,10 +14,10 @@ The BaseEnv class serves as a foundation for creating specific plasma control ta
 - Configurable logging system for debugging and monitoring
 
 Classes:
-    BaseEnv: Abstract base class for TORAX Gymnasium environments
+    `BaseEnv`: Abstract base class for TORAX Gymnasium environments
 
 Example:
-    Create a custom environment by extending BaseEnv:
+    Create a custom environment by extending `BaseEnv`:
 
     >>> class PlasmaControlEnv(BaseEnv):
     ...     def __init__(self, render_mode=None, ``**kwargs``):
@@ -39,21 +39,24 @@ Example:
     ...         return -abs(next_state["scalars"]["beta_N"] - 2.0)
 """
 
+from __future__ import annotations
+
 import copy
-import importlib
 import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
 import gymnasium as gym
+import matplotlib
 import numpy as np
 from numpy.typing import NDArray
+from torax._src.plotting.plotruns_lib import FigureProperties
 
 from ..action_handler import Action, ActionHandler
 from ..logger import setup_logging
 from ..observation_handler import Observation
-from ..rendering import FigureProperties, ToraxStyleRealTimePlotter
-from ..torax_wrapper import ConfigLoader, ToraxApp, torax_plot_extensions
+from ..rendering import Plotter, process_plot_config
+from ..torax_wrapper import ConfigLoader, ToraxApp
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -103,8 +106,8 @@ class BaseEnv(gym.Env, ABC):
         self,
         render_mode: str | None = None,
         log_level: str = "warning",
-        logfile: str | None = None,
-        fig: FigureProperties | None = None,  # TODO: REMOVE FROM HERE
+        log_file: str | None = None,
+        plot_config: FigureProperties | str = "default",
         store_history: bool = False,
     ) -> None:
         """Initialize the TORAX gymnasium environment.
@@ -114,29 +117,28 @@ class BaseEnv(gym.Env, ABC):
 
         Args:
             render_mode (str or None): Rendering mode for visualization.
-                Options: "human", "rgb_array", or None. Defaults to None.
+                Options: ``"human"``, ``"rgb_array"``, or ``None``. Defaults to ``None``.
             log_level (str): Logging level for environment operations.
-                Options: "debug", "info", "warning", "error", "critical".
-                Defaults to "warning".
-            logfile (str or None): Path to log file for writing log messages.
-                If None, logs to console. Defaults to None.
-            fig (FigureProperties or None): Figure properties for visualization
-                configuration. Defines plot layout, variables to display, and styling
-                options for real-time plotting and GIF creation. If None, default
-                visualization settings will be used. Defaults to None.
+                Options: ``"debug"``, ``"info"``, ``"warning"``, ``"error"``, ``"critical"``.
+                Defaults to ``"warning"``.
+            log_file (str or None): Path to log file for writing log messages.
+                If ``None``, logs to console. Defaults to ``None``.
+            plot_config (str or FigureProperties): Name of the plot configuration to use
+                (e.g., ``"default"``). Can also be a torax `FigureProperties` instance for
+                custom plot configuration.
             store_history (bool): Whether to store simulation history
-                for later saving. Set to True if you plan to use ``save_file`` method.
-                Defaults to False.
+                for later saving. Set to ``True`` if you plan to use ``save_file`` method.
+                Defaults to ``False``.
 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
-            TypeError: If discretization_torax is not "auto" or "fixed".
+            TypeError: If ``discretization_torax`` is not ``"auto"`` or ``"fixed"``.
             KeyError: If required keys are missing from TORAX configuration.
 
         Note:
             Subclasses should use ``**kwargs`` to pass parameters to avoid explicit parameter
             listing and maintain flexibility as the base class evolves. Environment-specific
-            defaults can be set using kwargs.setdefault() before calling super().__init__().
+            defaults can be set using ``kwargs.setdefault()`` before calling ``super().__init__()``.
 
             The environment must implement the abstract methods ``_define_observation_space``,
             ``_define_action_space``, ``_get_torax_config``, and ``_compute_reward``.
@@ -147,7 +149,7 @@ class BaseEnv(gym.Env, ABC):
             "render_fps": 4,
         }
 
-        setup_logging(getattr(logging, log_level.upper()), logfile)
+        setup_logging(getattr(logging, log_level.upper()), log_file)
 
         try:
             config = copy.deepcopy(self._get_torax_config()["config"])
@@ -165,6 +167,7 @@ class BaseEnv(gym.Env, ABC):
         # Load and validate TORAX configuration
         self.config: ConfigLoader = ConfigLoader(config, self.action_handler)
         self.config.validate_discretization(discretization_torax)
+
         # Get total simulation time from configuration
         self.T: float = self.config.get_total_simulation_time()  # [seconds]
 
@@ -216,18 +219,23 @@ class BaseEnv(gym.Env, ABC):
         )
 
         # Build Gymnasium spaces
-        # WARNING: At this stage, the observation space cannot be fully
-        # determined. It is first set to the maximal possible space.
         self.action_space = self.action_handler.build_action_space()
         self.observation_space = self.observation_handler.build_observation_space()
 
         # Validate and set rendering mode
-        assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
-        if fig is not None:
-            self.plotter = ToraxStyleRealTimePlotter(fig, render_mode=self.render_mode)
+        if render_mode in ["human", "rgb_array"]:
+            plot_config = process_plot_config(plot_config)
+
+            # Use non-interactive backend for rgb_array mode
+            if render_mode == "rgb_array":
+                matplotlib.use("Agg")  # Non-interactive backend
+            if render_mode == "human":
+                matplotlib.use("Qt5Agg")  # Interactive backend
+
+            self.renderer = Plotter(plot_config, render_mode)
         else:
-            self.plotter = None
+            self.renderer = None
 
         self.store_history = store_history
 
@@ -246,10 +254,10 @@ class BaseEnv(gym.Env, ABC):
         Args:
             seed (int or None): Random seed for reproducible episode initialization.
                 Used to seed the environment's random number generator for deterministic
-                behavior across resets. If None, no seeding is performed. Defaults to None.
+                behavior across resets. If ``None``, no seeding is performed. Defaults to ``None``.
             options (dict[str, Any] or None): Additional options for environment reset.
                 Currently unused but maintained for Gymnasium compatibility.
-                Defaults to None.
+                Defaults to ``None``.
 
         Returns:
             tuple[dict[str, Any], dict[str, Any]]:
@@ -267,16 +275,15 @@ class BaseEnv(gym.Env, ABC):
         # Initialize last_action_dict for storing last actions
         self.last_action_dict = {}
 
-        if self.plotter is not None:
-            self.plotter.reset()
+        # Reset renderer if applicable
+        if self.renderer is not None:
+            self.renderer.reset()
 
         # Initialize TORAX simulation
         self.torax_app.reset()  # Set up initial simulation state
         torax_state = self.torax_app.get_state_data()  # Get initial plasma state
 
         self.current_time = torax_state["/"]["time"][0].item()
-        # Update last_action_dict with initial state
-        self._update_last_action_dict(torax_state)
 
         # Extract initial observation
         self.state, self.observation = (
@@ -290,10 +297,10 @@ class BaseEnv(gym.Env, ABC):
             ]
             self.action_history = [self.torax_app.config.get_current_action_values()]
 
-        if self.plotter is not None:
-            self.plotter.update(
-                current_state=self.state,
-                action_input=self.last_action_dict,
+        # Update renderer with initial state if applicable
+        if self.renderer is not None:
+            self.renderer.update(
+                current_state=torax_state,
                 t=self.current_time,
             )
         logger.debug(" environment reset complete.")
@@ -322,8 +329,8 @@ class BaseEnv(gym.Env, ABC):
             tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
                 - observation (dict): New plasma state observation
                 - reward (float): Reward signal for this step
-                - terminated (bool): True if episode ended due to terminal condition
-                - truncated (bool): True if episode ended due to time/step limits
+                - terminated (bool): ``True`` if episode ended due to terminal condition
+                - truncated (bool): ``True`` if episode ended due to time/step limits
                 - info (dict): Additional step information
         """
         truncated = False
@@ -367,9 +374,6 @@ class BaseEnv(gym.Env, ABC):
         # Extract new state and observation after simulation step
         next_torax_state = self.torax_app.get_state_data()
 
-        # Update last_action_dict with new state
-        self._update_last_action_dict(next_torax_state)
-
         next_state, observation = self.observation_handler.extract_state_observation(
             next_torax_state
         )
@@ -393,10 +397,10 @@ class BaseEnv(gym.Env, ABC):
         if self.current_time > self.T:
             self.terminated = True
 
-        if self.plotter is not None:
-            self.plotter.update(
-                current_state=self.state,
-                action_input=self.last_action_dict,
+        # Update the renderer with current state if applicable
+        if self.renderer is not None:
+            self.renderer.update(
+                current_state=next_torax_state,
                 t=self.current_time,
             )
 
@@ -409,17 +413,23 @@ class BaseEnv(gym.Env, ABC):
 
     def close(self) -> None:
         """Clean up environment resources."""
-        if self.plotter is not None:
-            self.plotter.close()
+        if self.renderer is not None:
+            self.renderer.close()
 
-    def render(self) -> None:
+    def render(self) -> np.ndarray | None:
         """Render the current environment state following Gymnasium convention.
 
-        Note:
-            For 'human' mode, this calls the plotter's update method for live visualization.
+        Returns:
+            numpy.ndarray: RGB array of shape (height, width, 3) if render_mode is "rgb_array"
+            None: If render_mode is "human" or renderer is not available
         """
-        if self.render_mode == "human" and self.plotter is not None:
-            self.plotter.render_frame(t=self.current_time)
+        if self.renderer is not None:
+            if self.render_mode == "human":
+                self.renderer.render_frame(self.current_time)
+                return None
+            elif self.render_mode == "rgb_array":
+                return self.renderer.render_rgb_array(t=self.current_time)
+        return None
 
     def save_file(self, file_name):
         """Save the simulation output data to a file.
@@ -444,119 +454,6 @@ class BaseEnv(gym.Env, ABC):
             ) from e
 
         logger.debug(f"Saved simulation history to {file_name}")
-
-    def save_gif_torax(
-        self,
-        filename: str = "torax_evolution.gif",
-        config_plot: str = "default",
-        interval: int = 200,
-        frame_skip: int = 2,
-        start: int = 0,
-        end: int = -1,
-    ) -> None:
-        """Generate and save an GIF of the simulation.
-
-        This method loads a plotting configuration by name, extracts the simulation history (optionally
-        selecting a time range), and generates an animated GIF visualizing the evolution of the simulation.
-        The plot configuration must exist as a module in `torax.plotting.configs` and contain a `PLOT_CONFIG`
-        attribute. The simulation must have been run with `store_history=True` for this to work.
-
-        Args:
-            config_plot (str): Name of the plot configuration to use (e.g., "default").
-            filename (str): Output GIF filename.
-            interval (int): Delay between frames in milliseconds.
-            frame_skip (int): Save every Nth frame (default 2 = every other frame).
-            start (int): Start time for the GIF (inclusive).
-            end (int): End time for the GIF (inclusive, -1 for no upper limit).
-
-        Raises:
-            ImportError: If the plot configuration module cannot be found.
-            AttributeError: If the module does not contain a PLOT_CONFIG attribute.
-            RuntimeError: If the simulation was not run with state history enabled.
-        """
-        try:
-            module = importlib.import_module(
-                f"torax.plotting.configs.{config_plot}_plot_config"
-            )
-        except ImportError:
-            logger.error(f"""Plot config: {config_plot} not found
-                         in `torax.plotting.configs`""")
-            return
-        try:
-            PLOT_CONFIG = getattr(module, "PLOT_CONFIG")
-        except AttributeError:
-            logger.error(f"""Plot config: {config_plot} does not have a PLOT_CONFIG attribute
-                         in `torax.plotting.configs`""")
-            return
-
-        data_tree = self.torax_app.get_output_datatree(start, end)
-
-        torax_plot_extensions.plot_run_to_gif(
-            plot_config=PLOT_CONFIG,
-            data_tree=data_tree,
-            gif_filename=filename,
-            n_frames=50,
-            duration=interval,
-            optimize=False,
-            frame_skip=frame_skip,
-        )
-
-    def save_gif(
-        self,
-        filename: str = "torax_output.gif",
-        interval: int = 200,
-        frame_skip: int = 2,
-    ) -> None:
-        """Save the data as a GIF file.
-
-        Args:
-            filename (str): Path to save the GIF file.
-                If it does not end with ".gif", the suffix will be added.
-            interval (int): Delay between frames in ms.
-            frame_skip (int): Save every Nth frame (default 2 = all frames).
-                The last frame is always included.
-        """
-        if self.plotter is not None:
-            # verify that the suffix is correct
-            if not filename.endswith(".gif"):
-                filename += ".gif"
-            self.plotter.save_gif(filename, interval=interval, frame_skip=frame_skip)
-        else:
-            logger.warning("No plotter available to save GIF.")
-
-    def _update_last_action_dict(self, state):
-        """Update the last action dictionary with current state values.
-
-        This internal method maintains a dictionary tracking the most recent values
-        of action variables from the simulation state. It initializes the dictionary
-        structure on first call and updates values on subsequent calls.
-
-        The dictionary follows the structure: {'scalars': {...}, 'profiles': {...}}
-        where keys correspond to action variable categories and values are the
-        current state values for those variables.
-
-        Args:
-            state (dict): Current simulation state containing variable values
-            organized by category (scalars, profiles, etc.)
-
-        Note:
-            This method is called during ``reset`` and ``step`` to keep track of
-            action variable values for visualization and debugging purposes.
-        """
-        action_vars = self.action_handler.get_action_variables()
-        # Initialize structure only if empty
-        if not self.last_action_dict:
-            self.last_action_dict = {"scalars": {}, "profiles": {}}
-            for cat, var_list in action_vars.items():
-                if cat not in self.last_action_dict:
-                    self.last_action_dict[cat] = {}
-                for var in var_list:
-                    self.last_action_dict[cat][var] = None
-        # Update values
-        for cat, var_list in action_vars.items():
-            for var in var_list:
-                value = state.get(cat, {}).get(var, None)
-                self.last_action_dict[cat][var] = value
 
     # =============================================================================
     # Abstract Methods - Must be implemented by concrete subclasses
@@ -593,7 +490,7 @@ class BaseEnv(gym.Env, ABC):
         which plasma parameters can be controlled by the RL agent.
 
         Returns:
-            list[Action]: List of Action instances representing controllable
+            list[Action]: List of `Action` instances representing controllable
                 parameters with their bounds and TORAX configuration mappings.
 
         Example:
@@ -622,13 +519,13 @@ class BaseEnv(gym.Env, ABC):
             dict[str, Any]: A dictionary containing the TORAX configuration.
                 The dictionary must have the following keys:
 
-                - "config" (dict): A dictionary of TORAX configuration parameters.
-                - "discretization" (str): The time discretization method.
-                  Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-                - "ratio_a_sim" (int or None): The ratio of action timesteps to
-                  simulation timesteps. Required if 'discretization' is "fixed".
-                - "delta_t_a" (float or None): The time interval between actions
-                  in seconds. Required if 'discretization' is "auto".
+                - ``"config"`` (dict): A dictionary of TORAX configuration parameters.
+                - ``"discretization"`` (str): The time discretization method.
+                  Options are ``"auto"`` (uses ``'delta_t_a'``) or ``"fixed"`` (uses ``'ratio_a_sim'``).
+                - ``"ratio_a_sim"`` (int or None): The ratio of action timesteps to
+                  simulation timesteps. Required if ``'discretization'`` is ``"fixed"``.
+                - ``"delta_t_a"`` (float or None): The time interval between actions
+                  in seconds. Required if ``'discretization'`` is ``"auto"``.
 
 
         Example:
@@ -656,7 +553,7 @@ class BaseEnv(gym.Env, ABC):
 
         Args:
             state (dict[str, Any]): Previous plasma state before action was applied.
-                Contains complete state with "profiles" and "scalars" dictionaries.
+                Contains complete state with ``"profiles"`` and ``"scalars"`` dictionaries.
             next_state (dict[str, Any]): New plasma state after action and simulation step.
                 Same structure as state parameter.
             action (dict[str, numpy.ndarray]): Action dictionary that was applied to cause this transition.

@@ -20,9 +20,6 @@ the environments, including key methods and a simple example.
 .. automethod:: gymtorax.envs.base_env.BaseEnv.save_file
    :noindex:
 
-.. automethod:: gymtorax.envs.base_env.BaseEnv.save_gif
-   :noindex:
-
 
 Here is a simple example of how to use the Gym-TORAX package for reinforcement 
 learning applications:
@@ -32,7 +29,7 @@ learning applications:
     import gymtorax
     env = gymtorax.make("basic_env")
     agent = YourRLAgent(env.action_space, env.observation_space)
-    obs = env.reset()
+    obs, info = env.reset()
     terminated = False
     truncated = False
 
@@ -42,6 +39,19 @@ learning applications:
         agent.learn(obs, reward)  # Update your RL agent with the new observation and reward
         env.render()  # Optional: render the environment
 
-    env.save_file("output_data")
-    env.save_gif("simulation.gif")
+    env.close()
+
+For video recording without interactive display:
+
+.. code-block:: python
+
+    env = gym.make('gymtorax/IterHybrid-v0', render_mode="rgb_array")
+    env = RecordVideo(env, video_folder="videos")
+    
+    obs, info = env.reset()
+    terminated = False
+    while not terminated:
+        action = agent.act(obs)
+        obs, reward, terminated, truncated, info = env.step(action)
+    
     env.close()

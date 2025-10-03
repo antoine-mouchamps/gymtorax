@@ -1,7 +1,7 @@
 import logging
 
 
-def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
+def setup_logging(level=logging.WARNING, log_file=None, suppress_external=True):
     """Setup global logging configuration with optional external library suppression.
 
     When using DEBUG level, external libraries (JAX, TORAX, etc.) can generate
@@ -11,10 +11,10 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
     Args:
         level (int): Logging level for gymtorax modules (e.g., :data:`logging.DEBUG`,
             :data:`logging.INFO`, :data:`logging.WARNING`, ...).
-        logfile (str or None): If provided, logs will also be written to this file.
-        suppress_external (bool): If True and ``level=DEBUG``, suppress verbose output
+        log_file (str or None): If provided, logs will also be written to this file.
+        suppress_external (bool): If ``True`` and ``level=DEBUG``, suppress verbose output
             from external libraries (JAX, TORAX, TensorFlow, etc.) by setting them
-            to WARNING level. Default: True.
+            to ``WARNING`` level. Default: ``True``.
 
     Example:
         >>> # Debug gymtorax only, suppress external libraries
@@ -27,8 +27,8 @@ def setup_logging(level=logging.WARNING, logfile=None, suppress_external=True):
         >>> setup_logging(level=logging.WARNING)
     """
     handlers = [logging.StreamHandler()]
-    if logfile is not None:
-        handlers.append(logging.FileHandler(logfile, mode="w"))
+    if log_file is not None:
+        handlers.append(logging.FileHandler(log_file, mode="w"))
 
     logging.basicConfig(
         level=level,

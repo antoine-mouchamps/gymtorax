@@ -176,22 +176,22 @@ class TestEnv(BaseEnv):
         >>> env = TestEnv(render_mode="human", log_level="info")
 
     Note:
-        All initialization parameters are passed to the base class BaseEnv.
-        Refer to BaseEnv.__init__() documentation for detailed parameter descriptions.
+        All initialization parameters are passed to the base class `BaseEnv`.
+        Refer to ``BaseEnv.__init__()`` documentation for detailed parameter descriptions.
     """
 
     def __init__(self, **kwargs):
         """Initialize the test environment.
 
         Args:
-            **kwargs: Keyword arguments passed to BaseEnv.__init__().
-                Common options include render_mode, log_level, logfile, fig,
-                and store_history. Refer to BaseEnv.__init__() documentation
+            **kwargs: Keyword arguments passed to ``BaseEnv.__init__()``.
+                Common options include ``render_mode``, ``log_level``, ``log_file``, ``fig``,
+                and ``store_history``. Refer to ``BaseEnv.__init__()`` documentation
                 for complete parameter list.
 
         Note:
             This environment sets the following defaults which can be overridden
-            via kwargs: render_mode=None, log_level="debug", store_history=True.
+            via kwargs: ``render_mode=None``, ``log_level="debug"``, ``store_history=True``.
         """
         # Set environment-specific defaults
         kwargs.setdefault("render_mode", None)
@@ -217,15 +217,8 @@ class TestEnv(BaseEnv):
 
 
 if __name__ == "__main__":
-    import cProfile
-
-    profiler = cProfile.Profile()
     env = TestEnv()
     env.reset()
 
     for i in range(10):
-        if i == 4:
-            profiler.enable()
         env.step({"Ip": [3e6]})
-
-    profiler.disable()

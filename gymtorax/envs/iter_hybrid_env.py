@@ -182,8 +182,8 @@ class IterHybridEnv(BaseEnv):
         ... )
 
     Note:
-        All initialization parameters are passed to the base class BaseEnv.
-        Refer to BaseEnv.__init__() documentation for detailed parameter descriptions.
+        All initialization parameters are passed to the base class `BaseEnv`.
+        Refer to ``BaseEnv.__init__()`` documentation for detailed parameter descriptions.
     """
 
     def __init__(self, render_mode=None, **kwargs):
@@ -191,17 +191,18 @@ class IterHybridEnv(BaseEnv):
 
         Args:
             render_mode (str, optional): Rendering mode for visualization.
-                See BaseEnv documentation for details. Defaults to None.
-            **kwargs: Additional keyword arguments passed to BaseEnv.__init__().
-                Common options include log_level, logfile, fig, and store_history.
-                Refer to BaseEnv.__init__() documentation for complete parameter list.
+                See `BaseEnv` documentation for details. Defaults to ``None``.
+            **kwargs: Additional keyword arguments passed to ``BaseEnv.__init__()``.
+                Common options include ``log_level``, ``log_file``, ``fig``, and ``store_history``.
+                Refer to ``BaseEnv.__init__()`` documentation for complete parameter list.
 
         Note:
-            This environment sets log_level to `"debug"` by default, which can be
-            overridden by explicitly passing log_level in kwargs.
+            This environment sets ``log_level`` to ``"debug"`` by default, which can be
+            overridden by explicitly passing ``log_level`` in kwargs.
         """
         # Set environment-specific defaults
-        kwargs.setdefault("log_level", "debug")
+        kwargs.setdefault("log_level", "warning")
+        kwargs.setdefault("plot_config", "default")
 
         super().__init__(render_mode=render_mode, **kwargs)
 
@@ -246,7 +247,7 @@ class IterHybridEnv(BaseEnv):
             state (dict[str, Any]): state at time :math:`t`
             next_state (dict[str, Any]): state at time :math:`t+1`
             action (numpy.ndarray): applied action at time :math:`t`
-            gamma (float): discounted factor (:math:`0 < gamma \le 1`)
+            gamma (float): discounted factor (:math:`0 < \gamma \le 1`)
             n (int): number of steps since the beginning of the episode
 
         Returns:

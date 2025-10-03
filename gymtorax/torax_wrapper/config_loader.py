@@ -30,7 +30,7 @@ class ConfigLoader:
 
         Args:
             config: Dictionary containing TORAX configuration parameters.
-            action_handler: ActionHandler instance for managing actions.
+            action_handler: `ActionHandler` instance for managing actions.
 
         Raises:
             ValueError: If the configuration dictionary is invalid
@@ -62,7 +62,7 @@ class ConfigLoader:
     def get_total_simulation_time(self) -> float:
         """Get the total simulation time in seconds.
 
-        This extracts the :code:`t_final` parameter from the numerics section,
+        This extracts the ``t_final`` parameter from the numerics section,
         which defines how long the plasma simulation should run.
 
         Returns:
@@ -83,7 +83,7 @@ class ConfigLoader:
     def set_total_simulation_time(self, time: float) -> None:
         """Set the total simulation time in seconds.
 
-        This updates the :code:`t_final` parameter in the numerics section,
+        This updates the ``t_final`` parameter in the numerics section,
         which defines how long the plasma simulation should run.
 
         Args:
@@ -105,7 +105,7 @@ class ConfigLoader:
     def get_initial_simulation_time(self, restart=False) -> float:
         """Get the initial simulation time in seconds.
 
-        This extracts the :code:`t_initial` parameter from the numerics section,
+        This extracts the ``t_initial`` parameter from the numerics section,
         which defines the initial time for the plasma simulation.
 
         Returns:
@@ -131,7 +131,7 @@ class ConfigLoader:
     def get_simulation_timestep(self) -> float:
         """Get the simulation timestep in seconds.
 
-        This extracts the :code:`fixed_dt` parameter from the numerics section,
+        This extracts the ``fixed_dt`` parameter from the numerics section,
         which defines the time step used in the numerical integration.
 
         Returns:
@@ -152,9 +152,9 @@ class ConfigLoader:
     def get_n_grid_points(self) -> int:
         """Get the number of radial grid points (rho) in the simulation.
 
-        This extracts the :code:`n_rho` parameter from the geometry section,
+        This extracts the ``n_rho`` parameter from the geometry section,
         which defines the number of radial grid points in the simulation. If
-        the parameter is not set, a default value of 25 will be used, in
+        the parameter is not set, a default value of ``25`` will be used, in
         accordance to TORAX settings.
 
         Returns:

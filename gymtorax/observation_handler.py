@@ -8,8 +8,8 @@ with support for variable selection, bounds specification, and automatic
 action variable filtering.
 
 Classes:
-    Observation: Abstract base class for observation space construction.
-    AllObservation: Implementation that includes all available variables.
+    `Observation`: Abstract base class for observation space construction.
+    `AllObservation`: Implementation that includes all available variables.
 """
 
 import json
@@ -57,16 +57,16 @@ class Observation(ABC):
         build_observation_space() before use.
 
         Args:
-            variables: Variables to include. Format: {"profiles": [names], "scalars": [names]}.
-                If None, includes all available variables except those in exclude.
+            variables: Variables to include. Format: ``{"profiles": [names], "scalars": [names]}``.
+                If ``None``, includes all available variables except those in ``exclude``.
             custom_bounds_filename: Path to JSON file with custom bounds.
-                Format: {"profiles": {var: {"min": val, "max": val}}, "scalars": {...}}.
-            exclude: Variables to exclude. Format: {"profiles": [names], "scalars": [names]}.
-                Cannot be used with variables parameter.
+                Format: ``{"profiles": {var: {"min": val, "max": val}}, "scalars": {...}}``.
+            exclude: Variables to exclude. Format: ``{"profiles": [names], "scalars": [names]}``.
+                Cannot be used with ``variables`` parameter.
             dtype: Data type for observation arrays.
 
         Raises:
-            ValueError: If both variables and exclude specified or invalid configuration.
+            ValueError: If both ``variables`` and ``exclude`` specified or invalid configuration.
         """
         # Load custom bounds if specified
         if custom_bounds_filename is not None:
@@ -108,7 +108,7 @@ class Observation(ABC):
 
         Determines final observation variables based on include/exclude logic,
         applies custom bounds, and removes action variables from observation space.
-        Called automatically by build_observation_space().
+        Called automatically by ``build_observation_space()``.
         """
         if self.variables_to_include is None and self.variables_to_exclude is not None:
             # Include all variables except excluded ones (if they were provided)
@@ -245,7 +245,7 @@ class Observation(ABC):
 
         Args:
             variables: Action variables by category.
-                Format: {"profiles": [names], "scalars": [names]}.
+                Format: ``{"profiles": [names], "scalars": [names]}``.
         """
         self.action_variables = variables
 
@@ -256,7 +256,7 @@ class Observation(ABC):
         in the observation space.
 
         Args:
-            state: TORAX DataTree with /profiles/ and /scalars/ datasets.
+            state: TORAX `DataTree` with ``/profiles/`` and ``/scalars/`` datasets.
         """
         self.state_variables = self._get_state_as_dict(state)
 
@@ -274,9 +274,9 @@ class Observation(ABC):
         Returns:
             tuple[dict[str, dict[str, numpy.ndarray]], dict[str, dict[str, numpy.ndarray]]]:
                 - state (dict): Complete state with all variables.
-                    Format {"profiles": {var: array}, "scalars": {var: value}}
+                    Format ``{"profiles": {var: array}, "scalars": {var: value}}``
                 - observation (dict): Filtered observation with selected variables.
-                    Format {"profiles": {var: array}, "scalars": {var: value}}
+                    Format ``{"profiles": {var: array}, "scalars": {var: value}}``
 
         """
         state = self._get_state_as_dict(datatree)
@@ -345,12 +345,12 @@ class Observation(ABC):
     def build_observation_space(self) -> spaces.Dict:
         """Build Gymnasium observation space for selected variables.
 
-        Creates nested Dict space with Box spaces for each variable using
+        Creates nested `Dict` space with `Box` spaces for each variable using
         configured bounds. Validates configuration and finalizes variable selection.
 
         Returns:
-            gymnasium.spaces.Dict: Gymnasium Dict space with structure
-                {"profiles": {var: Box}, "scalars": {var: Box}}
+            gymnasium.spaces.Dict: Gymnasium `Dict` space with structure
+                ``{"profiles": {var: Box}, "scalars": {var: Box}}``
 
         Raises:
             ValueError: If validation fails or required setup incomplete.
@@ -382,7 +382,7 @@ class Observation(ABC):
             var_name: Variable name.
 
         Returns:
-            gymnasium.spaces.Box: Box space with appropriate bounds and shape.
+            gymnasium.spaces.Box: `Box` space with appropriate bounds and shape.
         """
         # Determine variable category and extract bounds
         if var_name in self.bounds["profiles"]:
@@ -408,7 +408,7 @@ class Observation(ABC):
 
         Returns:
             dict[str, dict[str, Any]]: Dictionary with format
-                {"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}
+                ``{"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}``
         """
         # Extract datasets
         profiles: Dataset = datatree["/profiles/"].ds

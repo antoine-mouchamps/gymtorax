@@ -41,8 +41,8 @@ napoleon_include_special_with_doc = True
 napoleon_use_ivar = True
 
 napoleon_custom_sections = [
-    ('Class Attributes', 'params_style'),
-    ('Action Parameters', 'params_style'),
+    ("Class Attributes", "params_style"),
+    ("Action Parameters", "params_style"),
 ]
 
 # Intersphinx mapping for cross-references to external docs
@@ -94,6 +94,18 @@ autodoc_mock_imports = [
     "jaxlib",
 ]
 
+# Remove warnings related to TORAX types that are not referenced in their docs
+nitpick_ignore = [
+    ("py:class", "FigureProperties"),
+    ("py:class", "plotruns_lib.FigureProperties"),
+    ("py:class", "torax._src.plotting.plotruns_lib.FigureProperties"),
+    ("py:class", "plotruns_lib.PlotData"),
+    ("py:class", "torax._src.plotting.plotruns_lib.PlotData"),
+    ("py:class", "ToraxSimState"),
+    ("py:class", "PostProcessedOutputs"),
+    ("py:class", "StateHistory"),
+]
+
 # -- Copy button configuration -----------------------------------------------
 
 copybutton_prompt_text = r">>> |\.\.\. |\$ |In \[\d*\]: | {2,5}\.\.\.: | {5,8}: "
@@ -110,7 +122,7 @@ html_theme_options = {
     "navigation_depth": 4,
     "collapse_navigation": False,
     "vcs_pageview_mode": "",
-    'version_selector': True,
+    "version_selector": True,
 }
 html_context = {
     "display_github": True,

@@ -69,5 +69,4 @@ In addition to the core Gymnasium interface, Gym-TORAX provides:
 - Configurability for physics studies: environments can be adapted to represent 
   different operating scenarios (e.g., steady-state, ramp-up, ramp-down).
 
-- Visualization utilities: a real-time plotter and a GIF exporter are available 
-  to analyze plasma evolution during simulations.
+- Visualization system: real-time plotting with TORAX styling

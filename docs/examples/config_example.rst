@@ -1,7 +1,7 @@
 Configuration Example
 =========================
 
-Here is the configuration used in our :doc:`examples <index>`, in ``IterHybridEnv``:
+Here is the configuration used in our :doc:`examples <index>`, in ``IterHybridEnv``. This configuration directly comes from the official TORAX examples, with minor modifications to fit our environment setup.
 
 .. code-block:: python
 

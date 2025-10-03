@@ -24,11 +24,11 @@ class DummyAction(Action):
 
 
 class TestConfigLoader:
-    """Test cases for the ConfigLoader class."""
+    """Test cases for the `ConfigLoader` class."""
 
     @pytest.fixture
     def action_handler(self) -> ActionHandler:
-        """Provide a test ActionHandler for ConfigLoader testing."""
+        """Provide a test `ActionHandler` for `ConfigLoader` testing."""
         test_action = DummyAction()
         return ActionHandler([test_action])
 
@@ -37,7 +37,7 @@ class TestConfigLoader:
         """Provide a valid TORAX configuration for testing.
 
         This is a simplified version of the full TORAX config that contains the
-        essential fields needed for testing the ConfigLoader functionality.
+        essential fields needed for testing the `ConfigLoader` functionality.
         """
         return {
             "profile_conditions": {},  # use default profile conditions

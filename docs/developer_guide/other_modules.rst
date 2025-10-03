@@ -28,7 +28,7 @@ Logging Configuration
    # Configure comprehensive logging
    setup_logging(
        level=logging.DEBUG,
-       logfile="simulation.log",
+       log_file="simulation.log",
        suppress_external=True  # Quiet JAX/TORAX messages
    )
 
@@ -50,6 +50,47 @@ Custom Log Levels
 Visualization and Rendering
 ---------------------------
 
-Tools for plotting and visualizing plasma simulations.
+Real-time visualization system with TORAX integration for plasma simulation monitoring and video recording.
 
-WIP
+.. automodule:: gymtorax.rendering
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Real-time Visualization
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The visualization system provides live plotting during simulation episodes with support for both interactive display and video recording:
+
+.. code-block:: python
+
+   import gymnasium as gym
+   from gymnasium.wrappers import RecordVideo
+   
+   # Interactive visualization
+   env = gym.make('gymtorax/IterHybrid-v0', render_mode="human")
+   obs, info = env.reset()
+   
+   terminated = False
+   while not terminated:
+       action = env.action_space.sample()
+       obs, reward, terminated, truncated, info = env.step(action)
+       env.render()  # Live matplotlib display
+       
+       if terminated or truncated:
+           break
+
+TORAX Plot Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Uses standard TORAX plot configurations, or create custom configurations and pass them to the `plot_config` argument of the environment:
+
+.. code-block:: python
+
+   from gymtorax.rendering import Plotter, process_plot_config
+   
+   # Custom configuration for specific variables
+   env = gym.make('gymtorax/IterHybrid-v0', 
+                  render_mode="human",
+                  plot_config="simple")
+
