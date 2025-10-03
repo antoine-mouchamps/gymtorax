@@ -11,7 +11,7 @@ class TestEnvironmentRegistration:
     """Test that environments are properly registered with Gymnasium."""
 
     def test_iter_hybrid_env_registration(self):
-        """Test that IterHybridEnv is registered and can be created with gym.make()."""
+        """Test that `IterHybridEnv` is registered and can be created with ``gym.make()``."""
         # Test that the environment can be created
         env = gym.make("gymtorax/IterHybrid-v0")
 
@@ -30,7 +30,7 @@ class TestEnvironmentRegistration:
         env.close()
 
     def test_test_env_registration(self):
-        """Test that TestEnv is registered and can be created with gym.make()."""
+        """Test that `TestEnv` is registered and can be created with ``gym.make()``."""
         # Test that the environment can be created
         env = gym.make("gymtorax/Test-v0")
 

@@ -12,9 +12,9 @@ def setup_logging(level=logging.WARNING, log_file=None, suppress_external=True):
         level (int): Logging level for gymtorax modules (e.g., :data:`logging.DEBUG`,
             :data:`logging.INFO`, :data:`logging.WARNING`, ...).
         log_file (str or None): If provided, logs will also be written to this file.
-        suppress_external (bool): If True and ``level=DEBUG``, suppress verbose output
+        suppress_external (bool): If ``True`` and ``level=DEBUG``, suppress verbose output
             from external libraries (JAX, TORAX, TensorFlow, etc.) by setting them
-            to WARNING level. Default: True.
+            to ``WARNING`` level. Default: ``True``.
 
     Example:
         >>> # Debug gymtorax only, suppress external libraries

@@ -43,21 +43,21 @@ def process_plot_config(
 
     Args:
         plot_config (str or plotruns_lib.FigureProperties): Either a string
-            identifier for a default TORAX plot configuration (e.g., `"default"`, `"simple"`, ...)
-            or a pre-configured FigureProperties object.
+            identifier for a default TORAX plot configuration (e.g., ``"default"``, ``"simple"``, ...)
+            or a pre-configured `FigureProperties` object.
 
     Returns:
         plotruns_lib.FigureProperties: Validated plot configuration object
             containing axes definitions, layout properties, and styling options.
 
     Raises:
-        TypeError: If plot_config is neither a string nor FigureProperties instance.
+        TypeError: If `plot_config` is neither a string nor `FigureProperties` instance.
         ImportError: If the specified plot configuration module is not found.
-        AttributeError: If the configuration module lacks the PLOT_CONFIG attribute.
+        AttributeError: If the configuration module lacks the `PLOT_CONFIG` attribute.
 
     Note:
         String-based configurations are loaded from the TORAX package at
-        `torax.plotting.configs.{plot_config}_plot_config.PLOT_CONFIG`.
+        ``torax.plotting.configs.{plot_config}_plot_config.PLOT_CONFIG``.
     """
     if isinstance(plot_config, str):
         try:
@@ -116,13 +116,13 @@ class Plotter:
                 the plot layout, variables to display, axis properties, and styling options.
                 This determines which plasma variables are plotted and how they are arranged.
             render_mode (str): Rendering mode that affects font scaling and
-                backend selection. Supported values are `"human"` for interactive display,
-                `"rgb_array"` for video recording.
+                backend selection. Supported values are ``"human"`` for interactive display,
+                ``"rgb_array"`` for video recording.
 
         Note:
             The figure and axes are created immediately during initialization based on
-            the plot_config. Data histories are initialized as empty and will be populated
-            through subsequent update() calls. Font scaling is automatically applied
+            the `plot_config`. Data histories are initialized as empty and will be populated
+            through subsequent `update()` calls. Font scaling is automatically applied
             for multi-row layouts to maintain readability.
         """
         if render_mode == "rgb_array":
@@ -175,7 +175,7 @@ class Plotter:
 
         Raises:
             ValueError: If required variables specified in `plot_config` are missing
-                from the `current_state` DataTree.
+                from the `current_state` `DataTree`.
 
         Note:
             On first call, this method initializes all plot lines and formatting.
@@ -201,7 +201,7 @@ class Plotter:
 
         This method completes the visualization pipeline by updating axis limits and legends
         , and refreshing the display for interactive
-        viewing. It is designed for `"human"` render mode where users observe the
+        viewing. It is designed for ``"human"`` render mode where users observe the
         simulation in real-time through matplotlib windows.
 
         Args:
@@ -239,11 +239,11 @@ class Plotter:
 
         Args:
             t (float): Current simulation time in seconds to display
-                in the figure title. Formats as "t = {value:.3f}".
+                in the figure title. Formats as ``"t = {value:.3f}"``.
 
         Returns:
-            numpy.ndarray: RGB image array with shape (height, width, 3) and dtype
-                uint8. Values are in the range [0, 255] representing RGB color
+            numpy.ndarray: RGB image array with shape ``(height, width, 3)`` and dtype
+                ``uint8``. Values are in the range ``[0, 255]`` representing RGB color
                 channels. The array can be directly used by video encoding
                 libraries or saved as image files.
         """

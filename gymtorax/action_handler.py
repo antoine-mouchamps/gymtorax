@@ -4,21 +4,21 @@ This module provides an abstract framework for defining and managing actions
 in TORAX plasma simulations. Actions represent controllable parameters that
 can be modified during the simulation to influence plasma behavior.
 
-The Action class is designed to be extended by users to create custom actions
+The `Action` class is designed to be extended by users to create custom actions
 for specific control parameters. Each action has a unique name, dimensionality,
 bounds, ramp rate limits, and knows how to map itself to TORAX configuration
 dictionaries and which state variables it affects.
 
 Classes:
-    - Action: Abstract base class for all action types (user-extensible)
-    - ActionHandler: Internal container and manager for multiple actions
-    - IpAction: Action for plasma current control
-    - VloopAction: Action for loop voltage control
-    - EcrhAction: Action for electron cyclotron resonance heating
-    - NbiAction: Action for neutral beam injection
+    - `Action`: Abstract base class for all action types (user-extensible)
+    - `ActionHandler`: Internal container and manager for multiple actions
+    - `IpAction`: Action for plasma current control
+    - `VloopAction`: Action for loop voltage control
+    - `EcrhAction`: Action for electron cyclotron resonance heating
+    - `NbiAction`: Action for neutral beam injection
 
 Example:
-    Create a custom action by extending the Action class:
+    Create a custom action by extending the `Action` class:
 
     >>> class CustomAction(Action):
     ...     name = "MyCustomAction"
@@ -70,17 +70,17 @@ class Action(ABC):
         default_max (list[float]): Default maximum values for parameters
         config_mapping (dict[tuple[str, ...], tuple[int, float]]): Mapping from configuration
             paths to parameter indices and scaling factors. Keys are tuples representing the nested
-            path in the config dictionary, values are tuples of (parameter_index, scaling_factor).
+            path in the config dictionary, values are tuples of ``(parameter_index, scaling_factor)``.
         state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
             state variables directly modified by this action. Each inner tuple
-            contains the path to a state variable (e.g., ('scalars', 'Ip') or
-            ('profiles', 'p_ecrh_e')).
+            contains the path to a state variable (e.g., ``('scalars', 'Ip')`` or
+            ``('profiles', 'p_ecrh_e')``).
 
     Attributes:
         values (list[float]): Current parameter values
         ramp_rate (numpy.ndarray): Ramp rate limits for each parameter.
-            numpy.inf indicates no ramp rate limit for that parameter.
-        dtype (numpy.dtype): NumPy data type for action arrays (default: np.float64)
+            ``numpy.inf`` indicates no ramp rate limit for that parameter.
+        dtype (numpy.dtype): NumPy data type for action arrays (default: ``np.float64``)
 
     Example:
         Create a custom action for controlling two parameters:
@@ -118,22 +118,22 @@ class Action(ABC):
         """Initialize an Action instance.
 
         Args:
-            min: Custom minimum bounds for each parameter. If None, uses the
-                class default_min values. Must have length equal to dimension.
-            max: Custom maximum bounds for each parameter. If None, uses the
-                class default_max values. Must have length equal to dimension.
-            ramp_rate: Custom ramp rate limits for each parameter. If None, uses the
-                class default_ramp_rate values. Must have length equal to dimension.
-                Each element can be None (no limit) or a float (max change per step).
-            dtype: NumPy data type for the action arrays (default: np.float64).
+            min: Custom minimum bounds for each parameter. If ``None``, uses the
+                class ``default_min`` values. Must have length equal to ``dimension``.
+            max: Custom maximum bounds for each parameter. If ``None``, uses the
+                class ``default_max`` values. Must have length equal to ``dimension``.
+            ramp_rate: Custom ramp rate limits for each parameter. If ``None``, uses the
+                class ``default_ramp_rate`` values. Must have length equal to ``dimension``.
+                Each element can be ``None`` (no limit) or a float (max change per step).
+            dtype: NumPy data type for the action arrays (default: ``np.float64``).
                 Used for creating action spaces.
 
         Raises:
-            ValueError: If name class attribute is not defined
-            ValueError: If dimension class attribute is not defined or not a positive integer
-            ValueError: If config_mapping class attribute is not defined
-            ValueError: If default_min, default_max, or default_ramp_rate do not match the dimension
-            ValueError: If provided min, max, or ramp_rate do not match the dimension
+            ValueError: If ``name`` class attribute is not defined
+            ValueError: If ``dimension`` class attribute is not defined or not a positive integer
+            ValueError: If ``config_mapping`` class attribute is not defined
+            ValueError: If ``default_min``, ``default_max``, or ``default_ramp_rate`` do not match the dimension
+            ValueError: If provided ``min``, ``max``, or ``ramp_rate`` do not match the dimension
         """
         self.dtype = dtype
         # Validate that required class attributes are properly defined
@@ -274,7 +274,7 @@ class Action(ABC):
         """Initialize a TORAX configuration dictionary with this action parameters.
 
         This method sets up the configuration dictionary with the action current
-        values at `time=0`, creating the proper time-dependent parameter structure
+        values at ``time=0``, creating the proper time-dependent parameter structure
         expected by TORAX.
 
         Args:
@@ -299,17 +299,17 @@ class Action(ABC):
 
         This method updates the time-dependent parameters in the configuration
         dictionary with the action current values at the specified time.
-        Scaling factors from config_mapping are applied consistently.
+        Scaling factors from ``config_mapping`` are applied consistently.
 
         Args:
             config_dict: The TORAX configuration dictionary to update.
-              Must have been previously initialized with init_dict.
+              Must have been previously initialized with ``init_dict``.
             time: Simulation time for this update. Must be > 0.
 
         Note:
             The configuration dictionary must have been initialized with
-            init_dict before calling this method. Values are scaled by the
-            factors defined in config_mapping before being stored.
+            ``init_dict`` before calling this method. Values are scaled by the
+            factors defined in ``config_mapping`` before being stored.
         """
         self._apply_mapping(config_dict, time=time)
 
@@ -317,20 +317,20 @@ class Action(ABC):
         """Apply the action values to a TORAX configuration dictionary.
 
         This method traverses the configuration dictionary using the paths defined
-        in config_mapping and sets the appropriate values with consistent scaling.
-        For time="init" (initialization), it creates new time-dependent parameter entries.
-        For time>0, it updates existing entries. Scaling factors are applied in both cases.
+        in ``config_mapping`` and sets the appropriate values with consistent scaling.
+        For ``time="init"`` (initialization), it creates new time-dependent parameter entries.
+        For ``time>0``, it updates existing entries. Scaling factors are applied in both cases.
 
         Args:
             config_dict: The TORAX configuration dictionary to modify
-            time: Simulation time. If "init", initializes new time-dependent parameters.
-                If >0, updates existing time-dependent parameters.
+            time: Simulation time. If ``"init"``, initializes new time-dependent parameters.
+                If ``>0``, updates existing time-dependent parameters.
 
         Note:
-            This is an internal method used by init_dict and update_to_config.
+            This is an internal method used by ``init_dict`` and ``update_to_config``.
             The configuration format follows TORAX conventions where time-dependent
-            parameters are stored as ({time: scaled_value, ...}, "STEP") tuples.
-            Scaling factors from config_mapping are consistently applied during
+            parameters are stored as ``({time: scaled_value, ...}, "STEP")`` tuples.
+            Scaling factors from ``config_mapping`` are consistently applied during
             both initialization and updates.
         """
         for dict_path, (idx, factor) in self.config_mapping.items():
@@ -394,11 +394,11 @@ class ActionHandler:
     of actions.
 
     Args:
-        actions: List of Action instances to manage.
+        actions: List of `Action` instances to manage.
 
     Attributes:
         actions: Internal dictionary of managed actions indexed by name.
-        action_space: Gymnasium Dict space representing all managed actions.
+        action_space: Gymnasium `Dict` space representing all managed actions.
         number_of_updates: Counter tracking the number of action updates performed.
     """
 
@@ -409,12 +409,12 @@ class ActionHandler:
         internal tracking structures.
 
         Args:
-            actions: List of Action instances to manage. Actions must have unique
+            actions: List of `Action` instances to manage. Actions must have unique
                 names and compatible configuration mappings.
 
         Raises:
             ValueError: If duplicate action names or configuration paths are found,
-                or if incompatible actions (e.g., both Ip and Vloop) are provided.
+                or if incompatible actions (e.g., both `Ip` and `Vloop`) are provided.
         """
         self._actions = {a.name: a for a in actions}
         self._actions_names = set([a.name for a in actions])
@@ -454,7 +454,7 @@ class ActionHandler:
 
         This method validates that all provided actions exist in the handler,
         converts values to numpy arrays with correct dtypes, validates bounds,
-        and updates each action's internal values using the action's _set_values
+        and updates each action's internal values using the action's ``_set_values``
         method. The update counter is incremented after successful processing.
 
         Args:
@@ -496,13 +496,13 @@ class ActionHandler:
         """Build a Gymnasium Dict action space from all managed actions.
 
         Creates a dictionary-based action space where each key corresponds to
-        an action's name and each value is a Box space with the action's bounds
+        an action's name and each value is a `Box` space with the action's bounds
         and data type.
 
         Returns:
             gymnasium.spaces.Dict: Action space structure.
                 The action space structure is a dictionnary with action names as keys and
-                Box spaces as values. Each Box space uses the action's min/max
+                `Box` spaces as values. Each `Box` space uses the action's min/max
                 bounds and dtype for proper numerical handling.
         """
         return spaces.Dict(
@@ -522,7 +522,7 @@ class ActionHandler:
         This function performs validation checks:
         1. Verifies that no duplicate configuration paths exist across all actions.
         2. Ensures that action names are unique within the handler.
-        3. Enforces TORAX-specific constraints (e.g., 'Ip' and 'Vloop' are mutually exclusive).
+        3. Enforces TORAX-specific constraints (e.g., ``'Ip'`` and ``'Vloop'`` are mutually exclusive).
 
         The validation ensures that the action configuration is consistent and compatible
         with TORAX simulation requirements.
@@ -531,7 +531,7 @@ class ActionHandler:
             ValueError: If any of the following conditions are detected:
                 - Duplicate configuration paths across different actions
                 - Duplicate action names
-                - Both 'Ip' and 'Vloop' actions present simultaneously
+                - Both ``'Ip'`` and ``'Vloop'`` actions present simultaneously
                   (TORAX can only use one current control method)
         """
         seen_keys = set()
@@ -567,13 +567,13 @@ class IpAction(Action):
     It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        name: "Ip"
-        dimension: 1 (single parameter)
-        default_min: [_MIN_IP_AMPS] (minimum current per TORAX requirements)
-        default_max: [numpy.inf]
-        default_ramp_rate: [None]
-        config_mapping: Maps to ('profile_conditions', 'Ip')
-        state_var: {'scalars': ['Ip']} - directly modifies plasma current scalar
+        name: ``"Ip"``
+        dimension: ``1`` (single parameter)
+        default_min: ``[_MIN_IP_AMPS]`` (minimum current per TORAX requirements)
+        default_max: ``[numpy.inf]``
+        default_ramp_rate: ``[None]``
+        config_mapping: Maps to ``('profile_conditions', 'Ip')``
+        state_var: ``{'scalars': ['Ip']}`` - directly modifies plasma current scalar
 
     Action Parameters:
         0: Plasma current (Ip) in Amperes
@@ -599,16 +599,16 @@ class VloopAction(Action):
     simulations. It is a single-parameter action with non-negative bounds.
 
     Class Attributes:
-        name: "V_loop"
-        dimension: 1 (single parameter)
-        default_min: [0.0]
-        default_max: [numpy.inf]
-        default_ramp_rate: [None]
-        config_mapping: Maps to ('profile_conditions', 'v_loop_lcfs')
-        state_var: {'scalars': ['v_loop_lcfs']} - directly modifies loop voltage scalar
+        name: ``"V_loop"``
+        dimension: ``1`` (single parameter)
+        default_min: ``[0.0]``
+        default_max: ``[numpy.inf]``
+        default_ramp_rate: ``[None]``
+        config_mapping: Maps to ``('profile_conditions', 'v_loop_lcfs')``
+        state_var: ``{'scalars': ['v_loop_lcfs']}`` - directly modifies loop voltage scalar
 
     Action Parameters:
-        0: Loop voltage (v_loop_lcfs) in Volts
+        0: Loop voltage (`v_loop_lcfs`) in Volts
 
     Example:
         >>> vloop_action = VloopAction()
@@ -631,19 +631,19 @@ class EcrhAction(Action):
     and Gaussian width of the heating profile.
 
     Class Attributes:
-        name: "ECRH"
-        dimension: 3 (power, location, width)
-        default_min: [0.0, 0.0, 0.0]
-        default_max: [numpy.inf, numpy.inf, numpy.inf]
-        default_ramp_rate: [None, None, None]
+        name: ``"ECRH"``
+        dimension: ``3`` (power, location, width)
+        default_min: ``[0.0, 0.0, 0.0]``
+        default_max: ``[numpy.inf, numpy.inf, numpy.inf]``
+        default_ramp_rate: ``[None, None, None]``
         config_mapping: Maps to ECRH source parameters
-        state_var: {'scalars': ['P_ecrh_e']} -
+        state_var: ``{'scalars': ['P_ecrh_e']}`` -
                      modifies total electron-cyclotron power scalar
 
     Action Parameters:
-        0: Total power (P_total) in Watts
-        1: Gaussian location (gaussian_location) - normalized radius [0,1]
-        2: Gaussian width (gaussian_width) - profile width parameter
+        0: Total power (`P_total`) in Watts
+        1: Gaussian location (`gaussian_location`) - normalized radius [0,1]
+        2: Gaussian width (`gaussian_width`) - profile width parameter
 
     Example:
         >>> ecrh_action = EcrhAction()
@@ -671,21 +671,21 @@ class NbiAction(Action):
     calculated from the heating power using a configurable conversion factor.
 
     Class Attributes:
-        name: "NBI"
-        dimension: 3 (heating power, location, width)
-        default_min: [0.0, 0.0, 0.01]
-        default_max: [numpy.inf, 1.0, numpy.inf]
-        default_ramp_rate: [None, None, None]
+        name: ``"NBI"``
+        dimension: ``3`` (heating power, location, width)
+        default_min: ``[0.0, 0.0, 0.01]``
+        default_max: ``[numpy.inf, 1.0, numpy.inf]``
+        default_ramp_rate: ``[None, None, None]``
         config_mapping: Maps to generic heat and current source parameters in TORAX configuration
-        state_var: {'scalars': ['P_aux_generic_total']} - modifies total auxiliary power scalar
+        state_var: ``{'scalars': ['P_aux_generic_total']}`` - modifies total auxiliary power scalar
 
     Attributes:
         nbi_w_to_ma: Conversion factor from heating power (W) to current drive (MA).
-            Default is 1/16e6, meaning 16MW of heating produces 1MA of current.
-        config_mapping: Dynamically created in __init__ to use the specified conversion factor.
+            Default is ``1/16e6``, meaning 16MW of heating produces 1MA of current.
+        config_mapping: Dynamically created in ``__init__`` to use the specified conversion factor.
 
     Action Parameters:
-        0: Heating power (generic_heat P_total) in Watts
+        0: Heating power (`generic_heat P_total`) in Watts
         1: Gaussian location (shared by heat and current) - normalized radius [0,1]
         2: Gaussian width (shared by heat and current) - profile width parameter
 
@@ -715,10 +715,10 @@ class NbiAction(Action):
 
         Args:
             nbi_w_to_ma: Conversion factor from heating power (Watts) to current drive (MA).
-                Default is 1/16e6, meaning 16MW of heating produces 1MA of current drive.
-                Set to 0 to disable current drive while keeping heating.
-            **kwargs: Additional arguments passed to the parent Action class
-                (min, max, ramp_rate, dtype).
+                Default is ``1/16e6``, meaning 16MW of heating produces 1MA of current drive.
+                Set to ``0`` to disable current drive while keeping heating.
+            **kwargs: Additional arguments passed to the parent `Action` class
+                (``min``, ``max``, ``ramp_rate``, ``dtype``).
 
         Example:
             >>> # Default conversion (16MW -> 1MA)

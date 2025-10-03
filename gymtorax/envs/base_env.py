@@ -5,7 +5,7 @@ compatible with the Gymnasium reinforcement learning framework. It integrates TO
 physics simulations with RL interfaces, handling time discretization, action/observation
 spaces, and the simulation lifecycle.
 
-The BaseEnv class serves as a foundation for creating specific plasma control tasks by:
+The `BaseEnv` class serves as a foundation for creating specific plasma control tasks by:
 
 - Managing TORAX configuration and simulation execution
 - Defining action and observation space structures
@@ -14,10 +14,10 @@ The BaseEnv class serves as a foundation for creating specific plasma control ta
 - Configurable logging system for debugging and monitoring
 
 Classes:
-    BaseEnv: Abstract base class for TORAX Gymnasium environments
+    `BaseEnv`: Abstract base class for TORAX Gymnasium environments
 
 Example:
-    Create a custom environment by extending BaseEnv:
+    Create a custom environment by extending `BaseEnv`:
 
     >>> class PlasmaControlEnv(BaseEnv):
     ...     def __init__(self, render_mode=None, ``**kwargs``):
@@ -117,28 +117,28 @@ class BaseEnv(gym.Env, ABC):
 
         Args:
             render_mode (str or None): Rendering mode for visualization.
-                Options: "human", "rgb_array", or None. Defaults to None.
+                Options: ``"human"``, ``"rgb_array"``, or ``None``. Defaults to ``None``.
             log_level (str): Logging level for environment operations.
-                Options: "debug", "info", "warning", "error", "critical".
-                Defaults to "warning".
+                Options: ``"debug"``, ``"info"``, ``"warning"``, ``"error"``, ``"critical"``.
+                Defaults to ``"warning"``.
             log_file (str or None): Path to log file for writing log messages.
-                If None, logs to console. Defaults to None.
+                If ``None``, logs to console. Defaults to ``None``.
             plot_config (str or FigureProperties): Name of the plot configuration to use
-                (e.g., "default"). Can also be a torax FigureProperties instance for
+                (e.g., ``"default"``). Can also be a torax `FigureProperties` instance for
                 custom plot configuration.
             store_history (bool): Whether to store simulation history
-                for later saving. Set to True if you plan to use ``save_file`` method.
-                Defaults to False.
+                for later saving. Set to ``True`` if you plan to use ``save_file`` method.
+                Defaults to ``False``.
 
         Raises:
             ValueError: If required parameters are missing for chosen discretization method.
-            TypeError: If discretization_torax is not "auto" or "fixed".
+            TypeError: If ``discretization_torax`` is not ``"auto"`` or ``"fixed"``.
             KeyError: If required keys are missing from TORAX configuration.
 
         Note:
             Subclasses should use ``**kwargs`` to pass parameters to avoid explicit parameter
             listing and maintain flexibility as the base class evolves. Environment-specific
-            defaults can be set using kwargs.setdefault() before calling super().__init__().
+            defaults can be set using ``kwargs.setdefault()`` before calling ``super().__init__()``.
 
             The environment must implement the abstract methods ``_define_observation_space``,
             ``_define_action_space``, ``_get_torax_config``, and ``_compute_reward``.
@@ -254,10 +254,10 @@ class BaseEnv(gym.Env, ABC):
         Args:
             seed (int or None): Random seed for reproducible episode initialization.
                 Used to seed the environment's random number generator for deterministic
-                behavior across resets. If None, no seeding is performed. Defaults to None.
+                behavior across resets. If ``None``, no seeding is performed. Defaults to ``None``.
             options (dict[str, Any] or None): Additional options for environment reset.
                 Currently unused but maintained for Gymnasium compatibility.
-                Defaults to None.
+                Defaults to ``None``.
 
         Returns:
             tuple[dict[str, Any], dict[str, Any]]:
@@ -329,8 +329,8 @@ class BaseEnv(gym.Env, ABC):
             tuple[dict[str, Any], float, bool, bool, dict[str, Any]]:
                 - observation (dict): New plasma state observation
                 - reward (float): Reward signal for this step
-                - terminated (bool): True if episode ended due to terminal condition
-                - truncated (bool): True if episode ended due to time/step limits
+                - terminated (bool): ``True`` if episode ended due to terminal condition
+                - truncated (bool): ``True`` if episode ended due to time/step limits
                 - info (dict): Additional step information
         """
         truncated = False
@@ -490,7 +490,7 @@ class BaseEnv(gym.Env, ABC):
         which plasma parameters can be controlled by the RL agent.
 
         Returns:
-            list[Action]: List of Action instances representing controllable
+            list[Action]: List of `Action` instances representing controllable
                 parameters with their bounds and TORAX configuration mappings.
 
         Example:
@@ -519,13 +519,13 @@ class BaseEnv(gym.Env, ABC):
             dict[str, Any]: A dictionary containing the TORAX configuration.
                 The dictionary must have the following keys:
 
-                - "config" (dict): A dictionary of TORAX configuration parameters.
-                - "discretization" (str): The time discretization method.
-                  Options are "auto" (uses 'delta_t_a') or "fixed" (uses 'ratio_a_sim').
-                - "ratio_a_sim" (int or None): The ratio of action timesteps to
-                  simulation timesteps. Required if 'discretization' is "fixed".
-                - "delta_t_a" (float or None): The time interval between actions
-                  in seconds. Required if 'discretization' is "auto".
+                - ``"config"`` (dict): A dictionary of TORAX configuration parameters.
+                - ``"discretization"`` (str): The time discretization method.
+                  Options are ``"auto"`` (uses ``'delta_t_a'``) or ``"fixed"`` (uses ``'ratio_a_sim'``).
+                - ``"ratio_a_sim"`` (int or None): The ratio of action timesteps to
+                  simulation timesteps. Required if ``'discretization'`` is ``"fixed"``.
+                - ``"delta_t_a"`` (float or None): The time interval between actions
+                  in seconds. Required if ``'discretization'`` is ``"auto"``.
 
 
         Example:
@@ -553,7 +553,7 @@ class BaseEnv(gym.Env, ABC):
 
         Args:
             state (dict[str, Any]): Previous plasma state before action was applied.
-                Contains complete state with "profiles" and "scalars" dictionaries.
+                Contains complete state with ``"profiles"`` and ``"scalars"`` dictionaries.
             next_state (dict[str, Any]): New plasma state after action and simulation step.
                 Same structure as state parameter.
             action (dict[str, numpy.ndarray]): Action dictionary that was applied to cause this transition.

@@ -1,6 +1,6 @@
 """High-level application interface for running TORAX plasma simulations.
 
-This module provides the :class:`ToraxApp` class, which wraps the TORAX simulator
+This module provides the `ToraxApp` class, which wraps the TORAX simulator
 into a Pythonic interface suitable for reinforcement learning and episodic
 simulation workflows. It manages the simulation lifecycle, configuration updates,
 state tracking, and output handling.
@@ -39,23 +39,23 @@ class ToraxApp:
 
     The application follows a start/reset -> run -> update cycle:
         1. Initialize with configuration and action timestep
-        2. Call reset() to prepare for a new episode
-        3. Call run() repeatedly to advance the simulation
-        4. Call update_config() between runs to update action parameters
+        2. Call ``reset()`` to prepare for a new episode
+        3. Call ``run()`` repeatedly to advance the simulation
+        4. Call ``update_config()`` between runs to update action parameters
 
     Attributes:
-        config (ConfigLoader): Current configuration loader instance
-        initial_config (ConfigLoader): Original configuration for resetting
-        delta_t_a (float): Action timestep - simulation duration per run()
+        config (`ConfigLoader`): Current configuration loader instance
+        initial_config (`ConfigLoader`): Original configuration for resetting
+        delta_t_a (float): Action timestep - simulation duration per ``run()``
         store_history (bool): Whether to store complete simulation history
-        current_sim_state (ToraxSimState): Current simulation state
-        current_sim_output (PostProcessedOutputs): Current post-processed outputs
-        state (StateHistory): Current state history (single timestep)
-        history_list (list): Complete history list (if store_history=True)
+        current_sim_state (`ToraxSimState`): Current simulation state
+        current_sim_output (`PostProcessedOutputs`): Current post-processed outputs
+        state (`StateHistory`): Current state history (single timestep)
+        history_list (list): Complete history list (if ``store_history=True``)
         is_started (bool): Whether the application has been initialized
         t_current (float): Current simulation time
         t_final (float): Final simulation time for current episode
-        last_run_time (float): Timestamp of last run() call (for performance monitoring)
+        last_run_time (float): Timestamp of last ``run()`` call (for performance monitoring)
     """
 
     def __init__(
@@ -64,14 +64,14 @@ class ToraxApp:
         """Initialize ToraxApp with configuration and simulation parameters.
 
         Args:
-            config_loader: ConfigLoader instance containing TORAX configuration
-            delta_t_a: Action timestep in seconds. Each call to run() advances
+            config_loader: `ConfigLoader` instance containing TORAX configuration
+            delta_t_a: Action timestep in seconds. Each call to ``run()`` advances
                 simulation by this amount
-            store_history: If True, stores complete simulation history for later
-                analysis. If False, only keeps current state (more memory efficient)
+            store_history: If ``True``, stores complete simulation history for later
+                analysis. If ``False``, only keeps current state (more memory efficient)
 
         Note:
-            The application must be reset() before first use. The constructor only
+            The application must be ``reset()`` before first use. The constructor only
             sets up instance variables and enables performance monitoring if debug
             logging is enabled.
         """
@@ -109,7 +109,7 @@ class ToraxApp:
             - Step function for simulation advancement
             - Initial simulation state and outputs
 
-        Called automatically by reset() if not already started.
+        Called automatically by ``reset()`` if not already started.
         """
         # Build physics models for plasma simulation
         transport_model = (
@@ -431,9 +431,9 @@ class ToraxApp:
 
         Args:
             start (int or float): Start time for selection.
-                Defaults to 0.
+                Defaults to ``0``.
             end (int or float): End time for selection. Defaults to
-                -1 (no upper limit).
+                ``-1`` (no upper limit).
 
         Returns:
             xarray.DataTree: The complete simulation history as an xarray DataTree,
@@ -441,7 +441,7 @@ class ToraxApp:
                 if specified.
 
         Raises:
-            RuntimeError: If `store_history` was not enabled and thus no
+            RuntimeError: If ``store_history`` was not enabled and thus no
                 history is available.
         """
         if self.store_history is False:
@@ -464,13 +464,13 @@ class ToraxApp:
         """Save complete simulation history to NetCDF file.
 
         This method saves the full simulation trajectory to a NetCDF file suitable
-        for analysis and visualization. Requires store_history=True in constructor.
+        for analysis and visualization. Requires ``store_history=True`` in constructor.
 
         Args:
             file_name (str): Output file path with .nc extension
 
         Raises:
-            RuntimeError: If store_history=False (no history to save)
+            RuntimeError: If ``store_history=False`` (no history to save)
             ValueError: If file writing fails
         """
         if self.store_history is False:
@@ -506,7 +506,7 @@ class ToraxApp:
 
         Note:
             - Returns single-timestep state (current moment)
-            - For full history, use save_output_file() with store_history=True
+            - For full history, use ``save_output_file()`` with ``store_history=True``
         """
         if self.state is None:
             raise RuntimeError("Simulation state has not been computed yet.")
