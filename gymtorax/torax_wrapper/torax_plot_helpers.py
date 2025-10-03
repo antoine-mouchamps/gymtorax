@@ -1,8 +1,18 @@
-"""Enhanced TORAX Plotting Functions - PNG and GIF Generation.
+"""TORAX plotting helper functions for visualization.
 
-This module provides functions similar to plotruns_lib.plot_run() but for generating
-PNG images and animated GIFs instead of interactive plots. Uses the EXACT same
-processing logic, spacing, and matplotlib configurations as the original.
+This module provides utilities for creating matplotlib figures and updating plots
+with TORAX simulation data. The functions are designed to work with TORAX
+plotting system while supporting both static image generation and real-time
+visualization updates.
+
+Key functions:
+    - create_figure(): Sets up matplotlib figure with TORAX styling and font scaling
+    - update_lines(): Updates plot lines with simulation data (spatial profiles or time series)
+    - validate_plotdata(): Ensures plot configuration matches available data attributes
+    - load_data(): Processes TORAX DataTree output into PlotData format with unit conversions
+
+All of these functions are adapted from TORAX `plotruns_lib` module, with modifications
+to be able to apply them in the GymTORAX environments.
 """
 
 import inspect
@@ -25,9 +35,26 @@ FONT_SCALE_PER_ROW = 0.3  # Additional scaling per row
 
 
 def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float = 1):
-    """Create figure without slider subplot.
+    """Create matplotlib figure with TORAX styling and configurable font scaling.
 
-    Returns only fig and axes, no slider_ax.
+    Sets up a matplotlib figure using TORAX plot configuration, applies matplotlib
+    RC settings for consistent styling, and creates a grid of subplots. Font sizes
+    are scaled according to the font_scale parameter and applied to the plot_config
+    object in-place. As side effects, this function:
+        - Modifies matplotlib global RC settings for tick, axes, and figure fonts
+        - Modifies `plot_config.default_legend_fontsize` and axes `legend_fontsize` in-place
+
+    Args:
+        plot_config (plotruns_lib.FigureProperties): TORAX plot configuration
+            containing subplot layout (rows, cols), font sizes, figure size factor,
+            and axes configurations. Modified in-place to apply font scaling.
+        font_scale (float): Multiplier for all font sizes. Applied to
+            tick labels, axis labels, titles, and legend fonts. Defaults to 1.0.
+
+    Returns:
+        tuple[matplotlib.figure.Figure, list[matplotlib.axes.Axes]]:
+            - fig (matplotlib.figure.Figure): Figure object
+            - axes (list[matplotlib.axes.Axes]): list of axes in row-major order (left-to-right, top-to-bottom).
     """
     # EXACT same matplotlib RC settings as original, but with scaling
     matplotlib.rc("xtick", labelsize=plot_config.tick_fontsize * font_scale)
@@ -69,6 +96,35 @@ def create_figure(plot_config: plotruns_lib.FigureProperties, font_scale: float 
 
 
 def update_lines(lines, axes, plot_config, plotdata, t, first_update):
+    """Update or create plot lines with simulation data.
+
+    Handles two plot types from TORAX configuration:
+        - SPATIAL: Plots data[0, :] vs rho coordinate (spatial profiles at current time)
+        - TIME_SERIES: For first_update, plots entire data vs plotdata.t; for subsequent
+        updates, appends new (t, data) point to existing line data
+
+    Args:
+        lines (list): Existing matplotlib Line2D objects. Empty on first call.
+        axes (list): Matplotlib axes objects matching plot_config layout.
+        plot_config (plotruns_lib.FigureProperties): Defines subplot configurations,
+            each with plot_type, attrs (variable names), labels, and colors.
+        plotdata (plotruns_lib.PlotData): Simulation data with plasma variables.
+        t (float): Current simulation time (used for TIME_SERIES updates).
+        first_update (bool): If True, creates new lines; if False, updates existing.
+        As side effects, this function:
+            - Sets `cfg.include_first_timepoint = True` on each axis config
+            - For TIME_SERIES on subsequent updates: appends data to existing line coordinates
+
+    Returns:
+        list: Updated list of Line2D objects for future calls.
+
+    Raises:
+        ValueError: If plot_type is not SPATIAL or TIME_SERIES.
+
+    Note:
+        Uses plotruns_lib.get_rho() to determine x-coordinate for spatial plots.
+        Color cycling follows plot_config.colors list with modulo indexing.
+    """
     line_idx = 0
     for ax, cfg in zip(axes, plot_config.axes):
         line_idx_color = 0
@@ -125,6 +181,21 @@ def update_lines(lines, axes, plot_config, plotdata, t, first_update):
 def validate_plotdata(
     plotdata: plotruns_lib.PlotData, plot_config: plotruns_lib.FigureProperties
 ):
+    """Check that all plot configuration attributes exist in plotdata.
+
+    Uses introspection to find all available attributes in the PlotData object
+    (both dataclass fields and properties), then verifies that every attribute
+    name listed in the plot configuration `axes.attrs` lists exists.
+
+    Args:
+        plotdata (plotruns_lib.PlotData): Data object to check.
+        plot_config (plotruns_lib.FigureProperties): Plot configuration with
+            axes definitions. Each axis config has an attrs list of variable names.
+
+    Raises:
+        ValueError: If any attribute in plot_config.axes[*].attrs is not found
+            in plotdata. Error message identifies the missing attribute name.
+    """
     # EXACT same attribute validation as plot_run()
     plotdata_fields = set(plotdata.__dataclass_fields__)
     plotdata_properties = {
@@ -142,9 +213,19 @@ def validate_plotdata(
                 )
 
 
-# COPY PASTE FROM TORAX, but without the filename as argument
 def load_data(data_tree: xr.DataTree) -> plotruns_lib.PlotData:
-    """Loads an xr.Dataset from a file, handling potential coordinate name changes."""
+    r"""Convert TORAX DataTree output to PlotData with unit transformations.
+
+    Extracts time coordinate and applies unit conversions to match TORAX plotting
+    conventions (:math:`\mathrm{A}/\mathrm{m}^2\rightarrow \mathrm{MA}/\mathrm{m}^2`, :math:`\mathrm{W}\rightarrow \mathrm{MW}`, :math:`\mathrm{m}^{-3} \rightarrow 10^{20} \mathrm{m}^{-3}`, etc.). Handles hierarchical
+    ``DataTree`` structure by extracting from profiles/ and scalars/ branches.
+
+    Args:
+        data_tree (xarray.DataTree): TORAX simulation output.
+
+    Returns:
+        plotruns_lib.PlotData: Object with plasma variables in plotting units.
+    """
     # Handle potential time coordinate name variations
     time = data_tree[output.TIME].to_numpy()
 
