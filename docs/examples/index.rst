@@ -3,8 +3,14 @@ Examples
 Example
 
 To illustrate how Gym-TORAX can be used, we provide an example in which three different 
-agents interact with the IterHybridEnv environment. This example is organized into 
-three parts:
+policies are used in the IterHybridEnv environment. The three policies are compared based on the expected return :math:`J(\pi)` given by
+
+.. math::
+   \begin{equation}
+   J(\pi) = \underset{\pi}{\mathbb{E}} \left[ \sum_{t=0}^{T} \gamma^t r(s_t, a_t) \right] \quad .
+   \end{equation}
+
+This example is organized into three parts:
 
 1. :doc:`a description of the environment <iter_env>`,
 

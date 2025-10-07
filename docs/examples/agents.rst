@@ -2,23 +2,31 @@ Agents
 ==========
 Three simple agents are included in this example:
 
-- **Open-loop reference agent** – reproduces the original TORAX trajectories. This validates 
-  that Gym-TORAX is consistent with the reference simulator.
+- **Open-loop reference agent** :math:`\pi_{OL}` – uses a predetermined set of actions that directly follows the action trajectories of the initial scenario given in TORAX.
 
-- **PI controller agent** – regulates the plasma current using a Proportional-Integral 
-  controller. The controller gains are optimized to maximize the cumulative reward. 
-  Heating actions (NBI, ECRH) follow the reference trajectories.
+- **Random agent** :math:`\pi_{R}` – selects the actions uniformly at random.
 
-- **Random agent** – selects actions uniformly at random within the allowed ranges. 
-  This provides a naive baseline for comparison.
+- **PI controller agent** :math:`\pi_{PI}` – controls the total current action using a PI controller and uses the same predetermined trajectories as the open-loop policy for the last two actions, NBI and ECRH. The PI controller is used to follow a prescribed linear increase (from :math:`0.6\,\mathrm{MA/m^2}` to :math:`2\,\mathrm{MA/m^2}`) of the current density at the center of the plasma during the ramp-up phase of 100 seconds. Once the ramp-up has been performed, action values are kept constant from the last action given by the PI controller until the end of the episode (for the last 49 seconds). The proportional :math:`k_p` and integral :math:`k_i` gains of the PI controller are optimized to maximize the expected return :math:`J(\pi)`.
 
-Here is the code for the open-loop agent as illustration:
+Here is the implementation of the open-loop agent as illustration:
 
 .. code-block:: python
 
-    class IterHybridAgent(BaseAgent): 
+    import numpy as np
+
+    _NBI_W_TO_MA = 1 / 16e6
+
+    nbi_powers = np.array([0, 0, 33e6])
+    nbi_cd = nbi_powers * _NBI_W_TO_MA
+
+    r_nbi = 0.25
+    w_nbi = 0.25
+
+    eccd_power = {0: 0, 99: 0, 100: 20.0e6}
+
+    class IterHybridAgent: 
         def __init__(self, action_space):
-            super().__init__(action_space=action_space)
+            self.action_space = action_space
             self.time = 0
 
         def act(self, observation) -> dict:

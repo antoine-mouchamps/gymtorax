@@ -1,7 +1,7 @@
 Results
 ===========
 
-The three agents were evaluated and compared in terms of cumulative reward:
+The three agents were evaluated and compared in terms of expected return:
 
 .. list-table:: Parameters of the PI controller and comparison of rewards
    :align: center
@@ -67,7 +67,7 @@ captures realistic control dynamics.
 .. grid:: 1
 
     .. grid-item::
-        .. figure:: ../Images/pid_control_ip.jpg
+        .. figure:: ../Images/pid_optimized_ip.jpg
             :align: center
             :width: 70%
 

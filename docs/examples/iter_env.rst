@@ -1,4 +1,4 @@
-Environment description
+Environment Description
 =======================
 
 The environment ``IterHybridEnv`` is derived from the ITER hybrid ramp-up scenario 
