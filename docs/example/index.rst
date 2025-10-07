@@ -13,7 +13,7 @@ This example is organized into three parts:
 
 1. :doc:`a description of the environment <iter_env>`,
 
-2. :doc:`the agents and their control strategies <agents>`,
+2. :doc:`the three different policies <policies>`,
 
 3. :doc:`the results obtained <results>`.
 
@@ -22,6 +22,6 @@ This example is organized into three parts:
    :hidden:
 
    iter_env
-   agents
+   policies
    results
    config_example
