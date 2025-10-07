@@ -178,7 +178,7 @@ class IterHybridEnv(BaseEnv):
         ...     render_mode="human",
         ...     log_level="info",
         ...     store_history=True,
-        ...     fig=custom_figure_properties
+        ...     plot_config=plot_config
         ... )
 
     Note:
@@ -193,7 +193,7 @@ class IterHybridEnv(BaseEnv):
             render_mode (str, optional): Rendering mode for visualization.
                 See `BaseEnv` documentation for details. Defaults to ``None``.
             **kwargs: Additional keyword arguments passed to ``BaseEnv.__init__()``.
-                Common options include ``log_level``, ``log_file``, ``fig``, and ``store_history``.
+                Common options include ``log_level``, ``log_file``, ``plot_config``, and ``store_history``.
                 Refer to ``BaseEnv.__init__()`` documentation for complete parameter list.
 
         Note:
@@ -253,7 +253,6 @@ class IterHybridEnv(BaseEnv):
         Returns:
             float: reward associated to the transition (state, action, next_state)
         """
-        # Customize weights and sigma as needed
         weight_list = [1, 1, 1, 1]
 
         def _is_H_mode():  # noqa: N802

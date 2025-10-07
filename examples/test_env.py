@@ -185,7 +185,7 @@ class TestEnv(BaseEnv):
 
         Args:
             **kwargs: Keyword arguments passed to ``BaseEnv.__init__()``.
-                Common options include ``render_mode``, ``log_level``, ``log_file``, ``fig``,
+                Common options include ``render_mode``, ``log_level``, ``log_file``, ``plot_config``,
                 and ``store_history``. Refer to ``BaseEnv.__init__()`` documentation
                 for complete parameter list.
 
