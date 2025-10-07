@@ -67,5 +67,5 @@ Getting Started
 
    user_guide/index
    developer_guide/index
-   examples/index
+   example/index
    citing

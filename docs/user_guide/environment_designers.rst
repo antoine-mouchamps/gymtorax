@@ -85,7 +85,7 @@ Creation of Configurations
 The configuration needed in the method `_define_torax_config` is a dictionary which
 is exactly the same as the one used in TORAX. You can find more details about the configuration
 in the `TORAX documentation <https://torax.readthedocs.io/en/stable/configuration.html>`_.
-The configuration used in our examples is available :doc:`here <../examples/config_example>`.
+The configuration used in our example is available :doc:`here <../example/config_example>`.
 
 Creation of Rewards
 ------------------------------

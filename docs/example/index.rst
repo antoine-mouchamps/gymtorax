@@ -1,6 +1,5 @@
-Examples
-=========
 Example
+=========
 
 To illustrate how Gym-TORAX can be used, we provide an example in which three different 
 policies are used in the IterHybridEnv environment. The three policies are compared based on the expected return :math:`J(\pi)` given by
