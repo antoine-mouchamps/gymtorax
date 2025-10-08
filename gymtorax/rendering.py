@@ -94,6 +94,8 @@ class Plotter:
 
     Attributes:
         plot_config (plotruns_lib.FigureProperties): Configuration for plot layout and styling
+        render_mode (str): Rendering mode, either ``"human"`` for interactive display
+            or ``"rgb_array"`` for video recording
         fig (matplotlib.figure.Figure): Main figure object
         axes (list[matplotlib.axes.Axes]): List of matplotlib axes objects
         lines (list[matplotlib.lines.Line2D]): List of matplotlib line objects for plotting
@@ -131,6 +133,7 @@ class Plotter:
         else:
             font_scale = 1.0
         self.plot_config = plot_config
+        self.render_mode = render_mode
         self.lines = []
         self.fig, self.axes = create_figure(self.plot_config, font_scale)
         self.first_update = True
@@ -155,7 +158,8 @@ class Plotter:
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
-        plt.pause(0.001)
+        if self.render_mode == "human":
+            plt.pause(0.001)
 
     def update(self, current_state: xr.DataTree, t: float):
         """Update the visualization with new simulation data from TORAX output.
