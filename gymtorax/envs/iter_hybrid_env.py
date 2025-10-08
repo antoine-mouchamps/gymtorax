@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 
 from .. import rewards as reward
@@ -223,7 +225,10 @@ class IterHybridEnv(BaseEnv):
         return actions
 
     def _define_observation_space(self):  # noqa: D102
-        return AllObservation(custom_bounds_file="gymtorax/envs/iter_hybrid.json")
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        json_file = os.path.join(current_dir, "iter_hybrid.json")
+
+        return AllObservation(custom_bounds_file=json_file)
 
     def _get_torax_config(self):  # noqa: D102
         return {
