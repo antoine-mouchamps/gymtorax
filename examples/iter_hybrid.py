@@ -64,18 +64,17 @@ if __name__ == "__main__":
     os.makedirs("videos", exist_ok=True)
 
     # Create base environment with rgb_array mode for video recording
-    base_env = IterHybridEnv(
-        render_mode="rgb_array", store_history=False, log_level="debug"
-    )
+    env = IterHybridEnv(render_mode="human", store_history=False, log_level="debug")
 
     # Wrap with video recorder
-    env = RecordVideo(
-        base_env,
-        video_folder="./videos",
-        episode_trigger=lambda x: True,  # Record every episode
-        video_length=0,  # Record entire episode
-        name_prefix="iter_hybrid_episode",
-    )
+    if env.render_mode == "rgb_array":
+        env = RecordVideo(
+            env,
+            video_folder="./videos",
+            episode_trigger=lambda x: True,  # Record every episode
+            video_length=0,  # Record entire episode
+            name_prefix="iter_hybrid_episode",
+        )
 
     agent = IterHybridAgent(env.action_space)
 
@@ -85,6 +84,9 @@ if __name__ == "__main__":
     while not terminated:
         action = agent.act(observation)
         observation, _, terminated, _, _ = env.step(action)
+
+        if env.render_mode == "human":
+            env.render()
 
     env.close()
     print("Video saved to ./videos/ directory")
