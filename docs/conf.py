@@ -116,6 +116,7 @@ copybutton_remove_prompts = True
 # -- Options for HTML output -------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
+html_logo = "Images/logo.png"
 numfig = True
 
 html_theme_options = {
