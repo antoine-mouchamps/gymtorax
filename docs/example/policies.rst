@@ -1,14 +1,14 @@
-Agents
+Policies
 ==========
-Three simple agents are included in this example:
+Three policies included in this example:
 
-- **Open-loop reference agent** :math:`\pi_{OL}` – uses a predetermined set of actions that directly follows the action trajectories of the initial scenario given in TORAX.
+- **Open-loop reference policy** :math:`\pi_{OL}` – uses a predetermined set of actions that directly follows the action trajectories of the initial scenario given in TORAX.
 
-- **Random agent** :math:`\pi_{R}` – selects the actions uniformly at random.
+- **Random policy** :math:`\pi_{R}` – selects the actions uniformly at random.
 
-- **PI controller agent** :math:`\pi_{PI}` – controls the total current action using a PI controller and uses the same predetermined trajectories as the open-loop policy for the last two actions, NBI and ECRH. The PI controller is used to follow a prescribed linear increase (from :math:`0.6\,\mathrm{MA/m^2}` to :math:`2\,\mathrm{MA/m^2}`) of the current density at the center of the plasma during the ramp-up phase of 100 seconds. Once the ramp-up has been performed, action values are kept constant from the last action given by the PI controller until the end of the episode (for the last 49 seconds). The proportional :math:`k_p` and integral :math:`k_i` gains of the PI controller are optimized to maximize the expected return :math:`J(\pi)`.
+- **PI controller policy** :math:`\pi_{PI}` – controls the total current action using a PI controller and uses the same predetermined trajectories as the open-loop policy for the last two actions, NBI and ECRH. The PI controller is used to follow a prescribed linear increase (from :math:`0.6\,\mathrm{MA/m^2}` to :math:`2\,\mathrm{MA/m^2}`) of the current density at the center of the plasma during the ramp-up phase of 100 seconds. Once the ramp-up has been performed, action values are kept constant from the last action given by the PI controller until the end of the episode (for the last 49 seconds). The proportional :math:`k_p` and integral :math:`k_i` gains of the PI controller are optimized to maximize the expected return :math:`J(\pi)`. Carrying out the optimization, we obtain the following estimations for the optimal parameters: :math:`{\hat{k}_p^*=0.700}` and :math:`{\hat{k}_i^*=34.257}`. More information about the optimization procedure are given in the article presenting Gym-TORAX.
 
-Here is the implementation of the open-loop agent as illustration:
+Here is the implementation of the open-loop policy as illustration:
 
 .. code-block:: python
 

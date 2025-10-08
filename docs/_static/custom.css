@@ -1,0 +1,12 @@
+/* Custom CSS for GymTORAX documentation */
+
+/* Right-align container for table cells */
+.right-align {
+    text-align: right;
+}
+
+/* Additional styling for numeric values in tables */
+.right-align.docutils.container {
+    text-align: right;
+    display: block;
+}
