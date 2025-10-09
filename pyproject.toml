@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gymtorax"
-version = "0.1.1"
+version = "1.0.0"
 description = "A Gymnasium environment for Torax simulations"
 authors = [
     "Antoine Mouchamps <antoine.mouchamps@gmail.com>",
@@ -12,7 +12,7 @@ packages = [{include = "gymtorax"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 gymnasium = "^1.0.0"
-torax = "^1.0.0"
+torax = "1.0.*"
 numpy = "^2.0.0"
 matplotlib = "^3.0.0"
 xarray = "*"

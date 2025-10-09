@@ -276,7 +276,7 @@ If you use GymTORAX in your research, please cite our work:
     author={Antoine Mouchamps and Arthur Malherbe and Adrien Bolland and Damien Ernst},
     year={2024},
     url={https://github.com/antoine-mouchamps/gymtorax},
-    version={0.1.1},
+    version={1.0.0},
     note={Software package for reinforcement learning in fusion plasma control}
 }
 ```
