@@ -271,18 +271,18 @@ env.close()
 If you use GymTORAX in your research, please cite our work:
 
 ```bibtex
-@software{gym_torax_2024,
-    title={Gym-TORAX: A Gymnasium Environment for Reinforcement Learning in Tokamak Plasma Control},
-    author={Antoine Mouchamps and Arthur Malherbe and Adrien Bolland and Damien Ernst},
-    year={2024},
-    url={https://github.com/antoine-mouchamps/gymtorax},
-    version={1.0.0},
-    note={Software package for reinforcement learning in fusion plasma control}
+@article{MOUCHAMPS2026100829,
+	title = {Gym-TORAX: Open-source software for integrating reinforcement learning with plasma control simulators in tokamak research},
+	author = {Antoine Mouchamps and Arthur Malherbe and Adrien Bolland and Damien Ernst},
+	year = 2026,
+	journal = {Software Impacts},
+	volume = 27,
+	pages = 100829,
+	doi = {https://doi.org/10.1016/j.simpa.2026.100829},
+	issn = {2665-9638},
+	keywords = {Reinforcement learning, Tokamak, Plasma control, Fusion energy, Open-source software}
 }
 ```
-
-**Research Article**: A publication describing GymTORAX is in preparation. This citation will be updated upon publication.
-
 
 ## License
 
