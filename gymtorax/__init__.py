@@ -1,7 +1,7 @@
 from gymnasium.envs.registration import register
 
 from .agents import IterHybridAgent, PIDAgent, RandomAgent
-from .envs import BaseEnv, IterHybridEnv
+from .envs import BaseEnv, IterHybridEnv, TestEnv
 
 # Register environments with Gymnasium
 register(
@@ -10,11 +10,17 @@ register(
     kwargs={},
 )
 
-# Register the basic test environment for examples
 register(
     id="gymtorax/Test-v0",
-    entry_point="examples.test_env:TestEnv",
+    entry_point="gymtorax.envs:TestEnv",
     kwargs={},
 )
 
-__all__ = ["BaseEnv", "IterHybridEnv", "PIDAgent", "IterHybridAgent", "RandomAgent"]
+__all__ = [
+    "BaseEnv",
+    "IterHybridEnv",
+    "TestEnv",
+    "PIDAgent",
+    "IterHybridAgent",
+    "RandomAgent",
+]
