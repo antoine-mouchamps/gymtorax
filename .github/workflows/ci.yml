@@ -87,5 +87,8 @@ jobs:
       run: poetry run pytest tests/test_docs.py -v --docs
       env:
         MPLBACKEND: Agg
+
+    - name: Run scenario tests
+      run: poetry run pytest tests/test_scenarios.py -v --test-scenarios
       env:
         MPLBACKEND: Agg

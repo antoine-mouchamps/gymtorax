@@ -54,6 +54,15 @@ def _is_scenario_comparison(item) -> bool:
     )
 
 
+def _keep_only(config, items, predicate):
+    """Deselect every collected item that does not satisfy ``predicate``."""
+    keep = [item for item in items if predicate(item)]
+    drop = [item for item in items if not predicate(item)]
+    if drop:
+        config.hook.pytest_deselected(items=drop)
+        items[:] = keep
+
+
 def pytest_collection_modifyitems(config, items):
     if not config.getoption("--docs"):
         skip = pytest.mark.skip(reason="pass --docs to run documentation tests")
@@ -61,29 +70,29 @@ def pytest_collection_modifyitems(config, items):
             if item.fspath.basename == "test_docs.py":
                 item.add_marker(skip)
 
-    # --generate-references is a dedicated mode: run ONLY the reference-generation
-    # test(s), deselecting the entire rest of the suite (incl. the slow env
-    # checkers), regardless of the paths pytest was pointed at.
+    # Both scenario flags are dedicated modes: each runs ONLY its half of the
+    # scenario module and deselects the entire rest of the suite (incl. the slow
+    # env checkers), regardless of the paths pytest was pointed at. If both are
+    # given, generation takes precedence.
     if config.getoption("--generate-references"):
-        keep = [item for item in items if _is_scenario_generator(item)]
-        drop = [item for item in items if not _is_scenario_generator(item)]
-        if drop:
-            config.hook.pytest_deselected(items=drop)
-            items[:] = keep
+        _keep_only(config, items, _is_scenario_generator)
+        return
+    if config.getoption("--test-scenarios"):
+        _keep_only(config, items, _is_scenario_comparison)
         return
 
-    # Not generating. The generation test never runs here; scenario comparison
-    # tests are opt-in via --test-scenarios and otherwise skipped.
-    run_scenarios = config.getoption("--test-scenarios")
+    # Neither flag: normal suite. The scenario module does not run here -- its
+    # comparison tests are skipped (visible reminder) and the generation test is
+    # deselected (it is a maintenance tool, not part of the regular suite).
     skip = pytest.mark.skip(
         reason="pass --test-scenarios (or --generate-references) to run scenario tests"
     )
     keep, drop = [], []
     for item in items:
         if _is_scenario_generator(item):
-            drop.append(item)  # generation only runs under --generate-references
+            drop.append(item)
             continue
-        if _is_scenario_comparison(item) and not run_scenarios:
+        if _is_scenario_comparison(item):
             item.add_marker(skip)
         keep.append(item)
     if drop:
