@@ -377,7 +377,7 @@ class ToraxApp:
         self.t_current += self.delta_t_a
 
         # Check if we have reached the end of the episode
-        if self.t_current > self.t_final:
+        if self.t_current >= self.t_final:
             logger.debug(" simulation run terminated successfully.")
             return True, True
 
