@@ -180,6 +180,8 @@ class TestEnv(BaseEnv):
         Refer to ``BaseEnv.__init__()`` documentation for detailed parameter descriptions.
     """
 
+    __test__ = False  # not a pytest test class; this is a gymtorax env
+
     def __init__(self, **kwargs):
         """Initialize the test environment.
 

@@ -76,9 +76,16 @@ jobs:
         key: test-venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
     
     - name: Install dependencies
-      run: poetry install --with dev
-    
+      run: poetry install --with dev --with docs
+
     - name: Run tests
-      run: poetry run pytest tests/ -v
+      run: poetry run pytest tests/ -v --ignore=tests/test_docs.py
+      env:
+        MPLBACKEND: Agg
+
+    - name: Run documentation tests
+      run: poetry run pytest tests/test_docs.py -v --docs
+      env:
+        MPLBACKEND: Agg
       env:
         MPLBACKEND: Agg

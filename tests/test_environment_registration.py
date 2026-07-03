@@ -3,25 +3,34 @@
 import os
 
 import gymnasium as gym
+import gymnasium.envs.registration as registration
 import pytest
 
-# Set matplotlib to headless backend for CI environments
+# Set matplotlib to a headless backend for CI environments. This must run before
+# importing gymtorax, which imports matplotlib.pyplot at load time.
 if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
     import matplotlib
 
     matplotlib.use("Agg")
 
-# Import gymtorax to trigger environment registration
-import gymtorax  # noqa: F401
+import gymtorax  # noqa: F401  (import registers the environments with Gymnasium)
+from gymtorax.envs import IterHybridEnv, TestEnv
+from tests.conftest import ALL_ENV_IDS
+
+# Expected concrete (unwrapped) class for each registered environment id.
+ENV_CLASSES = {
+    "gymtorax/IterHybrid-v0": IterHybridEnv,
+    "gymtorax/Test-v0": TestEnv,
+}
 
 
 class TestEnvironmentRegistration:
     """Test that environments are properly registered with Gymnasium."""
 
-    def test_iter_hybrid_env_registration(self):
-        """Test that `IterHybridEnv` is registered and can be created with ``gym.make()``."""
-        # Test that the environment can be created
-        env = gym.make("gymtorax/IterHybrid-v0")
+    @pytest.mark.parametrize("env_id", ALL_ENV_IDS)
+    def test_env_registration(self, env_id):
+        """Test that each environment is registered and creatable via ``gym.make()``."""
+        env = gym.make(env_id)
 
         # Basic checks
         assert env is not None
@@ -31,35 +40,12 @@ class TestEnvironmentRegistration:
         assert hasattr(env, "step")
 
         # Test that it's the correct type
-        from gymtorax.envs.iter_hybrid_env import IterHybridEnv
-
-        assert isinstance(env.unwrapped, IterHybridEnv)
-
-        env.close()
-
-    def test_test_env_registration(self):
-        """Test that `TestEnv` is registered and can be created with ``gym.make()``."""
-        # Test that the environment can be created
-        env = gym.make("gymtorax/Test-v0")
-
-        # Basic checks
-        assert env is not None
-        assert hasattr(env, "action_space")
-        assert hasattr(env, "observation_space")
-        assert hasattr(env, "reset")
-        assert hasattr(env, "step")
-
-        # Test that it's the correct type
-        from examples.test_env import TestEnv
-
-        assert isinstance(env.unwrapped, TestEnv)
+        assert isinstance(env.unwrapped, ENV_CLASSES[env_id])
 
         env.close()
 
     def test_environment_creation_with_kwargs(self):
         """Test that environments can be created with custom parameters."""
-        import os
-
         # Test IterHybridEnv with custom parameters
         env1 = gym.make(
             "gymtorax/IterHybrid-v0",
@@ -84,14 +70,12 @@ class TestEnvironmentRegistration:
 
     def test_registered_environments_list(self):
         """Test that our environments appear in the registry."""
-        import gymnasium.envs.registration as registration
-
         env_ids = list(registration.registry.keys())
 
-        assert "gymtorax/IterHybrid-v0" in env_ids
-        assert "gymtorax/Test-v0" in env_ids
+        for env_id in ALL_ENV_IDS:
+            assert env_id in env_ids
 
-    @pytest.mark.parametrize("env_id", ["gymtorax/IterHybrid-v0", "gymtorax/Test-v0"])
+    @pytest.mark.parametrize("env_id", ALL_ENV_IDS)
     def test_environment_basic_interface(self, env_id):
         """Test basic Gymnasium interface compliance for all registered environments."""
         env = gym.make(env_id)
