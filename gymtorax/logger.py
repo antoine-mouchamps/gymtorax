@@ -4,26 +4,27 @@ import logging
 def setup_logging(level=logging.WARNING, log_file=None, suppress_external=True):
     """Setup global logging configuration with optional external library suppression.
 
-    When using DEBUG level, external libraries (JAX, TORAX, etc.) can generate
-    overwhelming amounts of log messages. This function allows to debug the
-    gymtorax code while keeping external libraries at WARNING level or higher.
+    External libraries (JAX, TORAX, etc.) can generate overwhelming amounts of log
+    messages. In particular, TORAX emits INFO logs on every internal ``run_loop``
+    call, which happens once per action step and is pure noise here. This function
+    lets gymtorax log at any level while keeping external libraries at ``WARNING``.
 
     Args:
         level (int): Logging level for gymtorax modules (e.g., :data:`logging.DEBUG`,
             :data:`logging.INFO`, :data:`logging.WARNING`, ...).
         log_file (str or None): If provided, logs will also be written to this file.
-        suppress_external (bool): If ``True`` and ``level=DEBUG``, suppress verbose output
-            from external libraries (JAX, TORAX, TensorFlow, etc.) by setting them
-            to ``WARNING`` level. Default: ``True``.
+        suppress_external (bool): If ``True``, suppress verbose output from external
+            libraries (JAX, TORAX, TensorFlow, etc.) by setting them to ``WARNING``
+            level, regardless of the gymtorax ``level``. Default: ``True``.
 
     Example:
-        >>> # Debug gymtorax only, suppress external libraries
-        >>> setup_logging(level=logging.DEBUG)
+        >>> # gymtorax at INFO, external libraries quieted (no per-step TORAX noise)
+        >>> setup_logging(level=logging.INFO)
         >>>
         >>> # Debug everything including external libraries
         >>> setup_logging(level=logging.DEBUG, suppress_external=False)
         >>>
-        >>> # Normal usage (unchanged behavior)
+        >>> # Normal usage
         >>> setup_logging(level=logging.WARNING)
     """
     handlers = [logging.StreamHandler()]
@@ -38,8 +39,8 @@ def setup_logging(level=logging.WARNING, log_file=None, suppress_external=True):
         force=True,  # overwrite existing config (important for Jupyter/rl loops)
     )
 
-    # If DEBUG level requested and suppression enabled, quiet external libraries
-    if level == logging.DEBUG and suppress_external:
+    # Quiet external libraries
+    if suppress_external:
         external_libs = [
             "jax",
             "torax",

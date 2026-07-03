@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import tqdm
 from gymnasium.wrappers import RecordVideo
 
 from gymtorax import IterHybridEnv
@@ -64,7 +65,7 @@ if __name__ == "__main__":
     os.makedirs("videos", exist_ok=True)
 
     # Create base environment with rgb_array mode for video recording
-    env = IterHybridEnv(render_mode="human", store_history=False, log_level="debug")
+    env = IterHybridEnv(render_mode="none", store_history=False, log_level="info")
 
     # Wrap with video recorder
     if env.render_mode == "rgb_array":
@@ -81,12 +82,21 @@ if __name__ == "__main__":
     observation, _ = env.reset()
     terminated = False
 
-    while not terminated:
-        action = agent.act(observation)
-        observation, _, terminated, _, _ = env.step(action)
+    # torax-style progress bar over the whole episode. `total=100` makes the bar
+    # measure a percentage of simulated time (t_current / t_final).
+    base_env = env.unwrapped
+    with tqdm.tqdm(total=100, desc="Simulating", leave=True) as pbar:
+        while not terminated:
+            action = agent.act(observation)
+            observation, _, terminated, _, _ = env.step(action)
 
-        if env.render_mode == "human":
-            env.render()
+            if env.render_mode == "human":
+                env.render()
+
+            t = base_env.current_time
+            pbar.n = int(t / base_env.T * 100)
+            pbar.set_description(f"Simulating (t={t:.5f})")
+            pbar.refresh()
 
     env.close()
     print("Video saved to ./videos/ directory")
