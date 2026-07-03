@@ -392,10 +392,11 @@ class BaseEnv(gym.Env, ABC):
             reward = self._compute_reward(state, next_state, action)
 
         # Update time tracking
+        # Episode termination at t_final is decided by ToraxApp.run() (the
+        # `done` flag handled above). We only advance the local time/step
+        # counters here.
         self.current_time += self.delta_t_a
         self.timestep += 1
-        if self.current_time > self.T:
-            self.terminated = True
 
         # Update the renderer with current state if applicable
         if self.renderer is not None:
