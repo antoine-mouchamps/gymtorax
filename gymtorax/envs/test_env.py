@@ -1,8 +1,8 @@
 import numpy as np
 
-import gymtorax.action_handler as ah
-import gymtorax.observation_handler as oh
-from gymtorax import BaseEnv
+from ..action_handler import IpAction
+from ..observation_handler import AllObservation
+from .base_env import BaseEnv
 
 # fmt: off
 """Config for ITER hybrid scenario based parameters with nonlinear solver.
@@ -202,12 +202,12 @@ class TestEnv(BaseEnv):
 
     def _define_action_space(self):  # noqa: D102
         actions = [
-            ah.IpAction(),
+            IpAction(),
         ]
         return actions
 
     def _define_observation_space(self):  # noqa: D102
-        return oh.AllObservation()
+        return AllObservation()
 
     def _get_torax_config(self):  # noqa: D102
         return {"config": CONFIG, "discretization": "auto", "delta_t_a": 1.0}
