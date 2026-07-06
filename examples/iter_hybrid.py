@@ -65,7 +65,7 @@ if __name__ == "__main__":
     os.makedirs("videos", exist_ok=True)
 
     # Create base environment with rgb_array mode for video recording
-    env = IterHybridEnv(render_mode="none", store_history=False, log_level="info")
+    env = IterHybridEnv(render_mode="rgb_array", store_history=False, log_level="info")
 
     # Wrap with video recorder
     if env.render_mode == "rgb_array":
@@ -99,4 +99,6 @@ if __name__ == "__main__":
             pbar.refresh()
 
     env.close()
-    print("Video saved to ./videos/ directory")
+
+    if env.render_mode == "rgb_array":
+        print("Video saved to ./videos/ directory")
