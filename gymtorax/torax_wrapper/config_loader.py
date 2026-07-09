@@ -102,26 +102,31 @@ class ConfigLoader:
         except KeyError as e:
             raise KeyError(f"Missing required configuration key: {e}")
 
-    def get_initial_simulation_time(self, restart=False) -> float:
+    def get_initial_simulation_time(self, restart: bool = False) -> float:
         """Get the initial simulation time in seconds.
 
         This extracts the ``t_initial`` parameter from the numerics section,
-        which defines the initial time for the plasma simulation.
+        which defines the initial time for the plasma simulation. Defaults to
+        ``0.0`` if not set, in accordance with TORAX settings. If ``restart``
+        is ``True``, the time is instead read from the ``restart`` section:
+        the simulation continues from a previous TORAX run saved as a file.
+
+        Args:
+            restart: If ``True``, return the restart time from the ``restart``
+                section instead of ``numerics.t_initial``.
 
         Returns:
-            Total simulation time in seconds
+            Initial simulation time in seconds
 
         Raises:
-            KeyError: If the configuration does not contain the required keys
+            KeyError: If ``restart`` is ``True`` but the configuration has no
+                ``restart`` section with a ``time`` entry
             TypeError: If the value is not a number
         """
-        if restart is False:
-            if "t_initial" not in self.config_dict["numerics"]:
-                t_initial = 0.0
-            else:
-                t_initial = self.config_dict["numerics"]["t_initial"]
-        else:
+        if restart:
             t_initial = self.config_dict["restart"]["time"]
+        else:
+            t_initial = self.config_dict["numerics"].get("t_initial", 0.0)
 
         if not isinstance(t_initial, int | float):
             raise TypeError("t_initial must be a number")
