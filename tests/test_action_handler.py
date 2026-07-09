@@ -141,8 +141,8 @@ def test_action_get_mapping():
     assert ("some_config", "param1") in mapping
 
 
-def test_action_init_dict_and_update_to_config():
-    # Test init_dict and update_to_config methods for CustomAction
+def test_action_init_dict_and_provider_updates():
+    # Test init_dict and get_provider_updates methods for CustomAction
     action = CustomAction()
     action._set_values([2.0, 0.5])
     config = {"some_config": {"param1": None, "param2": None}}
@@ -152,11 +152,11 @@ def test_action_init_dict_and_update_to_config():
     # Update at time=1.0: ramps from the previous value (at window start) to
     # the new value (at window end).
     action._set_values([3.0, 0.7])
-    action.update_to_config(config, time=1.0, delta_t_a=1.0)
-    assert config["some_config"]["param1"][0][1.0] == 2.0
-    assert config["some_config"]["param1"][0][2.0] == 3.0
-    assert config["some_config"]["param2"][0][1.0] == 0.5
-    assert config["some_config"]["param2"][0][2.0] == 0.7
+    updates = action.get_provider_updates(time=1.0, delta_t_a=1.0)
+    assert updates["some_config.param1"].time.tolist() == [1.0, 2.0]
+    assert updates["some_config.param1"].value.tolist() == [2.0, 3.0]
+    assert updates["some_config.param2"].time.tolist() == [1.0, 2.0]
+    assert updates["some_config.param2"].value.tolist() == [0.5, 0.7]
 
 
 def test_action_init_dict_keyerror():
@@ -320,7 +320,7 @@ def test_nbi_action():
 
 
 def test_ecrh_action_init_dict_and_update():
-    # Test init_dict and update_to_config for EcrhAction
+    # Test init_dict and get_provider_updates for EcrhAction
     ecrh = EcrhAction()
     ecrh._set_values([5e6, 0.3, 0.1])
     config = {
@@ -335,15 +335,15 @@ def test_ecrh_action_init_dict_and_update():
     # Update at time=2.0: ramps from previous values (window start) to the
     # new values (window end).
     ecrh._set_values([6e6, 0.4, 0.2])
-    ecrh.update_to_config(config, time=2.0, delta_t_a=1.0)
-    assert config["sources"]["ecrh"]["P_total"][0][2.0] == 5e6
-    assert config["sources"]["ecrh"]["P_total"][0][3.0] == 6e6
-    assert config["sources"]["ecrh"]["gaussian_location"][0][3.0] == 0.4
-    assert config["sources"]["ecrh"]["gaussian_width"][0][3.0] == 0.2
+    updates = ecrh.get_provider_updates(time=2.0, delta_t_a=1.0)
+    assert updates["sources.ecrh.P_total"].time.tolist() == [2.0, 3.0]
+    assert updates["sources.ecrh.P_total"].value.tolist() == [5e6, 6e6]
+    assert updates["sources.ecrh.gaussian_location"].value.tolist() == [0.3, 0.4]
+    assert updates["sources.ecrh.gaussian_width"].value.tolist() == [0.1, 0.2]
 
 
 def test_nbi_action_init_dict_and_update():
-    # Test init_dict and update_to_config for NbiAction
+    # Test init_dict and get_provider_updates for NbiAction
     nbi = NbiAction()
     nbi._set_values(
         [10e6, 0.4, 0.2]
@@ -374,15 +374,23 @@ def test_nbi_action_init_dict_and_update():
     # Update at time=3.0: ramps from previous values (window start) to the
     # new values (window end).
     nbi._set_values([11e6, 0.5, 0.3])  # Updated for 3 dimensions
-    nbi.update_to_config(config, time=3.0, delta_t_a=1.0)
-    assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 10e6
-    assert config["sources"]["generic_heat"]["P_total"][0][4.0] == 11e6
-    expected_current_updated = 11e6 * nbi.nbi_w_to_ma
-    assert (
-        config["sources"]["generic_current"]["I_generic"][0][4.0]
-        == expected_current_updated
-    )
-    assert config["sources"]["generic_heat"]["gaussian_location"][0][4.0] == 0.5
-    assert config["sources"]["generic_heat"]["gaussian_width"][0][4.0] == 0.3
-    assert config["sources"]["generic_current"]["gaussian_location"][0][4.0] == 0.5
-    assert config["sources"]["generic_current"]["gaussian_width"][0][4.0] == 0.3
+    updates = nbi.get_provider_updates(time=3.0, delta_t_a=1.0)
+    assert updates["sources.generic_heat.P_total"].time.tolist() == [3.0, 4.0]
+    assert updates["sources.generic_heat.P_total"].value.tolist() == [10e6, 11e6]
+    assert updates["sources.generic_current.I_generic"].value.tolist() == [
+        10e6 * nbi.nbi_w_to_ma,
+        11e6 * nbi.nbi_w_to_ma,
+    ]
+    assert updates["sources.generic_heat.gaussian_location"].value.tolist() == [
+        0.4,
+        0.5,
+    ]
+    assert updates["sources.generic_heat.gaussian_width"].value.tolist() == [0.2, 0.3]
+    assert updates["sources.generic_current.gaussian_location"].value.tolist() == [
+        0.4,
+        0.5,
+    ]
+    assert updates["sources.generic_current.gaussian_width"].value.tolist() == [
+        0.2,
+        0.3,
+    ]

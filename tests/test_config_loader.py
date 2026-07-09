@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from gymtorax.action_handler import Action, ActionHandler
+from gymtorax.action_handler import Action, ActionHandler, IpAction
 from gymtorax.torax_wrapper.config_loader import ConfigLoader
 
 
@@ -109,14 +109,23 @@ class TestConfigLoader:
         loader = ConfigLoader(valid_config, action_handler)
         assert loader.get_n_grid_points() == 42
 
-    def test_update_config(self, valid_config, action_handler):
-        """Test updating the config with an action."""
+    def test_apply_action(self, valid_config, action_handler):
+        """Test applying an action and collecting provider updates."""
         loader = ConfigLoader(valid_config, action_handler)
         action = {"DummyAction": [0.5]}
-        loader.update_config(action, current_time=10.0, delta_t_a=2.0)
-        # Check that t_initial and t_final are updated
-        assert loader.config_dict["numerics"]["t_initial"] == 10.0
-        assert loader.config_dict["numerics"]["t_final"] == 12.0
+        updates = loader.apply_action(action, current_time=10.0, delta_t_a=2.0)
+        # DummyAction has an empty config_mapping, so no provider updates
+        assert updates == {}
+        # The action values were applied through the handler
+        assert loader.get_current_action_values()["DummyAction"][0] == 0.5
+
+    def test_ip_control_requires_ip_from_parameters(self, valid_config):
+        """Test that Ip control with Ip_from_parameters=False fails at construction."""
+        valid_config["geometry"]["Ip_from_parameters"] = False
+        valid_config["profile_conditions"] = {"Ip": 15e6}
+        handler = ActionHandler([IpAction()])
+        with pytest.raises(ValueError):
+            ConfigLoader(valid_config, handler)
 
     def test_validate_discretization_fixed(self, valid_config, action_handler):
         """Test validate_discretization for fixed type."""

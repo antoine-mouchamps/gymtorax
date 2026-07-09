@@ -278,7 +278,17 @@ class Action(ABC):
 
         This method sets up the configuration dictionary with the action current
         values at ``time=0``, creating the proper time-dependent parameter structure
-        expected by TORAX.
+        expected by TORAX. If the configuration already provides a value for a
+        mapped parameter, that value is adopted as the action's initial value;
+        otherwise the action's lower bound is used.
+
+        The series is written with ``"PIECEWISE_LINEAR"`` interpolation. This
+        matters beyond initialization: the runtime-parameter provider built
+        from this dictionary keeps the interpolation mode of each leaf for the
+        whole episode (in-place updates via
+        ``RuntimeParamsProvider.update_provider_from_mapping`` only swap the
+        time/value arrays), so the mode seeded here is the one used to
+        interpolate the per-step action ramps.
 
         Args:
             config_dict: The TORAX configuration dictionary to initialize.
@@ -286,103 +296,18 @@ class Action(ABC):
                 config_mapping.
 
         Raises:
-            KeyError: If the configuration dictionary does not have the expected
-                structure for this action parameters.
-            RuntimeError: If any error occurs during the initialization process.
+            RuntimeError: If the configuration dictionary does not have the
+                expected structure for this action parameters, or any other
+                error occurs during initialization.
         """
         try:
-            self._apply_mapping(config_dict, time="init")
-        except Exception as e:
-            raise RuntimeError(
-                f"An error occurred while initializing the action in the dictionary: {e}"
-            )
+            for dict_path, (idx, factor) in self.config_mapping.items():
+                # drill down into config_dict
+                d = config_dict
+                for key in dict_path[:-1]:
+                    d = d[key]
 
-    def update_to_config(
-        self, config_dict: dict[str, Any], time: float, delta_t_a: float
-    ) -> dict[str, TimeVaryingScalarUpdate]:
-        """Update a TORAX configuration dictionary with new action values.
-
-        This method updates the time-dependent parameters in the configuration
-        dictionary for the action window ``[time, time + delta_t_a]``: each
-        parameter ramps linearly from its previous value (at ``time``) to the
-        new action value (at ``time + delta_t_a``). Scaling factors from
-        ``config_mapping`` are applied consistently.
-
-        Args:
-            config_dict: The TORAX configuration dictionary to update.
-              Must have been previously initialized with ``init_dict``.
-            time: Simulation time at the start of the action window.
-            delta_t_a: Duration of the action window in seconds.
-
-        Returns:
-            Mapping of dot-separated TORAX runtime-parameter paths (e.g.
-            ``"profile_conditions.Ip"``) to `TimeVaryingScalarUpdate` objects
-            carrying the same two-breakpoint ramp, suitable for
-            ``RuntimeParamsProvider.update_provider_from_mapping``.
-
-        Note:
-            The configuration dictionary must have been initialized with
-            ``init_dict`` before calling this method. Values are scaled by the
-            factors defined in ``config_mapping`` before being stored.
-        """
-        return self._apply_mapping(config_dict, time=time, delta_t_a=delta_t_a)
-
-    def _apply_mapping(
-        self,
-        config_dict: dict[str, Any],
-        time: float | str,
-        delta_t_a: float | None = None,
-    ) -> dict[str, TimeVaryingScalarUpdate]:
-        """Apply the action values to a TORAX configuration dictionary.
-
-        This method traverses the configuration dictionary using the paths defined
-        in ``config_mapping`` and sets the appropriate values with consistent scaling.
-        For ``time="init"`` (initialization), it creates new time-dependent parameter entries.
-        For ``time>0``, it rewrites each entry as a two-breakpoint linear ramp
-        over the action window: ``({time: previous_value, time + delta_t_a:
-        new_value}, "PIECEWISE_LINEAR")``.
-
-        The two-breakpoint form serves two purposes:
-
-        - TORAX evaluates runtime parameters at both the start and the end of
-          each solver step, so the parameter trajectory seen by the simulation
-          is a continuous piecewise-linear ramp.
-        - The series always holds exactly two breakpoints, so the shape of the
-          corresponding JAX array never changes across steps. This avoids full
-          JAX recompilation between each time step.
-
-        During an episode the runtime parameters actually consumed by TORAX
-        come from the returned update mapping (applied in place on the step
-        function's provider); the ``config_dict`` write is bookkeeping that
-        keeps the dictionary an accurate record of what is being simulated.
-
-        Args:
-            config_dict: The TORAX configuration dictionary to modify
-            time: Simulation time. If ``"init"``, initializes new time-dependent parameters.
-                If ``>0``, updates existing time-dependent parameters.
-            delta_t_a: Duration of the action window. Required when ``time`` is
-                a number, unused for ``time="init"``.
-
-        Returns:
-            For numeric ``time``: mapping of runtime-parameter
-            paths to `TimeVaryingScalarUpdate` objects mirroring the ramps
-            written into ``config_dict``. Empty for ``time="init"``.
-
-        Note:
-            This is an internal method used by ``init_dict`` and ``update_to_config``.
-            Scaling factors from ``config_mapping`` are consistently applied
-            during both initialization and updates.
-        """
-        provider_updates: dict[str, TimeVaryingScalarUpdate] = {}
-        for dict_path, (idx, factor) in self.config_mapping.items():
-            # drill down into config_dict
-            d = config_dict
-            for key in dict_path[:-1]:
-                d = d[key]
-
-            key = dict_path[-1]
-            # Handle the case of the initial condition
-            if time == "init":
+                key = dict_path[-1]
                 # Check if there is no value associated to the existing key
                 if d[key] != {}:
                     if isinstance(d[key], (float, int)):  # noqa: UP038
@@ -407,17 +332,51 @@ class Action(ABC):
                     )
                 # Apply the factor during initialization as well for consistency.
                 d[key] = ({0: self.values[idx] * factor}, "PIECEWISE_LINEAR")
-            else:
-                start_value = self.prev_values[idx] * factor
-                end_value = self.values[idx] * factor
-                d[key] = (
-                    {time: start_value, time + delta_t_a: end_value},
-                    "PIECEWISE_LINEAR",
-                )
-                provider_updates[".".join(dict_path)] = TimeVaryingScalarUpdate(
-                    time=jnp.array([time, time + delta_t_a], dtype=jnp.float64),
-                    value=jnp.array([start_value, end_value], dtype=jnp.float64),
-                )
+
+            # The initial values are the starting point of the first window.
+            self.prev_values = np.array(self.values, dtype=self.dtype).copy()
+        except Exception as e:
+            raise RuntimeError(
+                f"An error occurred while initializing the action in the dictionary: {e}"
+            )
+
+    def get_provider_updates(
+        self, time: float, delta_t_a: float
+    ) -> dict[str, TimeVaryingScalarUpdate]:
+        """Build the runtime-parameter updates for one action window.
+
+        Each mapped parameter ramps linearly from its previous value (at
+        ``time``, the start of the window) to the new action value (at
+        ``time + delta_t_a``). Scaling factors from ``config_mapping`` are
+        applied consistently.
+
+        The two-breakpoint form serves two purposes:
+
+        - TORAX evaluates runtime parameters at both the start and the end of
+          each solver step, so the parameter trajectory seen by the simulation
+          is a continuous piecewise-linear ramp.
+        - The series always holds exactly two breakpoints, so the shape of the
+          corresponding JAX array never changes across steps. This avoids full
+          JAX recompilation between each time step.
+
+        Args:
+            time: Simulation time at the start of the action window.
+            delta_t_a: Duration of the action window in seconds.
+
+        Returns:
+            Mapping of dot-separated TORAX runtime-parameter paths (e.g.
+            ``"profile_conditions.Ip"``) to `TimeVaryingScalarUpdate` objects,
+            suitable for ``RuntimeParamsProvider.update_provider_from_mapping``.
+        """
+        provider_updates: dict[str, TimeVaryingScalarUpdate] = {}
+        for dict_path, (idx, factor) in self.config_mapping.items():
+            provider_updates[".".join(dict_path)] = TimeVaryingScalarUpdate(
+                time=jnp.array([time, time + delta_t_a], dtype=jnp.float64),
+                value=jnp.array(
+                    [self.prev_values[idx] * factor, self.values[idx] * factor],
+                    dtype=jnp.float64,
+                ),
+            )
 
         # The new actions become the starting point of the next window.
         self.prev_values = np.array(self.values, dtype=self.dtype).copy()

@@ -176,17 +176,19 @@ class ConfigLoader:
         else:
             return 25
 
-    def update_config(
+    def apply_action(
         self, action, current_time: float, delta_t_a: float
     ) -> dict[str, Any]:
-        """Update the simulation configuration with new timing and action parameters.
+        """Apply a new action and collect its runtime-parameter updates.
 
-        This method updates the TORAX configuration dictionary with new time
-        boundaries and applies the provided action through the action handler.
-        It does NOT rebuild ``config_torax``: per-step changes are instead returned as
-        a runtime-parameter update mapping to be applied in place on the step
-        function's `RuntimeParamsProvider`, which is much cheaper and cannot
-        change the JAX pytree structure (no recompilation).
+        This method updates the action handler with the new action values
+        (applying bounds and ramp-rate clipping) and returns the corresponding
+        per-window parameter ramps. It does NOT touch ``config_dict`` or
+        ``config_torax``: after initialization, the configuration only
+        describes the start of the episode, and per-step changes are applied
+        in place on the step function's `RuntimeParamsProvider`, which is much
+        cheaper than a config rebuild and cannot change the JAX pytree
+        structure (no recompilation).
 
         Args:
             action: Action values to be applied through the action handler.
@@ -195,36 +197,15 @@ class ConfigLoader:
 
         Returns:
             Mapping of dot-separated runtime-parameter paths to update values
-            (action ramps only; the caller adds the ``numerics.t_initial`` /
-            ``numerics.t_final`` window bounds), suitable for
+            (action ramps only; the caller adds the ``numerics.t_final``
+            window bound), suitable for
             ``RuntimeParamsProvider.update_provider_from_mapping``.
-
-        Raises:
-            ValueError: If Ip control is requested but Ip_from_parameters is False.
         """
-        self.config_dict["numerics"]["t_initial"] = current_time
-        self.config_dict["numerics"]["t_final"] = current_time + delta_t_a
-
-        # TODO: why is this here ???
-        # Allow the control of Ip after initialization
-        if "Ip" in self.action_handler.get_action_variables():
-            if (
-                "Ip_from_parameters" in self.config_dict["geometry"]
-                and self.config_dict["geometry"]["Ip_from_parameters"] is False
-            ):
-                raise ValueError(
-                    "Control over Ip implies that 'Ip_from_parameters' must be True so that TORAX considers it."
-                    + " that TORAX considers it."
-                )
-
         self.action_handler.update_actions(action)
-        actions = self.action_handler.get_actions().values()
 
         provider_updates: dict[str, Any] = {}
-        for action in actions:
-            provider_updates |= action.update_to_config(
-                self.config_dict, current_time, delta_t_a
-            )
+        for act in self.action_handler.get_actions().values():
+            provider_updates |= act.get_provider_updates(current_time, delta_t_a)
 
         return provider_updates
 
@@ -245,11 +226,23 @@ class ConfigLoader:
 
         This method checks that the configuration contains all required keys
         and that their values are of the expected types for a Gym-TORAX
-        environment.
+        environment, and initializes the action parameters in the
+        configuration dictionary.
 
         Raises:
             ValueError: If the configuration is invalid
+            RuntimeError: If an action cannot be initialized in the
+                configuration dictionary
         """
+        # Controlling Ip requires TORAX to take Ip from the parameters rather
+        # than from the geometry file.
+        if "Ip" in self.action_handler.get_action_variables():
+            if self.config_dict["geometry"].get("Ip_from_parameters") is False:
+                raise ValueError(
+                    "Control over Ip implies that 'Ip_from_parameters' must be"
+                    " True so that TORAX considers it."
+                )
+
         action_list = self.action_handler.get_actions().values()
         for a in action_list:
             a.init_dict(self.config_dict)
