@@ -22,6 +22,7 @@ from torax._src.plotting import plotruns_lib
 
 from .torax_wrapper import (
     create_figure,
+    format_plots,
     load_data,
     update_lines,
     validate_plotdata,
@@ -196,7 +197,7 @@ class Plotter:
         )
 
         if self.first_update is False:
-            plotruns_lib.format_plots(self.plot_config, plotdata, None, self.axes)
+            format_plots(self.plot_config, plotdata, self.axes)
         if self.first_update is True:
             self.first_update = False
 
