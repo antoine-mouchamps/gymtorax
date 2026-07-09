@@ -3,8 +3,13 @@ import os
 import numpy as np
 import tqdm
 from gymnasium.wrappers import RecordVideo
+from pyinstrument import Profiler
 
 from gymtorax import IterHybridEnv
+
+# Set to True to profile main() with pyinstrument
+PROFILE = True
+RENDER_MODE = "none"  # other: "human" or "rgb_array"
 
 _NBI_W_TO_MA = 1 / 16e6
 W_to_Ne_ratio = 0
@@ -60,12 +65,13 @@ class IterHybridAgent:  # noqa: D101
         return action
 
 
-if __name__ == "__main__":
+def main():
+    """Run the ITER hybrid scenario with the scripted agent."""
     # Create videos directory if it doesn't exist
     os.makedirs("videos", exist_ok=True)
 
     # Create base environment with rgb_array mode for video recording
-    env = IterHybridEnv(render_mode="rgb_array", store_history=False, log_level="info")
+    env = IterHybridEnv(render_mode=RENDER_MODE, store_history=False, log_level="info")
 
     # Wrap with video recorder
     if env.render_mode == "rgb_array":
@@ -102,3 +108,18 @@ if __name__ == "__main__":
 
     if env.render_mode == "rgb_array":
         print("Video saved to ./videos/ directory")
+
+
+if __name__ == "__main__":
+    if PROFILE:
+        profiler = Profiler()
+        profiler.start()
+        main()
+        profiler.stop()
+        print(profiler.output_text(unicode=True, color=True, show_all=False))
+        profile_path = "profile_output.html"
+        with open(profile_path, "w") as f:
+            f.write(profiler.output_html())
+        print(f"Profile saved to {profile_path}")
+    else:
+        main()
