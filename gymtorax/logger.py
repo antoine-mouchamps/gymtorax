@@ -5,9 +5,9 @@ def setup_logging(level=logging.WARNING, log_file=None, suppress_external=True):
     """Setup global logging configuration with optional external library suppression.
 
     External libraries (JAX, TORAX, etc.) can generate overwhelming amounts of log
-    messages. In particular, TORAX emits INFO logs on every internal ``run_loop``
-    call, which happens once per action step and is pure noise here. This function
-    lets gymtorax log at any level while keeping external libraries at ``WARNING``.
+    messages (compilation notices, precision info, per-call INFO logs) that are
+    pure noise in an episodic RL loop. This function lets gymtorax log at any
+    level while keeping external libraries at ``WARNING``.
 
     Args:
         level (int): Logging level for gymtorax modules (e.g., :data:`logging.DEBUG`,

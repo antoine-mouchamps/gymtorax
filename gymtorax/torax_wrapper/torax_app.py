@@ -220,7 +220,7 @@ class ToraxApp:
         involve multiple internal TORAX timesteps. It handles:
 
         - Performance timing (if debug logging enabled)
-        - TORAX run_loop execution with current configuration
+        - TORAX execution via ``SimulationStepFn.jitted_fixed_time_step``
         - State and output management
         - Error handling and recovery
         - Time progression tracking
@@ -264,16 +264,18 @@ class ToraxApp:
             if logger.isEnabledFor(logging.DEBUG):
                 self.last_run_time = current_time
 
-            # Execute TORAX simulation loop for one action timestep
-            # This may involve multiple internal physics timesteps. The loop
-            # continues from the time of `initial_state` and runs until the
-            # step function's runtime params say t_final is reached.
-            sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
-                initial_state=self.current_sim_state,
-                initial_post_processed_outputs=self.current_sim_output,
-                step_fn=self.step_fn,
-                log_timestep_info=False,  # Suppress internal TORAX logging
-                progress_bar=False,  # No progress bar for individual steps
+            # Advance the simulation by exactly one action timestep. This may
+            # involve multiple internal physics timesteps. Only the state
+            # at the end of the window is returned.
+            output_state, post_processed_outputs = self.step_fn.jitted_fixed_time_step(
+                self.delta_t_a,
+                self.current_sim_state,
+                self.current_sim_output,
+            )
+
+            # Check for errors between substeps
+            sim_error = self.step_fn.check_for_errors(
+                output_state, post_processed_outputs
             )
         except Exception as e:
             logger.error(
@@ -290,14 +292,12 @@ class ToraxApp:
             return False, False
 
         # Update current state to final state from simulation step
-        self.current_sim_state = sim_states_list[-1]
-        self.current_sim_output = post_processed_outputs_list[-1]
+        self.current_sim_state = output_state
+        self.current_sim_output = post_processed_outputs
 
         # Store results in history if history tracking is enabled
         if self.store_history is True:
-            self.history_list.append(
-                [sim_states_list[-1], post_processed_outputs_list[-1]]
-            )
+            self.history_list.append([output_state, post_processed_outputs])
 
         # Update state history container with new results
         self.state = StateHistory(
@@ -321,14 +321,13 @@ class ToraxApp:
         """Update simulation configuration with new action parameters.
 
         This method applies new control parameters for the next simulation
-        step. The configuration dictionary is updated for bookkeeping, and the
-        step function's `RuntimeParamsProvider` is patched in place via
-        ``update_provider_from_mapping`` (a jit-compatible leaf replacement,
-        no pydantic re-validation). Recompilation is avoided by two combined
-        guarantees: this mechanism cannot change the JAX pytree structure, and
-        the action handler always emits fixed-shape (two-breakpoint) series,
-        so leaf array shapes never change either (see
-        ``Action._apply_mapping``).
+        step: the step function's `RuntimeParamsProvider` is patched in place
+        via ``update_provider_from_mapping`` (a jit-compatible leaf
+        replacement, no pydantic re-validation). Recompilation is avoided by
+        two combined guarantees: this mechanism cannot change the JAX pytree
+        structure, and the action handler always emits fixed-shape
+        (two-breakpoint) series, so leaf array shapes never change either
+        (see ``Action.get_provider_updates``).
 
         Args:
             action: Action dictionary containing new parameter values.
@@ -338,16 +337,20 @@ class ToraxApp:
             ValueError: If action format is invalid or configuration update fails.
         """
         try:
-            # Apply action parameters to the config dict and collect the
-            # corresponding runtime-parameter updates (two-breakpoint ramps)
-            provider_updates = self.config.update_config(
+            # Apply the action and collect the corresponding
+            # runtime-parameter updates (two-breakpoint ramps)
+            provider_updates = self.config.apply_action(
                 action,
                 self.t_current,  # Start time for this step
                 self.delta_t_a,  # Action timestep duration
             )
 
-            # The run window for the next `run()` call
-            provider_updates["numerics.t_initial"] = float(self.t_current)
+            # t_final must track the end of the action window. The advance
+            # length itself is set by the `dt` passed to
+            # `jitted_fixed_time_step`, but torax compares t + dt against
+            # numerics.t_final (`exact_t_final` handling), notably to allow a
+            # sub-min_dt solver retry on the final, cropped substep of the
+            # window.
             provider_updates["numerics.t_final"] = float(
                 self.t_current + self.delta_t_a
             )
@@ -407,7 +410,7 @@ class ToraxApp:
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )
-        # TODO: Could we avoid this ? It takes as much time to run _to_xr than run_loop
+        # TODO: Could we avoid this ? _to_xr takes as much time as the simulation itself
         dt = state_history.simulation_output_to_xr()
 
         return dt
