@@ -1,6 +1,6 @@
 # GymTORAX
 
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://python.org)
 [![PyPI Version](https://img.shields.io/pypi/v/gymtorax.svg)](https://pypi.org/project/gymtorax/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/github/actions/workflow/status/antoine-mouchamps/gymtorax/ci.yml?branch=main&label=tests)](https://github.com/antoine-mouchamps/gymtorax/actions)
@@ -31,7 +31,7 @@ More information about TORAX are available in the official documentation at [htt
 
 ### Prerequisites
 
-- **Python 3.10+**
+- **Python 3.11+**
 
 ### Installation
 

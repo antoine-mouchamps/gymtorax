@@ -10,18 +10,20 @@ readme = "README.md"
 packages = [{include = "gymtorax"}]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 gymnasium = "^1.2.0"
-torax = "1.0.*"
+torax = "1.4.*"
 numpy = "^2.0.0"
 matplotlib = "^3.0.0"
 xarray = "*"
+pyqt5 = "^5.15.11"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
 ruff = "*"
 docformatter = "*"
+pyinstrument = "^5.1.2"
 
 [tool.poetry.group.docs.dependencies]
 sphinx = "*"
@@ -35,7 +37,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py311"
 exclude = [
     "tmp/",
     "__pycache__/",
