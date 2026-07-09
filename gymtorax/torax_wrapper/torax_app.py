@@ -13,12 +13,8 @@ import copy
 import logging
 import time
 
-# Semi-public TORAX API (torax.experimental) is preferred where available;
-# the remaining torax._src imports have no public counterpart yet.
-from torax._src import state
-from torax._src.orchestration import initial_state as initial_state_lib
 from torax._src.orchestration import run_loop
-from torax._src.output_tools import output
+from torax._src.output_tools.output import StateHistory
 from torax._src.output_tools.post_processing import PostProcessedOutputs
 from torax._src.state import SimError
 from torax.experimental import (
@@ -89,7 +85,7 @@ class ToraxApp:
         # Initialize state containers (will be populated by reset())
         self.current_sim_state: SimState | None = None
         self.current_sim_output: PostProcessedOutputs | None = None
-        self.state: output.StateHistory | None = (
+        self.state: StateHistory | None = (
             None  # Current state history (single timestep)
         )
 
@@ -115,31 +111,18 @@ class ToraxApp:
 
         Called automatically by ``reset()`` if not already started.
         """
-        # Build the step function from the config. This builds all physics
-        # models, the solver, the geometry provider and the runtime params
-        # provider in one go.
+        # Build the step function from the config
         self.step_fn = make_step_fn(self.initial_config.config_torax)
 
-        if (
-            self.initial_config.config_torax.restart
-            and self.initial_config.config_torax.restart.do_restart
-        ):
-            self.initial_sim_state, self.initial_sim_output = (
-                initial_state_lib.get_initial_state_and_post_processed_outputs_from_file(
-                    file_restart=self.initial_config.config_torax.restart,
-                    step_fn=self.step_fn,
-                )
+        self.initial_sim_state, self.initial_sim_output = (
+            get_initial_state_and_post_processed_outputs(
+                t=self.initial_config.config_torax.numerics.t_initial,
+                step_fn=self.step_fn,
             )
-        else:
-            self.initial_sim_state, self.initial_sim_output = (
-                get_initial_state_and_post_processed_outputs(
-                    t=self.initial_config.config_torax.numerics.t_initial,
-                    step_fn=self.step_fn,
-                )
-            )
+        )
 
         # Create state history container with initial state
-        state_history = output.StateHistory(
+        state_history = StateHistory(
             state_history=[self.initial_sim_state],
             post_processed_outputs_history=[self.initial_sim_output],
             sim_error=SimError.NO_ERROR,
@@ -178,7 +161,7 @@ class ToraxApp:
         self.current_sim_output = self.initial_sim_output
 
         # Create state history container with initial state
-        state_history = output.StateHistory(
+        state_history = StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
             sim_error=SimError.NO_ERROR,
@@ -286,7 +269,7 @@ class ToraxApp:
             return False, False
 
         # Check if TORAX simulation encountered internal errors
-        if sim_error != state.SimError.NO_ERROR:
+        if sim_error != SimError.NO_ERROR:
             logger.error("simulation terminated with an error.")
             sim_error.log_error()
             logger.error(" The environment will reset.")
@@ -304,7 +287,7 @@ class ToraxApp:
             )
 
         # Update state history container with new results
-        self.state = output.StateHistory(
+        self.state = StateHistory(
             state_history=[self.current_sim_state],
             post_processed_outputs_history=[self.current_sim_output],
             sim_error=sim_error,
@@ -405,7 +388,7 @@ class ToraxApp:
         state_history = [output[0] for output in self.history_list]
         post_processed_outputs_history = [output[1] for output in self.history_list]
 
-        state_history = output.StateHistory(
+        state_history = StateHistory(
             state_history=state_history[start:end],
             post_processed_outputs_history=post_processed_outputs_history[start:end],
             sim_error=SimError.NO_ERROR,
@@ -435,7 +418,7 @@ class ToraxApp:
         state_history = [output[0] for output in self.history_list]
         post_processed_outputs_history = [output[1] for output in self.history_list]
 
-        state_history = output.StateHistory(
+        state_history = StateHistory(
             state_history=state_history,
             post_processed_outputs_history=post_processed_outputs_history,
             sim_error=SimError.NO_ERROR,
