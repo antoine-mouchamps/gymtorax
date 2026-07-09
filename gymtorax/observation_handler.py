@@ -290,7 +290,7 @@ class Observation(ABC):
             "scalars": {
                 var: np.asarray(
                     [state["scalars"][var]["data"][0]]
-                    if isinstance(state["scalars"][var]["data"], list)
+                    if state["scalars"][var]["data"].ndim > 0
                     else [state["scalars"][var]["data"]],
                     dtype=self.dtype,
                 )
@@ -410,66 +410,53 @@ class Observation(ABC):
             dict[str, dict[str, Any]]: Dictionary with format
                 ``{"profiles": {var: {"data": values}}, "scalars": {var: {"data": values}}}``
         """
-        # Extract datasets
-        profiles: Dataset = datatree["/profiles/"].ds
-        scalars: Dataset = datatree["/scalars/"].ds
-
-        # TORAX >= 1.4 adds species-resolved variables with an extra leading
-        # dimension (e.g. `impurity_symbol` or `main_ion`). The observation
-        # pipeline handles only time-leading profiles/scalars, so each such
-        # variable is split into one per-species variable, preserving all data.
-        profiles = _expand_species_dims(profiles)
-        scalars = _expand_species_dims(scalars)
-
-        # Convert to dictionaries
-        state_profiles, state_scalars = profiles.to_dict(), scalars.to_dict()
-
-        state = {
-            "profiles": state_profiles["data_vars"],
-            "scalars": state_scalars["data_vars"],
+        return {
+            "profiles": _dataset_to_dict(datatree["/profiles/"].ds),
+            "scalars": _dataset_to_dict(datatree["/scalars/"].ds),
         }
 
-        return state
 
-
-def _expand_species_dims(ds: Dataset) -> Dataset:
-    """Split variables with a leading species dimension into one per species.
+def _dataset_to_dict(ds: Dataset) -> dict[str, dict[str, Any]]:
+    """Convert a TORAX dataset group to a ``{var: {"data": ndarray}}`` dict.
 
     TORAX >= 1.4 emits species-resolved variables carrying an extra leading
     dimension (e.g. ``impurity_symbol`` = ``['Ne', 'W']`` or ``main_ion`` =
     ``['D', 'T']``). The observation pipeline only handles time-leading
-    profiles and scalars, so each such variable is expanded into per-species
-    variables named ``{var}_{symbol}`` (e.g. ``n_impurity_species_Ne``). This
+    profiles and scalars, so each such variable is split into per-species
+    entries named ``{var}_{symbol}`` (e.g. ``n_impurity_species_Ne``). This
     preserves all information while yielding standard time-leading arrays.
+    All other variables are passed through unchanged.
 
-    Variables that are dimensionless or already time-leading are passed
-    through unchanged.
+    The conversion goes straight from the dataset to numpy-backed dict
+    entries, reading the low-level ``ds.variables`` mapping. This runs on
+    every simulation step, so the slow paths are deliberately avoided:
+    per-variable dataset mutation, ``Dataset.to_dict()``, and even
+    ``ds.data_vars`` item access (which builds a full ``DataArray`` wrapper
+    per variable) are all far too expensive for the large TORAX groups.
 
     Args:
         ds: Dataset from a TORAX ``/profiles/`` or ``/scalars/`` group.
 
     Returns:
-        Dataset: Dataset with species-resolved variables split per species.
+        dict[str, dict[str, Any]]: Mapping ``{var: {"data": numpy array}}``,
+        with species-resolved variables split per species.
     """
-    ds = ds.copy()
-    to_drop = []
-    to_add = {}
-    for name, data_var in ds.data_vars.items():
-        if data_var.dims and data_var.dims[0] != "time":
-            species_dim = data_var.dims[0]
-            to_drop.append(name)
-            for i in range(data_var.sizes[species_dim]):
-                label = (
-                    str(data_var.coords[species_dim].values[i])
-                    if species_dim in data_var.coords
-                    else str(i)
-                )
-                to_add[f"{name}_{label}"] = data_var.isel({species_dim: i}, drop=True)
-    for name in to_drop:
-        del ds[name]
-    for name, var in to_add.items():
-        ds[name] = var
-    return ds
+    out: dict[str, dict[str, Any]] = {}
+    variables = ds.variables
+    coord_names = set(ds.coords)
+    for name, var in variables.items():
+        if name in coord_names:
+            continue
+        if var.dims and var.dims[0] != "time":
+            species_dim = var.dims[0]
+            values = var.values
+            labels = variables[species_dim].values if species_dim in variables else None
+            for i in range(values.shape[0]):
+                label = str(labels[i]) if labels is not None else str(i)
+                out[f"{name}_{label}"] = {"data": values[i]}
+        else:
+            out[name] = {"data": var.values}
+    return out
 
 
 def _load_json_file(filename: str) -> dict:
