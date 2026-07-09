@@ -13,7 +13,9 @@ import copy
 import logging
 import time
 
-from torax._src.orchestration import run_loop
+from torax._src.orchestration.initial_state import (
+    get_initial_state_and_post_processed_outputs_from_file,
+)
 from torax._src.output_tools.output import StateHistory
 from torax._src.output_tools.post_processing import PostProcessedOutputs
 from torax._src.state import SimError
@@ -114,12 +116,23 @@ class ToraxApp:
         # Build the step function from the config
         self.step_fn = make_step_fn(self.initial_config.config_torax)
 
-        self.initial_sim_state, self.initial_sim_output = (
-            get_initial_state_and_post_processed_outputs(
-                t=self.initial_config.config_torax.numerics.t_initial,
-                step_fn=self.step_fn,
+        if (
+            self.initial_config.config_torax.restart
+            and self.initial_config.config_torax.restart.do_restart
+        ):
+            self.initial_sim_state, self.initial_sim_output = (
+                get_initial_state_and_post_processed_outputs_from_file(
+                    file_restart=self.initial_config.config_torax.restart,
+                    step_fn=self.step_fn,
+                )
             )
-        )
+        else:
+            self.initial_sim_state, self.initial_sim_output = (
+                get_initial_state_and_post_processed_outputs(
+                    t=self.initial_config.config_torax.numerics.t_initial,
+                    step_fn=self.step_fn,
+                )
+            )
 
         # Create state history container with initial state
         state_history = StateHistory(
