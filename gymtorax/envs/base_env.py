@@ -337,7 +337,7 @@ class BaseEnv(gym.Env, ABC):
         info = {}
 
         # Capture current state before applying action
-        state = self.torax_app.get_state_data()
+        state = self.state
 
         # Apply action by updating TORAX configuration parameters
         self.torax_app.update_config(action)
