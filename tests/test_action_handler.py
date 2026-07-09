@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from torax._src.config.profile_conditions import _MIN_IP_AMPS
+from torax._src.core_profiles.profile_conditions import _MIN_IP_AMPS
 
 from gymtorax.action_handler import (
     Action,
@@ -149,11 +149,14 @@ def test_action_init_dict_and_update_to_config():
     action.init_dict(config)
     assert config["some_config"]["param1"][0][0] == 2.0
     assert config["some_config"]["param2"][0][0] == 0.5
-    # Update at time=1.0
+    # Update at time=1.0: ramps from the previous value (at window start) to
+    # the new value (at window end).
     action._set_values([3.0, 0.7])
-    action.update_to_config(config, time=1.0)
-    assert config["some_config"]["param1"][0][1.0] == 3.0
-    assert config["some_config"]["param2"][0][1.0] == 0.7
+    action.update_to_config(config, time=1.0, delta_t_a=1.0)
+    assert config["some_config"]["param1"][0][1.0] == 2.0
+    assert config["some_config"]["param1"][0][2.0] == 3.0
+    assert config["some_config"]["param2"][0][1.0] == 0.5
+    assert config["some_config"]["param2"][0][2.0] == 0.7
 
 
 def test_action_init_dict_keyerror():
@@ -329,12 +332,14 @@ def test_ecrh_action_init_dict_and_update():
     assert config["sources"]["ecrh"]["P_total"][0][0] == 5e6
     assert config["sources"]["ecrh"]["gaussian_location"][0][0] == 0.3
     assert config["sources"]["ecrh"]["gaussian_width"][0][0] == 0.1
-    # Update at time=2.0
+    # Update at time=2.0: ramps from previous values (window start) to the
+    # new values (window end).
     ecrh._set_values([6e6, 0.4, 0.2])
-    ecrh.update_to_config(config, time=2.0)
-    assert config["sources"]["ecrh"]["P_total"][0][2.0] == 6e6
-    assert config["sources"]["ecrh"]["gaussian_location"][0][2.0] == 0.4
-    assert config["sources"]["ecrh"]["gaussian_width"][0][2.0] == 0.2
+    ecrh.update_to_config(config, time=2.0, delta_t_a=1.0)
+    assert config["sources"]["ecrh"]["P_total"][0][2.0] == 5e6
+    assert config["sources"]["ecrh"]["P_total"][0][3.0] == 6e6
+    assert config["sources"]["ecrh"]["gaussian_location"][0][3.0] == 0.4
+    assert config["sources"]["ecrh"]["gaussian_width"][0][3.0] == 0.2
 
 
 def test_nbi_action_init_dict_and_update():
@@ -366,16 +371,18 @@ def test_nbi_action_init_dict_and_update():
     assert config["sources"]["generic_heat"]["gaussian_width"][0][0] == 0.2
     assert config["sources"]["generic_current"]["gaussian_location"][0][0] == 0.4
     assert config["sources"]["generic_current"]["gaussian_width"][0][0] == 0.2
-    # Update at time=3.0
+    # Update at time=3.0: ramps from previous values (window start) to the
+    # new values (window end).
     nbi._set_values([11e6, 0.5, 0.3])  # Updated for 3 dimensions
-    nbi.update_to_config(config, time=3.0)
-    assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 11e6
+    nbi.update_to_config(config, time=3.0, delta_t_a=1.0)
+    assert config["sources"]["generic_heat"]["P_total"][0][3.0] == 10e6
+    assert config["sources"]["generic_heat"]["P_total"][0][4.0] == 11e6
     expected_current_updated = 11e6 * nbi.nbi_w_to_ma
     assert (
-        config["sources"]["generic_current"]["I_generic"][0][3.0]
+        config["sources"]["generic_current"]["I_generic"][0][4.0]
         == expected_current_updated
     )
-    assert config["sources"]["generic_heat"]["gaussian_location"][0][3.0] == 0.5
-    assert config["sources"]["generic_heat"]["gaussian_width"][0][3.0] == 0.3
-    assert config["sources"]["generic_current"]["gaussian_location"][0][3.0] == 0.5
-    assert config["sources"]["generic_current"]["gaussian_width"][0][3.0] == 0.3
+    assert config["sources"]["generic_heat"]["gaussian_location"][0][4.0] == 0.5
+    assert config["sources"]["generic_heat"]["gaussian_width"][0][4.0] == 0.3
+    assert config["sources"]["generic_current"]["gaussian_location"][0][4.0] == 0.5
+    assert config["sources"]["generic_current"]["gaussian_width"][0][4.0] == 0.3

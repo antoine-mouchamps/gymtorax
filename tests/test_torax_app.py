@@ -11,14 +11,7 @@ from gymtorax.torax_wrapper.torax_app import ToraxApp
 class DummyConfigLoader:
     def __init__(self):
         self.config_torax = MagicMock()
-        self.config_torax.transport.build_transport_model.return_value = MagicMock()
-        self.config_torax.pedestal.build_pedestal_model.return_value = MagicMock()
         self.config_torax.geometry.build_provider = MagicMock()
-        self.config_torax.sources = MagicMock()
-        self.config_torax.neoclassical = MagicMock()
-        self.config_torax.solver.build_solver.return_value = MagicMock()
-        self.config_torax.mhd.build_mhd_models.return_value = MagicMock()
-        self.config_torax.time_step_calculator.time_step_calculator = MagicMock()
         self.config_torax.numerics.t_initial = 0.0
         self.config_torax.restart = MagicMock()
         self.config_torax.restart.do_restart = False
@@ -37,9 +30,11 @@ class DummyConfigLoader:
 @pytest.fixture
 def torax_app_fixture():
     with (
-        patch("gymtorax.torax_wrapper.torax_app.build_runtime_params"),
+        patch("gymtorax.torax_wrapper.torax_app.RuntimeParamsProvider"),
+        patch("gymtorax.torax_wrapper.torax_app.make_step_fn"),
+        patch("gymtorax.torax_wrapper.torax_app.SimulationStepFn"),
         patch(
-            "gymtorax.torax_wrapper.torax_app.initial_state_lib.get_initial_state_and_post_processed_outputs",
+            "gymtorax.torax_wrapper.torax_app.get_initial_state_and_post_processed_outputs",
             return_value=(MagicMock(), MagicMock()),
         ),
         patch(
@@ -87,8 +82,7 @@ def test_update_config_updates_config(torax_app_fixture):
     app.config.update_config.assert_called_once_with(
         action, app.t_current, app.delta_t_a
     )
-    assert app.geometry_provider is not None
-    assert app.dynamic_runtime_params_slice_provider is not None
+    assert app.step_fn is not None
 
 
 def test_run_successful(torax_app_fixture):
@@ -137,9 +131,11 @@ def test_get_state_data_returns_data(torax_app_fixture):
 def test_run_returns_false_on_sim_error():
     """Test run returns (False, False) if sim_error is not NO_ERROR."""
     with (
-        patch("gymtorax.torax_wrapper.torax_app.build_runtime_params"),
+        patch("gymtorax.torax_wrapper.torax_app.RuntimeParamsProvider"),
+        patch("gymtorax.torax_wrapper.torax_app.make_step_fn"),
+        patch("gymtorax.torax_wrapper.torax_app.SimulationStepFn"),
         patch(
-            "gymtorax.torax_wrapper.torax_app.initial_state_lib.get_initial_state_and_post_processed_outputs",
+            "gymtorax.torax_wrapper.torax_app.get_initial_state_and_post_processed_outputs",
             return_value=(MagicMock(), MagicMock()),
         ),
         patch(
@@ -228,9 +224,11 @@ def test_reset_with_restart_true():
     dummy = DummyConfigLoader()
     dummy.config_torax.restart.do_restart = True
     with (
-        patch("gymtorax.torax_wrapper.torax_app.build_runtime_params"),
+        patch("gymtorax.torax_wrapper.torax_app.RuntimeParamsProvider"),
+        patch("gymtorax.torax_wrapper.torax_app.make_step_fn"),
+        patch("gymtorax.torax_wrapper.torax_app.SimulationStepFn"),
         patch(
-            "gymtorax.torax_wrapper.torax_app.initial_state_lib.get_initial_state_and_post_processed_outputs",
+            "gymtorax.torax_wrapper.torax_app.get_initial_state_and_post_processed_outputs",
             return_value=(MagicMock(), MagicMock()),
         ),
         patch(

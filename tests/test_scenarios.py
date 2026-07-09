@@ -223,6 +223,32 @@ def _ref_scalars(reference):
     return reference.children[output.SCALARS].dataset
 
 
+def _ref_variable(ref_ds, var: str) -> np.ndarray | None:
+    """Resolve an observed variable name to its reference array.
+
+    gymtorax's observation handler splits TORAX variables that carry a leading
+    species dimension (e.g. ``main_ion_fractions`` with ``main_ion=['D','T']``)
+    into per-species, time-leading variables named ``{var}_{symbol}`` (e.g.
+    ``main_ion_fractions_D``). The native reference stores them unsplit, so
+    such names are resolved by slicing the species coordinate and moving time
+    to the leading axis. Returns ``None`` if the name cannot be resolved.
+    """
+    if var in ref_ds:
+        return ref_ds[var].to_numpy()
+    for name, da in ref_ds.data_vars.items():
+        if da.dims and da.dims[0] != "time" and var.startswith(f"{name}_"):
+            label = var[len(name) + 1 :]
+            species_dim = da.dims[0]
+            labels = [str(v) for v in da[species_dim].values]
+            if label in labels:
+                return (
+                    da.isel({species_dim: labels.index(label)})
+                    .transpose("time", ...)
+                    .to_numpy()
+                )
+    return None
+
+
 def _align_ref(actual: np.ndarray, ref: np.ndarray) -> np.ndarray:
     """Align a reference array to the gymtorax time series.
 
@@ -304,15 +330,19 @@ def test_scenario_structure(scenario):
 
     # Every observed variable must exist in the reference with matching shape.
     for var, arr in rollout.profiles.items():
-        assert var in ref_profiles, f"'{name}': profile '{var}' absent from reference."
-        ref_arr = ref_profiles[var].to_numpy()
+        ref_arr = _ref_variable(ref_profiles, var)
+        assert ref_arr is not None, (
+            f"'{name}': profile '{var}' absent from reference."
+        )
         assert arr.shape == ref_arr.shape, (
             f"'{name}': profile '{var}' shape {arr.shape} != reference {ref_arr.shape}."
         )
 
     for var, arr in rollout.scalars.items():
-        assert var in ref_scalars, f"'{name}': scalar '{var}' absent from reference."
-        ref_arr = ref_scalars[var].to_numpy()
+        ref_arr = _ref_variable(ref_scalars, var)
+        assert ref_arr is not None, (
+            f"'{name}': scalar '{var}' absent from reference."
+        )
         assert arr.shape == (rollout.times.shape[0],), (
             f"'{name}': scalar '{var}' has shape {arr.shape}, expected one value "
             f"per state ({rollout.times.shape[0]},)."
@@ -333,13 +363,21 @@ def test_scenario_metadata(scenario):
     ref_profiles = _ref_profiles(reference)
     ref_time = ref_profiles[output.TIME].to_numpy()
 
-    # The action-controlled variables are excluded from the observation, so the
-    # observed set is a subset of the reference variables.
-    assert set(rollout.profiles).issubset(set(ref_profiles.data_vars)), (
-        f"'{name}': observed profiles not a subset of reference profiles."
+    # The action-controlled variables are excluded from the observation, so
+    # every observed variable must resolve to a reference variable (directly
+    # or as a species-split slice; see `_ref_variable`).
+    unresolved_profiles = [
+        var for var in rollout.profiles if _ref_variable(ref_profiles, var) is None
+    ]
+    assert not unresolved_profiles, (
+        f"'{name}': observed profiles absent from reference: {unresolved_profiles}."
     )
-    assert set(rollout.scalars).issubset(set(_ref_scalars(reference).data_vars)), (
-        f"'{name}': observed scalars not a subset of reference scalars."
+    ref_scalars = _ref_scalars(reference)
+    unresolved_scalars = [
+        var for var in rollout.scalars if _ref_variable(ref_scalars, var) is None
+    ]
+    assert not unresolved_scalars, (
+        f"'{name}': observed scalars absent from reference: {unresolved_scalars}."
     )
 
     # The simulation time axis must line up step-for-step.
@@ -361,10 +399,12 @@ def test_scenario_scalars(scenario):
     assert rollout.scalars, f"'{name}': rollout produced no scalar observations."
     for var, arr in rollout.scalars.items():
         start = 1 if var in KNOWN_INITIAL_STATE_DIFFS else 0
+        ref_arr = _ref_variable(ref_scalars, var)
+        assert ref_arr is not None, f"'{name}': scalar '{var}' absent from reference."
         _compare_timeseries(
             f"{name}:scalars:{var}",
             arr,
-            ref_scalars[var].to_numpy(),
+            ref_arr,
             ref_time,
             start=start,
         )
@@ -378,6 +418,6 @@ def test_scenario_profiles(scenario):
 
     assert rollout.profiles, f"'{name}': rollout produced no profile observations."
     for var, arr in rollout.profiles.items():
-        _compare_timeseries(
-            f"{name}:profiles:{var}", arr, ref_profiles[var].to_numpy(), ref_time
-        )
+        ref_arr = _ref_variable(ref_profiles, var)
+        assert ref_arr is not None, f"'{name}': profile '{var}' absent from reference."
+        _compare_timeseries(f"{name}:profiles:{var}", arr, ref_arr, ref_time)
