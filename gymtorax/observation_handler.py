@@ -414,6 +414,13 @@ class Observation(ABC):
         profiles: Dataset = datatree["/profiles/"].ds
         scalars: Dataset = datatree["/scalars/"].ds
 
+        # TORAX >= 1.4 adds species-resolved variables with an extra leading
+        # dimension (e.g. `impurity_symbol` or `main_ion`). The observation
+        # pipeline handles only time-leading profiles/scalars, so each such
+        # variable is split into one per-species variable, preserving all data.
+        profiles = _expand_species_dims(profiles)
+        scalars = _expand_species_dims(scalars)
+
         # Convert to dictionaries
         state_profiles, state_scalars = profiles.to_dict(), scalars.to_dict()
 
@@ -423,6 +430,46 @@ class Observation(ABC):
         }
 
         return state
+
+
+def _expand_species_dims(ds: Dataset) -> Dataset:
+    """Split variables with a leading species dimension into one per species.
+
+    TORAX >= 1.4 emits species-resolved variables carrying an extra leading
+    dimension (e.g. ``impurity_symbol`` = ``['Ne', 'W']`` or ``main_ion`` =
+    ``['D', 'T']``). The observation pipeline only handles time-leading
+    profiles and scalars, so each such variable is expanded into per-species
+    variables named ``{var}_{symbol}`` (e.g. ``n_impurity_species_Ne``). This
+    preserves all information while yielding standard time-leading arrays.
+
+    Variables that are dimensionless or already time-leading are passed
+    through unchanged.
+
+    Args:
+        ds: Dataset from a TORAX ``/profiles/`` or ``/scalars/`` group.
+
+    Returns:
+        Dataset: Dataset with species-resolved variables split per species.
+    """
+    ds = ds.copy()
+    to_drop = []
+    to_add = {}
+    for name, data_var in ds.data_vars.items():
+        if data_var.dims and data_var.dims[0] != "time":
+            species_dim = data_var.dims[0]
+            to_drop.append(name)
+            for i in range(data_var.sizes[species_dim]):
+                label = (
+                    str(data_var.coords[species_dim].values[i])
+                    if species_dim in data_var.coords
+                    else str(i)
+                )
+                to_add[f"{name}_{label}"] = data_var.isel({species_dim: i}, drop=True)
+    for name in to_drop:
+        del ds[name]
+    for name, var in to_add.items():
+        ds[name] = var
+    return ds
 
 
 def _load_json_file(filename: str) -> dict:

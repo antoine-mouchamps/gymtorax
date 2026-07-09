@@ -13,15 +13,21 @@ import copy
 import logging
 import time
 
+# Semi-public TORAX API (torax.experimental) is preferred where available;
+# the remaining torax._src imports have no public counterpart yet.
 from torax._src import state
-from torax._src.config import build_runtime_params
 from torax._src.orchestration import initial_state as initial_state_lib
-from torax._src.orchestration import run_loop, step_function
-from torax._src.orchestration.sim_state import ToraxSimState
+from torax._src.orchestration import run_loop
 from torax._src.output_tools import output
 from torax._src.output_tools.post_processing import PostProcessedOutputs
-from torax._src.sources import source_models as source_models_lib
 from torax._src.state import SimError
+from torax.experimental import (
+    RuntimeParamsProvider,
+    SimState,
+    SimulationStepFn,
+    get_initial_state_and_post_processed_outputs,
+    make_step_fn,
+)
 from xarray import DataTree
 
 from .config_loader import ConfigLoader
@@ -48,7 +54,7 @@ class ToraxApp:
         initial_config (ConfigLoader): Original configuration for resetting
         delta_t_a (float): Action timestep - simulation duration per ``run()``
         store_history (bool): Whether to store complete simulation history
-        current_sim_state (ToraxSimState): Current simulation state
+        current_sim_state (SimState): Current simulation state
         current_sim_output (PostProcessedOutputs): Current post-processed outputs
         state (StateHistory): Current state history (single timestep)
         history_list (list): Complete history list (if ``store_history=True``)
@@ -81,7 +87,7 @@ class ToraxApp:
         self.delta_t_a = delta_t_a
 
         # Initialize state containers (will be populated by reset())
-        self.current_sim_state: ToraxSimState | None = None
+        self.current_sim_state: SimState | None = None
         self.current_sim_output: PostProcessedOutputs | None = None
         self.state: output.StateHistory | None = (
             None  # Current state history (single timestep)
@@ -102,72 +108,17 @@ class ToraxApp:
         """Initialize TORAX simulation components.
 
         This method sets up all the TORAX simulation infrastructure:
-            - Transport and pedestal models
-            - Geometry provider and source models
-            - Static and dynamic runtime parameters
-            - Solver and MHD models
-            - Step function for simulation advancement
+            - Physics models (transport, pedestal, sources, MHD, neoclassical)
+            - Solver and step function for simulation advancement
+            - Runtime parameters and geometry providers (owned by the step function)
             - Initial simulation state and outputs
 
         Called automatically by ``reset()`` if not already started.
         """
-        # Build physics models for plasma simulation
-        transport_model = (
-            self.initial_config.config_torax.transport.build_transport_model()
-        )
-        pedestal_model = (
-            self.initial_config.config_torax.pedestal.build_pedestal_model()
-        )
-
-        # Geometry provider defines the spatial grid and magnetic geometry
-        self.geometry_provider = (
-            self.initial_config.config_torax.geometry.build_provider
-        )
-
-        # Source models handle heating, current drive, and other plasma sources
-        source_models = source_models_lib.SourceModels(
-            self.initial_config.config_torax.sources,
-            neoclassical=self.initial_config.config_torax.neoclassical,
-        )
-
-        # Static runtime parameters (do not change during simulation)
-        self.static_runtime_params_slice = (
-            build_runtime_params.build_static_params_from_config(
-                self.initial_config.config_torax
-            )
-        )
-
-        # Build the main physics solver (handles transport equations)
-        solver = self.initial_config.config_torax.solver.build_solver(
-            static_runtime_params_slice=self.static_runtime_params_slice,
-            transport_model=transport_model,
-            source_models=source_models,
-            pedestal_model=pedestal_model,
-        )
-
-        # MHD models for magnetohydrodynamic instabilities and limits
-        mhd_models = self.initial_config.config_torax.mhd.build_mhd_models(
-            static_runtime_params_slice=self.static_runtime_params_slice,
-            transport_model=transport_model,
-            source_models=source_models,
-            pedestal_model=pedestal_model,
-        )
-
-        # Main simulation step function - advances physics by one timestep
-        self.step_fn = step_function.SimulationStepFn(
-            solver=solver,
-            time_step_calculator=self.initial_config.config_torax.time_step_calculator.time_step_calculator,
-            transport_model=transport_model,
-            pedestal_model=pedestal_model,
-            mhd_models=mhd_models,
-        )
-
-        # Dynamic runtime parameters (can change during simulation via actions)
-        self.dynamic_runtime_params_slice_provider = (
-            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.initial_config.config_torax
-            )
-        )
+        # Build the step function from the config. This builds all physics
+        # models, the solver, the geometry provider and the runtime params
+        # provider in one go.
+        self.step_fn = make_step_fn(self.initial_config.config_torax)
 
         if (
             self.initial_config.config_torax.restart
@@ -175,21 +126,14 @@ class ToraxApp:
         ):
             self.initial_sim_state, self.initial_sim_output = (
                 initial_state_lib.get_initial_state_and_post_processed_outputs_from_file(
-                    t_initial=self.initial_config.config_torax.numerics.t_initial,
                     file_restart=self.initial_config.config_torax.restart,
-                    static_runtime_params_slice=self.static_runtime_params_slice,
-                    dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
-                    geometry_provider=self.geometry_provider,
                     step_fn=self.step_fn,
                 )
             )
         else:
             self.initial_sim_state, self.initial_sim_output = (
-                initial_state_lib.get_initial_state_and_post_processed_outputs(
+                get_initial_state_and_post_processed_outputs(
                     t=self.initial_config.config_torax.numerics.t_initial,
-                    static_runtime_params_slice=self.static_runtime_params_slice,
-                    dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
-                    geometry_provider=self.geometry_provider,
                     step_fn=self.step_fn,
                 )
             )
@@ -233,20 +177,6 @@ class ToraxApp:
         self.current_sim_state = self.initial_sim_state
         self.current_sim_output = self.initial_sim_output
 
-        # Rebuild geometry provider with initial configuration
-        # This handles geometry changes (e.g., current profile modifications)
-        self.geometry_provider = (
-            self.initial_config.config_torax.geometry.build_provider
-        )
-
-        # Rebuild dynamic runtime parameters provider with initial configuration
-        # This ensures time-dependent parameters reflect the updated config
-        self.dynamic_runtime_params_slice_provider = (
-            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.initial_config.config_torax
-            )
-        )
-
         # Create state history container with initial state
         state_history = output.StateHistory(
             state_history=[self.current_sim_state],
@@ -274,6 +204,16 @@ class ToraxApp:
         self.config.set_total_simulation_time(
             self.delta_t_a
         )  # End for the first action step
+
+        # Propagate the new t_final to the step function's runtime params
+        self.step_fn = SimulationStepFn(
+            solver=self.step_fn.solver,
+            time_step_calculator=self.step_fn.time_step_calculator,
+            runtime_params_provider=RuntimeParamsProvider.from_config(
+                self.config.config_torax
+            ),
+            geometry_provider=self.config.config_torax.geometry.build_provider,
+        )
 
         logger.debug(" ToraxApp reset.")
 
@@ -329,14 +269,12 @@ class ToraxApp:
                 self.last_run_time = current_time
 
             # Execute TORAX simulation loop for one action timestep
-            # This may involve multiple internal physics timesteps
+            # This may involve multiple internal physics timesteps. The loop
+            # continues from the time of `initial_state` and runs until the
+            # step function's runtime params say t_final is reached.
             sim_states_list, post_processed_outputs_list, sim_error = run_loop.run_loop(
-                static_runtime_params_slice=self.static_runtime_params_slice,
-                dynamic_runtime_params_slice_provider=self.dynamic_runtime_params_slice_provider,
-                geometry_provider=self.geometry_provider,
                 initial_state=self.current_sim_state,
                 initial_post_processed_outputs=self.current_sim_output,
-                restart_case=True,  # Continue from current state
                 step_fn=self.step_fn,
                 log_timestep_info=False,  # Suppress internal TORAX logging
                 progress_bar=False,  # No progress bar for individual steps
@@ -386,8 +324,15 @@ class ToraxApp:
     def update_config(self, action) -> None:
         """Update simulation configuration with new action parameters.
 
-        This method applies new control parameters to the TORAX configuration
-        for the next simulation step.
+        This method applies new control parameters for the next simulation
+        step. The configuration dictionary is updated for bookkeeping, and the
+        step function's `RuntimeParamsProvider` is patched in place via
+        ``update_provider_from_mapping`` (a jit-compatible leaf replacement,
+        no pydantic re-validation). Recompilation is avoided by two combined
+        guarantees: this mechanism cannot change the JAX pytree structure, and
+        the action handler always emits fixed-shape (two-breakpoint) series,
+        so leaf array shapes never change either (see
+        ``Action._apply_mapping``).
 
         Args:
             action: Action dictionary containing new parameter values.
@@ -397,25 +342,35 @@ class ToraxApp:
             ValueError: If action format is invalid or configuration update fails.
         """
         try:
-            # Apply action parameters to configuration with time constraints
-            self.config.update_config(
+            # Apply action parameters to the config dict and collect the
+            # corresponding runtime-parameter updates (two-breakpoint ramps)
+            provider_updates = self.config.update_config(
                 action,
                 self.t_current,  # Start time for this step
-                self.delta_t_a,
-            )  # Action timestep duration
+                self.delta_t_a,  # Action timestep duration
+            )
+
+            # The run window for the next `run()` call
+            provider_updates["numerics.t_initial"] = float(self.t_current)
+            provider_updates["numerics.t_final"] = float(
+                self.t_current + self.delta_t_a
+            )
+
+            # Patch the provider in place and rewrap the step function,
+            # reusing the solver, time step calculator and geometry provider
+            new_provider = (
+                self.step_fn.runtime_params_provider.update_provider_from_mapping(
+                    provider_updates
+                )
+            )
         except ValueError as e:
             raise ValueError(f"Error updating configuration: {e}")
 
-        # Rebuild geometry provider with updated configuration
-        # This handles geometry changes (e.g., current profile modifications)
-        self.geometry_provider = self.config.config_torax.geometry.build_provider
-
-        # Rebuild dynamic runtime parameters provider with new configuration
-        # This ensures time-dependent parameters reflect the updated config
-        self.dynamic_runtime_params_slice_provider = (
-            build_runtime_params.DynamicRuntimeParamsSliceProvider.from_config(
-                self.config.config_torax
-            )
+        self.step_fn = SimulationStepFn(
+            solver=self.step_fn.solver,
+            time_step_calculator=self.step_fn.time_step_calculator,
+            runtime_params_provider=new_provider,
+            geometry_provider=self.step_fn.geometry_provider,
         )
 
     def get_output_datatree(self, start: int = 0, end: int = -1) -> DataTree:
@@ -456,7 +411,8 @@ class ToraxApp:
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )
-        dt = state_history.simulation_output_to_xr(self.config.config_torax.restart)
+        # TODO: Could we avoid this ? It takes as much time to run _to_xr than run_loop
+        dt = state_history.simulation_output_to_xr()
 
         return dt
 
@@ -485,7 +441,7 @@ class ToraxApp:
             sim_error=SimError.NO_ERROR,
             torax_config=self.config.config_torax,
         )
-        dt = state_history.simulation_output_to_xr(self.config.config_torax.restart)
+        dt = state_history.simulation_output_to_xr()
 
         try:
             dt.to_netcdf(file_name, engine="h5netcdf", mode="w")

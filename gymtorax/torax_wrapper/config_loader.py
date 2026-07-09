@@ -171,17 +171,28 @@ class ConfigLoader:
         else:
             return 25
 
-    def update_config(self, action, current_time: float, delta_t_a: float) -> None:
+    def update_config(
+        self, action, current_time: float, delta_t_a: float
+    ) -> dict[str, Any]:
         """Update the simulation configuration with new timing and action parameters.
 
-        This method updates the TORAX configuration with new time boundaries and
-        applies the provided action through the action handler. It handles time
-        stepping and rebuilds the TORAX config.
+        This method updates the TORAX configuration dictionary with new time
+        boundaries and applies the provided action through the action handler.
+        It does NOT rebuild ``config_torax``: per-step changes are instead returned as
+        a runtime-parameter update mapping to be applied in place on the step
+        function's `RuntimeParamsProvider`, which is much cheaper and cannot
+        change the JAX pytree structure (no recompilation).
 
         Args:
             action: Action values to be applied through the action handler.
             current_time: The current simulation time in seconds.
             delta_t_a: The action duration/time step in seconds.
+
+        Returns:
+            Mapping of dot-separated runtime-parameter paths to update values
+            (action ramps only; the caller adds the ``numerics.t_initial`` /
+            ``numerics.t_final`` window bounds), suitable for
+            ``RuntimeParamsProvider.update_provider_from_mapping``.
 
         Raises:
             ValueError: If Ip control is requested but Ip_from_parameters is False.
@@ -204,11 +215,13 @@ class ConfigLoader:
         self.action_handler.update_actions(action)
         actions = self.action_handler.get_actions().values()
 
+        provider_updates: dict[str, Any] = {}
         for action in actions:
-            action.update_to_config(self.config_dict, current_time)
+            provider_updates |= action.update_to_config(
+                self.config_dict, current_time, delta_t_a
+            )
 
-        # Update the TORAX config accordingly
-        self.config_torax = torax.ToraxConfig.from_dict(self.config_dict)
+        return provider_updates
 
     def get_current_action_values(self) -> dict[str, Any]:
         """Get the current action values from the action handler.
