@@ -49,7 +49,7 @@ CONFIG = {
         "n_e": {0: {0.0: 1.3, 1.0: 1.0}},  # Initial electron density profile
         "normalize_n_e_to_nbar": True,  # normalize initial n_e to nbar
         "n_e_nbar_is_fGW": True,  # nbar is in units for greenwald fraction
-        "initial_psi_from_j": True,  # initial psi from current formula
+        "initial_psi_mode": "j",  # initial psi from current formula
         "initial_j_is_total_current": True,  # only ohmic current on init
         "current_profile_nu": 2,  # exponent in initial current formula
     },
@@ -63,11 +63,11 @@ CONFIG = {
     },
     "geometry": {
         "geometry_type": "chease",
-        "geometry_file": "ITER_hybrid_citrin_equil_cheasedata.mat2cols",
+        "geometry_file": "iterhybrid.mat2cols",
         "Ip_from_parameters": True,
         "R_major": 6.2,  # major radius (R) in meters
         "a_minor": 2.0,  # minor radius (a) in meters
-        "B_0": 5.3,  # Toroidal magnetic field on axis [T]
+        "B_0": 5.3,  # Vacuum toroidal magnetic field at R_major [T]
     },
     "sources": {
         # Current sources (for psi equation)
@@ -93,7 +93,8 @@ CONFIG = {
         "ei_exchange": {},  # equipartition
         "ohmic": {},  # ohmic power
         "cyclotron_radiation": {},  # cyclotron radiation
-        "impurity_radiation": {  # impurity radiation + bremsstrahlung
+        "bremsstrahlung": {},  # main ion bremsstrahlung
+        "impurity_radiation": {  # impurity radiation + impurity bremsstrahlung
             "model_name": "mavrin_fit",
             "radiation_multiplier": 0.0,
         },
