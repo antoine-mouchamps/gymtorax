@@ -37,9 +37,7 @@ def torax_app_fixture():
             "gymtorax.torax_wrapper.torax_app.get_initial_state_and_post_processed_outputs",
             return_value=(MagicMock(), MagicMock()),
         ),
-        patch(
-            "gymtorax.torax_wrapper.torax_app.StateHistory"
-        ) as MockStateHistory,
+        patch("gymtorax.torax_wrapper.torax_app.StateHistory") as MockStateHistory,
         patch("gymtorax.torax_wrapper.torax_app.DataTree"),
     ):
         step_instance = MockStepFn.return_value
@@ -106,9 +104,7 @@ def test_save_output_file_calls_netcdf(torax_app_fixture, tmp_path):
     app = torax_app_fixture
     app.reset()
     app.history_list = [[MagicMock(), MagicMock()], [MagicMock(), MagicMock()]]
-    with patch(
-        "gymtorax.torax_wrapper.torax_app.StateHistory"
-    ) as MockStateHistory:
+    with patch("gymtorax.torax_wrapper.torax_app.StateHistory") as MockStateHistory:
         instance = MockStateHistory.return_value
         instance.simulation_output_to_xr.return_value = MagicMock()
         instance.simulation_output_to_xr.return_value.to_netcdf = MagicMock()
@@ -136,9 +132,7 @@ def test_run_returns_false_on_sim_error():
             "gymtorax.torax_wrapper.torax_app.get_initial_state_and_post_processed_outputs",
             return_value=(MagicMock(), MagicMock()),
         ),
-        patch(
-            "gymtorax.torax_wrapper.torax_app.StateHistory"
-        ) as MockStateHistory,
+        patch("gymtorax.torax_wrapper.torax_app.StateHistory") as MockStateHistory,
         patch("gymtorax.torax_wrapper.torax_app.DataTree"),
     ):
         step_instance = MockStepFn.return_value
@@ -146,9 +140,7 @@ def test_run_returns_false_on_sim_error():
             MagicMock(),
             MagicMock(),
         )
-        step_instance.check_for_errors.return_value = (
-            torax_app.SimError.NAN_DETECTED
-        )
+        step_instance.check_for_errors.return_value = torax_app.SimError.NAN_DETECTED
         instance = MockStateHistory.return_value
         instance.simulation_output_to_xr.return_value = MagicMock()
         app = ToraxApp(DummyConfigLoader(), delta_t_a=0.1, store_history=True)
@@ -185,9 +177,7 @@ def test_save_output_file_raises_on_write_error(torax_app_fixture, tmp_path):
     app = torax_app_fixture
     app.reset()
     app.history_list = [[MagicMock(), MagicMock()], [MagicMock(), MagicMock()]]
-    with patch(
-        "gymtorax.torax_wrapper.torax_app.StateHistory"
-    ) as MockStateHistory:
+    with patch("gymtorax.torax_wrapper.torax_app.StateHistory") as MockStateHistory:
         instance = MockStateHistory.return_value
         instance.simulation_output_to_xr.return_value = MagicMock()
 
@@ -248,9 +238,7 @@ def test_get_output_datatree_returns_datatree(torax_app_fixture):
     app = torax_app_fixture
     app.reset()
     app.history_list = [[MagicMock(), MagicMock()], [MagicMock(), MagicMock()]]
-    with patch(
-        "gymtorax.torax_wrapper.torax_app.StateHistory"
-    ) as MockStateHistory:
+    with patch("gymtorax.torax_wrapper.torax_app.StateHistory") as MockStateHistory:
         instance = MockStateHistory.return_value
         instance.simulation_output_to_xr.return_value = "datatree"
         result = app.get_output_datatree()

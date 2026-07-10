@@ -331,18 +331,14 @@ def test_scenario_structure(scenario):
     # Every observed variable must exist in the reference with matching shape.
     for var, arr in rollout.profiles.items():
         ref_arr = _ref_variable(ref_profiles, var)
-        assert ref_arr is not None, (
-            f"'{name}': profile '{var}' absent from reference."
-        )
+        assert ref_arr is not None, f"'{name}': profile '{var}' absent from reference."
         assert arr.shape == ref_arr.shape, (
             f"'{name}': profile '{var}' shape {arr.shape} != reference {ref_arr.shape}."
         )
 
     for var, arr in rollout.scalars.items():
         ref_arr = _ref_variable(ref_scalars, var)
-        assert ref_arr is not None, (
-            f"'{name}': scalar '{var}' absent from reference."
-        )
+        assert ref_arr is not None, f"'{name}': scalar '{var}' absent from reference."
         assert arr.shape == (rollout.times.shape[0],), (
             f"'{name}': scalar '{var}' has shape {arr.shape}, expected one value "
             f"per state ({rollout.times.shape[0]},)."
