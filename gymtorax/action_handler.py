@@ -16,6 +16,7 @@ Classes:
     - `VloopAction`: Action for loop voltage control
     - `EcrhAction`: Action for electron cyclotron resonance heating
     - `NbiAction`: Action for neutral beam injection
+    - `GasPuffAction`: Action for gas puff particle fueling
 
 Example:
     Create a custom action by extending the `Action` class:
@@ -572,6 +573,13 @@ class ActionHandler:
 # =============================================================================
 # The following classes are example implementations of actions used
 # in TORAX plasma simulations. Users can use these directly.
+#
+# TODO: Reduce the action dimensionalities to physically controllable
+# actuators only, for all actions. Deposition shape parameters are env/model
+# dependant rather than actual time-varying actuators (NBI location/width,
+# ECRH width, gas puff decay length) and should therefore move to constructor
+# parameters (like ``nbi_w_to_ma``), keeping only real actuators
+# in the action vectors: NBI power, ECRH power + location, gas puff rate.
 
 
 class IpAction(Action):
@@ -759,3 +767,42 @@ class NbiAction(Action):
 
         super().__init__(**kwargs)
         self.nbi_w_to_ma = nbi_w_to_ma
+
+
+class GasPuffAction(Action):
+    """Example action for controlling gas puff particle fueling.
+
+    This action controls two gas puff parameters: the total particle rate and
+    the exponential decay length of the deposition profile. The gas puff
+    deposits particles near the plasma edge with an exponentially decaying
+    profile.
+
+    Class Attributes:
+        name: ``"GasPuff"``
+        dimension: ``2`` (total particle rate, decay length)
+        default_min: ``[0.0, 0.01]``
+        default_max: ``[numpy.inf, numpy.inf]``
+        default_ramp_rate: ``[None, None]``
+        config_mapping: Maps to gas puff source parameters
+        state_var: ``{'scalars': ['S_gas_puff']}`` - modifies integrated gas
+            puff particle source scalar
+
+    Action Parameters:
+        0: Total gas puff rate (`S_total`) in particles/s
+        1: Decay length (`puff_decay_length`) - normalized radial coordinate
+
+    Example:
+        >>> puff_action = GasPuffAction()
+        >>> puff_action._set_values([1e22, 0.05])  # 1e22 particles/s
+    """
+
+    name = "GasPuff"
+    dimension = 2  # total particle rate, decay length
+    default_min = [0.0, 0.01]
+    default_max = [np.inf, np.inf]
+    default_ramp_rate = [None, None]
+    config_mapping = {
+        ("sources", "gas_puff", "S_total"): (0, 1),
+        ("sources", "gas_puff", "puff_decay_length"): (1, 1),
+    }
+    state_var = {"scalars": ["S_gas_puff"]}
