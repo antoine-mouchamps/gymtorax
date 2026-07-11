@@ -1,7 +1,14 @@
+from importlib.metadata import PackageNotFoundError, version
+
 from gymnasium.envs.registration import register
 
 from .agents import IterHybridAgent, PIDAgent, RandomAgent
 from .envs import BaseEnv, IterHybridEnv, TestEnv
+
+try:
+    __version__ = version("gymtorax")
+except PackageNotFoundError:  # pragma: no cover - package not installed
+    __version__ = "unknown"
 
 # Register environments with Gymnasium
 register(
