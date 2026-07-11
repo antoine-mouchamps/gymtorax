@@ -8,7 +8,13 @@ from typing import Any
 
 import pytest
 
-from gymtorax.action_handler import Action, ActionHandler, IpAction
+from gymtorax.action_handler import (
+    Action,
+    ActionHandler,
+    GenericHeatAction,
+    IpAction,
+    NbiAction,
+)
 from gymtorax.torax_wrapper.config_loader import ConfigLoader
 
 
@@ -126,6 +132,67 @@ class TestConfigLoader:
         handler = ActionHandler([IpAction()])
         with pytest.raises(ValueError, match="Ip_from_parameters"):
             ConfigLoader(valid_config, handler)
+
+    def test_nbi_requires_use_absolute_current(self, valid_config):
+        """NbiAction with a fraction-mode generic_current fails at construction.
+
+        In fraction mode TORAX ignores the I_generic current written by the
+        action (the external current follows fraction_of_total_current * Ip),
+        so the combination must be rejected instead of silently doing the
+        wrong thing.
+        """
+        valid_config["sources"] = {
+            "generic_heat": {
+                "P_total": 0.0,
+                "gaussian_location": 0.25,
+                "gaussian_width": 0.25,
+            },
+            "generic_current": {
+                "I_generic": 0.0,
+                "gaussian_location": 0.25,
+                "gaussian_width": 0.25,
+            },
+        }
+        with pytest.raises(ValueError, match="use_absolute_current"):
+            ConfigLoader(valid_config, ActionHandler([NbiAction()]))
+
+    def test_nbi_with_absolute_current_accepted(self, valid_config):
+        """NbiAction with use_absolute_current=True constructs cleanly."""
+        valid_config["sources"] = {
+            "generic_heat": {
+                "P_total": 0.0,
+                "gaussian_location": 0.25,
+                "gaussian_width": 0.25,
+            },
+            "generic_current": {
+                "use_absolute_current": True,
+                "I_generic": 0.0,
+                "gaussian_location": 0.25,
+                "gaussian_width": 0.25,
+            },
+        }
+        ConfigLoader(valid_config, ActionHandler([NbiAction()]))
+
+    def test_generic_heat_action_with_fraction_mode(self, valid_config):
+        """Heating-only action with a prescribed fraction-of-Ip current is valid.
+
+        The generic_current keys are not action-controlled here: the external
+        current stays prescribed in the configuration (linked to Ip by TORAX),
+        as in the TORAX iterhybrid_rampup example.
+        """
+        valid_config["sources"] = {
+            "generic_heat": {
+                "P_total": 0.0,
+                "gaussian_location": 0.25,
+                "gaussian_width": 0.25,
+            },
+            "generic_current": {
+                "fraction_of_total_current": 0.15,
+                "gaussian_location": 0.36,
+                "gaussian_width": 0.075,
+            },
+        }
+        ConfigLoader(valid_config, ActionHandler([GenericHeatAction()]))
 
     def test_validate_discretization_fixed(self, valid_config, action_handler):
         """Test validate_discretization for fixed type."""

@@ -9,6 +9,7 @@ from gymtorax.action_handler import (
     ActionHandler,
     EcrhAction,
     GasPuffAction,
+    GenericHeatAction,
     IpAction,
     NbiAction,
     VloopAction,
@@ -450,6 +451,28 @@ def test_nbi_action():
     assert ("sources", "generic_current", "gaussian_width") in mapping
     assert isinstance(nbi.state_var, dict)
     assert nbi.state_var == {"scalars": ["P_aux_generic_total"]}
+
+
+def test_generic_heat_action():
+    # Test GenericHeatAction class attributes and config mapping
+    heat = GenericHeatAction()
+    assert heat.dimension == 3
+    np.testing.assert_array_equal(heat.min, [0.0, 0.0, 0.01])
+    np.testing.assert_array_equal(heat.max, [np.inf, 1.0, np.inf])
+    mapping = heat.get_mapping()
+    assert ("sources", "generic_heat", "P_total") in mapping
+    assert ("sources", "generic_heat", "gaussian_location") in mapping
+    assert ("sources", "generic_heat", "gaussian_width") in mapping
+    # Pure heating: no generic_current key is mapped.
+    assert not any(path[1] == "generic_current" for path in mapping)
+    assert heat.state_var == {"scalars": ["P_aux_generic_total"]}
+
+
+def test_action_handler_nbi_generic_heat_exclusive():
+    # NbiAction and GenericHeatAction both map generic_heat parameters, so
+    # the duplicate-path validation must reject the combination.
+    with pytest.raises(ValueError, match="Duplicate action parameter"):
+        ActionHandler([NbiAction(), GenericHeatAction()])
 
 
 def test_gas_puff_action():

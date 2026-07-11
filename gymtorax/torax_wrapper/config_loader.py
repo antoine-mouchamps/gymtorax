@@ -244,6 +244,26 @@ class ConfigLoader:
                     " True so that TORAX considers it."
                 )
 
+        # TORAX only honors the I_generic current written by actions (e.g.
+        # NBI current drive) when 'use_absolute_current' is True; otherwise
+        # the external current silently follows
+        # fraction_of_total_current * Ip instead.
+        i_generic_controlled = (
+            "sources", "generic_current", "I_generic"
+        ) in self.action_handler.get_all_config_paths()
+        if i_generic_controlled and not self.config_dict.get("sources", {}).get(
+            "generic_current", {}
+        ).get("use_absolute_current", False):
+            raise ValueError(
+                "An action controls 'sources.generic_current.I_generic', but "
+                "'use_absolute_current' is not True: TORAX would silently "
+                "ignore I_generic and set the external current to "
+                "fraction_of_total_current * Ip. Either set "
+                "'use_absolute_current': True (beam-driven current), or use "
+                "a heating-only action (e.g. GenericHeatAction) and "
+                "prescribe 'fraction_of_total_current' in the configuration."
+            )
+
         action_list = self.action_handler.get_actions().values()
         for a in action_list:
             a.init_dict(self.config_dict)

@@ -16,6 +16,7 @@ Classes:
     - `VloopAction`: Action for loop voltage control
     - `EcrhAction`: Action for electron cyclotron resonance heating
     - `NbiAction`: Action for neutral beam injection
+    - `GenericHeatAction`: Action for generic auxiliary heating (no current drive)
     - `GasPuffAction`: Action for gas puff particle fueling
 
 Example:
@@ -777,6 +778,13 @@ class NbiAction(Action):
     and Gaussian width of the heating profile. The current drive power is automatically
     calculated from the heating power using a configurable conversion factor.
 
+    It models a single physical beam: heating (``generic_heat``) and driven
+    current (``generic_current``) share the same deposition location/width,
+    and the current is proportional to the heating power. The configuration
+    must therefore set ``use_absolute_current: True`` so that TORAX uses the
+    ``I_generic`` current written by this action (enforced at validation).
+    For heating without current drive, use `GenericHeatAction` instead.
+
     Class Attributes:
         name: ``"NBI"``
         dimension: ``3`` (heating power, location, width)
@@ -803,10 +811,6 @@ class NbiAction(Action):
         >>> # NBI with custom conversion factor
         >>> nbi_custom = NbiAction(nbi_w_to_ma=1/20e6)  # 20MW per 1MA
         >>> nbi_custom._set_values([20e6, 0.3, 0.15])
-
-        >>> # NBI with current drive disabled
-        >>> nbi_heating_only = NbiAction(nbi_w_to_ma=0)
-        >>> nbi_heating_only._set_values([15e6, 0.5, 0.1])
     """
 
     name = "NBI"
@@ -823,7 +827,6 @@ class NbiAction(Action):
         Args:
             nbi_w_to_ma: Conversion factor from heating power (Watts) to current drive (MA).
                 Default is ``1/16e6``, meaning 16MW of heating produces 1MA of current drive.
-                Set to ``0`` to disable current drive while keeping heating.
             **kwargs: Additional arguments passed to the parent `Action` class
                 (``min``, ``max``, ``ramp_rate``, ``dtype``).
 
@@ -833,9 +836,6 @@ class NbiAction(Action):
 
             >>> # Custom conversion (20MW -> 1MA)
             >>> nbi = NbiAction(nbi_w_to_ma=1/20e6)
-
-            >>> # Heating only, no current drive
-            >>> nbi = NbiAction(nbi_w_to_ma=0)
         """
         # Set the config_mapping with the provided nbi_w_to_ma value
         self.config_mapping = {
@@ -852,6 +852,48 @@ class NbiAction(Action):
 
         super().__init__(**kwargs)
         self.nbi_w_to_ma = nbi_w_to_ma
+
+
+class GenericHeatAction(Action):
+    """Example action for controlling the generic heat source.
+
+    This action controls the TORAX ``generic_heat`` source only: total power,
+    Gaussian location, and Gaussian width. It is the pure-heating counterpart
+    of `NbiAction`: use it when the agent controls the heating but not the
+    external current, e.g. when ``generic_current`` is prescribed in the
+    configuration as ``fraction_of_total_current``.
+
+    Class Attributes:
+        name: ``"GenericHeat"``
+        dimension: ``3`` (power, location, width)
+        default_min: ``[0.0, 0.0, 0.01]``
+        default_max: ``[numpy.inf, 1.0, numpy.inf]``
+        default_ramp_rate: ``[None, None, None]``
+        config_mapping: Maps to generic heat source parameters
+        state_var: ``{'scalars': ['P_aux_generic_total']}`` - modifies total
+            auxiliary power scalar
+
+    Action Parameters:
+        0: Total power (`P_total`) in Watts
+        1: Gaussian location (`gaussian_location`) - normalized radius [0,1]
+        2: Gaussian width (`gaussian_width`) - profile width parameter
+
+    Example:
+        >>> heat_action = GenericHeatAction()
+        >>> heat_action._set_values([20e6, 0.13, 0.07])  # 20MW at r/a=0.13
+    """
+
+    name = "GenericHeat"
+    dimension = 3  # power, location, width
+    default_min = [0.0, 0.0, 0.01]
+    default_max = [np.inf, 1.0, np.inf]
+    default_ramp_rate = [None, None, None]
+    config_mapping = {
+        ("sources", "generic_heat", "P_total"): (0, 1),
+        ("sources", "generic_heat", "gaussian_location"): (1, 1),
+        ("sources", "generic_heat", "gaussian_width"): (2, 1),
+    }
+    state_var = {"scalars": ["P_aux_generic_total"]}
 
 
 class GasPuffAction(Action):
