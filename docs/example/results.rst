@@ -1,6 +1,10 @@
 Results
 ===========
 
+.. note::
+
+   The numerical results and figures on this page were obtained with Gym-TORAX v1.0, which was based on TORAX 1.0. Since v1.1, Gym-TORAX runs on TORAX 1.4, whose additional physics and fixes change the simulation outcomes. These values are therefore no longer up to date: expected returns differ, and the PI controller gains reported in the previous section would need to be re-optimized.
+
 The expected return obtained for each policy is given in :numref:`tab:results`.
 
 .. list-table:: Expected return of the three studied policies, using a discount factor :math:`\gamma=1`.

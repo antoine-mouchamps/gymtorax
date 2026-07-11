@@ -41,6 +41,12 @@ Concrete Actions
 
 .. autoclass:: gymtorax.action_handler.NbiAction
 
+.. autoclass:: gymtorax.action_handler.GenericHeatAction
+
+.. autoclass:: gymtorax.action_handler.GasPuffAction
+
+.. autoclass:: gymtorax.action_handler.PelletAction
+
 Observation Handling
 --------------------
 
