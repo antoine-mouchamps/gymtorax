@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 import pytest
 from torax._src.core_profiles.profile_conditions import _MIN_IP_AMPS
@@ -168,6 +170,77 @@ def test_action_init_dict_keyerror():
         action.init_dict(config)
 
 
+def test_action_init_dict_rejects_time_varying_dict():
+    # A time-varying series (dict with several time nodes) for an
+    # action-controlled key must be rejected: only the t=0 value is allowed.
+    action = CustomAction1()
+    config = {"some_config": {"param1": {0: 0.2, 100: 0.8}}}
+    with pytest.raises(RuntimeError, match="time-varying"):
+        action.init_dict(config)
+
+
+def test_action_init_dict_rejects_time_varying_tuple():
+    # Same rejection for the (times, values) tuple form.
+    action = CustomAction1()
+    config = {"some_config": {"param1": (np.array([0, 100]), np.array([0.2, 0.8]))}}
+    with pytest.raises(RuntimeError, match="time-varying"):
+        action.init_dict(config)
+
+
+def test_action_init_dict_accepts_single_time_node():
+    # A single value at t=0 is fine, in scalar, dict, or tuple form.
+    for initial in [0.4, {0: 0.4}, (np.array([0]), np.array([0.4]))]:
+        action = CustomAction1()
+        config = {"some_config": {"param1": initial}}
+        action.init_dict(config)
+        assert action.values[0] == 0.4
+        assert config["some_config"]["param1"][0][0] == 0.4
+
+
+def test_action_init_dict_rejects_value_not_at_t_initial():
+    # A single value at a time other than t_initial must be rejected.
+    action = CustomAction1()
+    config = {"some_config": {"param1": {5: 0.4}}}
+    with pytest.raises(RuntimeError, match="t_initial"):
+        action.init_dict(config)
+
+
+def test_action_init_dict_accepts_value_at_custom_t_initial():
+    # With numerics.t_initial set, the single value must be given at that time.
+    action = CustomAction1()
+    config = {
+        "numerics": {"t_initial": 5.0},
+        "some_config": {"param1": {5: 0.4}},
+    }
+    action.init_dict(config)
+    assert action.values[0] == 0.4
+    assert config["some_config"]["param1"][0][5.0] == 0.4
+
+
+def test_action_init_dict_uses_restart_time():
+    # When restarting from a previous run, the episode starts at restart.time
+    # and the single value must be given at that time, not numerics.t_initial.
+    action = CustomAction1()
+    config = {
+        "numerics": {"t_initial": 0.0},
+        "restart": {"do_restart": True, "time": 10.0},
+        "some_config": {"param1": {10.0: 0.4}},
+    }
+    action.init_dict(config)
+    assert action.values[0] == 0.4
+    assert config["some_config"]["param1"][0][10.0] == 0.4
+
+    # With do_restart False, numerics.t_initial applies again.
+    action = CustomAction1()
+    config = {
+        "numerics": {"t_initial": 0.0},
+        "restart": {"do_restart": False, "time": 10.0},
+        "some_config": {"param1": {10.0: 0.4}},
+    }
+    with pytest.raises(RuntimeError, match="t=10.0"):
+        action.init_dict(config)
+
+
 def test_action_get_state_variables():
     # Test state_var attribute returns the expected dict for CustomAction
     action = CustomAction()
@@ -248,6 +321,65 @@ def test_action_handler_get_action_variables():
     assert "scalars" in variables
     assert "param1" in variables["scalars"]
     assert "param2" in variables["scalars"]
+
+
+def test_action_handler_validate_restart_scalars():
+    # Matching restart-file scalars pass; mismatches raise; unknown scalars
+    # and unmapped parameters (e.g. ECRH location/width) are skipped.
+    handler = ActionHandler([IpAction(), EcrhAction()])
+    handler.get_actions()["Ip"]._set_values([3e6])
+    handler.get_actions()["ECRH"]._set_values([5e6, 0.3, 0.1])
+
+    # Exact match passes, as does a value within the relative tolerance
+    handler.validate_restart_scalars({"Ip": 3e6, "P_ecrh_e": 5e6})
+    handler.validate_restart_scalars({"Ip": 3.001e6, "P_ecrh_e": 5e6})
+
+    # Scalars missing from the file are skipped with a warning
+    handler.validate_restart_scalars({"Ip": 3e6})
+
+    # A mismatch raises
+    with pytest.raises(ValueError, match="Restart consistency"):
+        handler.validate_restart_scalars({"Ip": 10.5e6, "P_ecrh_e": 5e6})
+    with pytest.raises(ValueError, match="P_ecrh_e"):
+        handler.validate_restart_scalars({"Ip": 3e6, "P_ecrh_e": 20e6})
+
+
+def test_action_handler_validate_restart_scalars_warns_on_missing(caplog):
+    # A scalar absent from the restart file is skipped with a warning, not
+    # silently ignored.
+    handler = ActionHandler([IpAction()])
+    handler.get_actions()["Ip"]._set_values([3e6])
+    with caplog.at_level(logging.WARNING):
+        handler.validate_restart_scalars({})
+    assert "skipped" in caplog.text
+    assert "Ip" in caplog.text
+
+
+def test_action_handler_validate_restart_scalars_tolerance():
+    # The comparison uses a 1% relative tolerance (file scalars are
+    # post-processed floats).
+    handler = ActionHandler([IpAction()])
+    handler.get_actions()["Ip"]._set_values([1e6])
+    handler.validate_restart_scalars({"Ip": 1.009e6})  # 0.9% off: passes
+    with pytest.raises(ValueError, match="Restart consistency"):
+        handler.validate_restart_scalars({"Ip": 1.011e6})  # 1.1% off: raises
+
+
+def test_action_handler_validate_restart_scalars_unlisted_action():
+    # Escape hatch: an action that lists no output scalar in state_var is
+    # never checked (e.g. one deviating from the primary-parameter
+    # convention).
+    class UncheckedAction(Action):
+        name = "Unchecked"
+        dimension = 1
+        default_min = [0.0]
+        default_max = [1.0]
+        default_ramp_rate = [None]
+        config_mapping = {("some_config", "p"): (0, 1)}
+        state_var = {}
+
+    handler = ActionHandler([UncheckedAction()])
+    handler.validate_restart_scalars({"anything": 123.0})
 
 
 def test_action_handler_build_action_space():

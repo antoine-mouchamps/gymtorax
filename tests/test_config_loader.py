@@ -124,7 +124,7 @@ class TestConfigLoader:
         valid_config["geometry"]["Ip_from_parameters"] = False
         valid_config["profile_conditions"] = {"Ip": 15e6}
         handler = ActionHandler([IpAction()])
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Ip_from_parameters"):
             ConfigLoader(valid_config, handler)
 
     def test_validate_discretization_fixed(self, valid_config, action_handler):
