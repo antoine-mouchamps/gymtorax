@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gymtorax"
-version = "1.0.0"
+version = "1.1.0"
 description = "A Gymnasium environment for Torax simulations"
 authors = [
     "Antoine Mouchamps <antoine.mouchamps@gmail.com>",

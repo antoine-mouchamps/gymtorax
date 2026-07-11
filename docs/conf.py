@@ -17,8 +17,8 @@ copyright = f"2024-{datetime.now().year}, Antoine Mouchamps, Arthur Malherbe, Ad
 author = "Antoine Mouchamps, Arthur Malherbe, Adrien Bolland, Damien Ernst"
 
 # The version info for the project
-release = "1.0.0"
-version = "1.0.0"
+release = "1.1.0"
+version = "1.1.0"
 
 # -- General configuration ---------------------------------------------------
 

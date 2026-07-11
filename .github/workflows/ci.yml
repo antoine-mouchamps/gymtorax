@@ -25,12 +25,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10.12'
+        python-version: '3.12'
     
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: 1.8.0
+        version: 2.4.1
         virtualenvs-create: true
         virtualenvs-in-project: true
     
@@ -60,12 +60,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10.12'
+        python-version: '3.12'
     
     - name: Install Poetry
       uses: snok/install-poetry@v1
       with:
-        version: 1.8.0
+        version: 2.4.1
         virtualenvs-create: true
         virtualenvs-in-project: true
     
