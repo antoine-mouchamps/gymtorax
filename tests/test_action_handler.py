@@ -12,6 +12,7 @@ from gymtorax.action_handler import (
     GenericHeatAction,
     IpAction,
     NbiAction,
+    PelletAction,
     VloopAction,
 )
 
@@ -486,6 +487,50 @@ def test_gas_puff_action():
     assert ("sources", "gas_puff", "puff_decay_length") in mapping
     assert isinstance(puff.state_var, dict)
     assert puff.state_var == {"scalars": ["S_gas_puff"]}
+
+
+def test_pellet_action():
+    # Test PelletAction class attributes and config mapping
+    pellet = PelletAction()
+    assert pellet.dimension == 3
+    np.testing.assert_array_equal(pellet.min, [0.0, 0.0, 0.01])
+    np.testing.assert_array_equal(pellet.max, [np.inf, 1.0, np.inf])
+    mapping = pellet.get_mapping()
+    assert ("sources", "pellet", "S_total") in mapping
+    assert ("sources", "pellet", "pellet_deposition_location") in mapping
+    assert ("sources", "pellet", "pellet_width") in mapping
+    assert isinstance(pellet.state_var, dict)
+    assert pellet.state_var == {"scalars": ["S_pellet"]}
+
+
+def test_pellet_action_init_dict_and_update():
+    # Test init_dict and get_provider_updates for PelletAction
+    pellet = PelletAction()
+    pellet._set_values([2e22, 0.85, 0.1])
+    config = {
+        "sources": {
+            "pellet": {
+                "S_total": None,
+                "pellet_deposition_location": None,
+                "pellet_width": None,
+            }
+        }
+    }
+    pellet.init_dict(config)
+    assert config["sources"]["pellet"]["S_total"][0][0] == 2e22
+    assert config["sources"]["pellet"]["pellet_deposition_location"][0][0] == 0.85
+    assert config["sources"]["pellet"]["pellet_width"][0][0] == 0.1
+    # Update at time=2.0: ramps from previous values (window start) to the
+    # new values (window end).
+    pellet._set_values([3e22, 0.8, 0.15])
+    updates = pellet.get_provider_updates(time=2.0, delta_t_a=1.0)
+    assert updates["sources.pellet.S_total"].time.tolist() == [2.0, 3.0]
+    assert updates["sources.pellet.S_total"].value.tolist() == [2e22, 3e22]
+    assert updates["sources.pellet.pellet_deposition_location"].value.tolist() == [
+        0.85,
+        0.8,
+    ]
+    assert updates["sources.pellet.pellet_width"].value.tolist() == [0.1, 0.15]
 
 
 def test_gas_puff_action_init_dict_and_update():

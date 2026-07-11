@@ -18,6 +18,7 @@ Classes:
     - `NbiAction`: Action for neutral beam injection
     - `GenericHeatAction`: Action for generic auxiliary heating (no current drive)
     - `GasPuffAction`: Action for gas puff particle fueling
+    - `PelletAction`: Action for pellet particle fueling
 
 Example:
     Create a custom action by extending the `Action` class:
@@ -933,3 +934,45 @@ class GasPuffAction(Action):
         ("sources", "gas_puff", "puff_decay_length"): (1, 1),
     }
     state_var = {"scalars": ["S_gas_puff"]}
+
+
+class PelletAction(Action):
+    """Example action for controlling pellet particle fueling.
+
+    This action controls three pellet parameters: the total particle rate,
+    the Gaussian deposition location, and the Gaussian deposition width.
+    TORAX models pellet fueling as a continuous, time-averaged Gaussian
+    particle source rather than discrete pellet events, so the action
+    represents an average fueling rate.
+
+    Class Attributes:
+        name: ``"Pellet"``
+        dimension: ``3`` (total particle rate, location, width)
+        default_min: ``[0.0, 0.0, 0.01]``
+        default_max: ``[numpy.inf, 1.0, numpy.inf]``
+        default_ramp_rate: ``[None, None, None]``
+        config_mapping: Maps to pellet source parameters
+        state_var: ``{'scalars': ['S_pellet']}`` - modifies integrated pellet
+            particle source scalar
+
+    Action Parameters:
+        0: Total pellet rate (`S_total`) in particles/s
+        1: Gaussian location (`pellet_deposition_location`) - normalized radius [0,1]
+        2: Gaussian width (`pellet_width`) - normalized radial coordinate
+
+    Example:
+        >>> pellet_action = PelletAction()
+        >>> pellet_action._set_values([2e22, 0.85, 0.1])  # 2e22 particles/s
+    """
+
+    name = "Pellet"
+    dimension = 3  # total particle rate, location, width
+    default_min = [0.0, 0.0, 0.01]
+    default_max = [np.inf, 1.0, np.inf]
+    default_ramp_rate = [None, None, None]
+    config_mapping = {
+        ("sources", "pellet", "S_total"): (0, 1),
+        ("sources", "pellet", "pellet_deposition_location"): (1, 1),
+        ("sources", "pellet", "pellet_width"): (2, 1),
+    }
+    state_var = {"scalars": ["S_pellet"]}
