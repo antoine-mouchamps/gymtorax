@@ -16,7 +16,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.12'
     
     - name: Install Poetry
       uses: snok/install-poetry@v1
@@ -51,6 +51,28 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Extracted version: $VERSION"
     
+    - name: Extract changelog section
+      run: |
+        VERSION="${{ steps.extract_version.outputs.version }}"
+        awk -v ver="$VERSION" '
+          $0 ~ "^## \\[" ver "\\]" {found=1; next}
+          found && /^## \[/ {exit}
+          found {print}
+        ' CHANGELOG.md > release_body.md
+        if [ ! -s release_body.md ]; then
+          echo "::error::No section for version $VERSION found in CHANGELOG.md"
+          exit 1
+        fi
+        PREV=$(grep -oP '^## \[\K[^\]]+' CHANGELOG.md | grep -Fx -A1 "$VERSION" | sed -n 2p)
+        if [ -n "$PREV" ]; then
+          {
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/v$PREV...v$VERSION"
+          } >> release_body.md
+        fi
+        echo "Release notes for $VERSION:"
+        cat release_body.md
+
     - name: Update pyproject.toml version
       run: |
         poetry version ${{ steps.extract_version.outputs.version }}
@@ -68,7 +90,7 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: dist/*
-        generate_release_notes: true
+        body_path: release_body.md
         draft: false
         prerelease: ${{ contains(steps.extract_version.outputs.version, 'a') || contains(steps.extract_version.outputs.version, 'b') || contains(steps.extract_version.outputs.version, 'rc') }}
       env:
