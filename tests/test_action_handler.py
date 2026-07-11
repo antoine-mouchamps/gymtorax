@@ -6,6 +6,7 @@ from gymtorax.action_handler import (
     Action,
     ActionHandler,
     EcrhAction,
+    GasPuffAction,
     IpAction,
     NbiAction,
     VloopAction,
@@ -317,6 +318,36 @@ def test_nbi_action():
     assert ("sources", "generic_current", "gaussian_width") in mapping
     assert isinstance(nbi.state_var, dict)
     assert nbi.state_var == {"scalars": ["P_aux_generic_total"]}
+
+
+def test_gas_puff_action():
+    # Test GasPuffAction class attributes and config mapping
+    puff = GasPuffAction()
+    assert puff.dimension == 2
+    np.testing.assert_array_equal(puff.min, [0.0, 0.01])
+    np.testing.assert_array_equal(puff.max, [np.inf, np.inf])
+    mapping = puff.get_mapping()
+    assert ("sources", "gas_puff", "S_total") in mapping
+    assert ("sources", "gas_puff", "puff_decay_length") in mapping
+    assert isinstance(puff.state_var, dict)
+    assert puff.state_var == {"scalars": ["S_gas_puff"]}
+
+
+def test_gas_puff_action_init_dict_and_update():
+    # Test init_dict and get_provider_updates for GasPuffAction
+    puff = GasPuffAction()
+    puff._set_values([1e22, 0.3])
+    config = {"sources": {"gas_puff": {"S_total": None, "puff_decay_length": None}}}
+    puff.init_dict(config)
+    assert config["sources"]["gas_puff"]["S_total"][0][0] == 1e22
+    assert config["sources"]["gas_puff"]["puff_decay_length"][0][0] == 0.3
+    # Update at time=2.0: ramps from previous values (window start) to the
+    # new values (window end).
+    puff._set_values([2e22, 0.2])
+    updates = puff.get_provider_updates(time=2.0, delta_t_a=1.0)
+    assert updates["sources.gas_puff.S_total"].time.tolist() == [2.0, 3.0]
+    assert updates["sources.gas_puff.S_total"].value.tolist() == [1e22, 2e22]
+    assert updates["sources.gas_puff.puff_decay_length"].value.tolist() == [0.3, 0.2]
 
 
 def test_ecrh_action_init_dict_and_update():
