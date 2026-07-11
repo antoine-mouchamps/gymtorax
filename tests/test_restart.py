@@ -88,9 +88,7 @@ def _make_restart_config(
     # (initial_psi_mode='j'); a restart must instead honor the psi restored
     # from the file, which TORAX does only in 'profile_conditions' mode.
     config["profile_conditions"]["initial_psi_mode"] = "profile_conditions"
-    config["profile_conditions"]["Ip"] = (
-        ip if ip is not None else float(scalars["Ip"])
-    )
+    config["profile_conditions"]["Ip"] = ip if ip is not None else float(scalars["Ip"])
     config["sources"]["ecrh"]["P_total"] = float(scalars["P_ecrh_e"])
     config["sources"]["generic_heat"]["P_total"] = p_nbi
     config["sources"]["generic_current"]["I_generic"] = p_nbi / 16e6
