@@ -237,7 +237,7 @@ class ConfigLoader:
         """
         # Controlling Ip requires TORAX to take Ip from the parameters rather
         # than from the geometry file.
-        if "Ip" in self.action_handler.get_action_variables().get("scalars", []):
+        if ("profile_conditions", "Ip") in self.action_handler.get_all_config_paths():
             if self.config_dict["geometry"].get("Ip_from_parameters") is False:
                 raise ValueError(
                     "Control over Ip implies that 'Ip_from_parameters' must be"

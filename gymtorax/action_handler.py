@@ -494,6 +494,19 @@ class ActionHandler:
 
         return variables
 
+    def get_all_config_paths(self) -> set[tuple[str, ...]]:
+        """Get the union of all configuration paths controlled by any action.
+
+        Returns:
+            set[tuple[str, ...]]: Set of all configuration path tuples from
+                all action ``config_mapping`` entries.
+        """
+        return {
+            key
+            for action in self.get_actions().values()
+            for key in action.get_mapping()
+        }
+
     def update_actions(self, actions: dict[str, NDArray[np.floating]]) -> None:
         """Update the current values of all managed actions.
 
