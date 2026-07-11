@@ -2,6 +2,18 @@
 
 All notable changes to GymTORAX are documented in this file.
 
+## [1.1.1] - 2026-07-11
+
+This release updates the GymTORAX documentation for v1.1.
+
+### Documentation
+
+- Documented the three new actions (`GenericHeatAction`, `GasPuffAction`, `PelletAction`) in the developer guide.
+- Updated the citation page with the published *Software Impacts* article.
+- Fixed the RL user quickstart example, which used a non-existing API call.
+- Added a notice on the example results page that its numerical results were obtained with GymTORAX v1.0 (TORAX 1.0) and are no longer up to date under TORAX 1.4.
+- The TORAX documentation links now point to the latest stable version instead of v1.0.3.
+
 ## [1.1.0] - 2026-07-11
 
 This release upgrades GymTORAX from TORAX 1.0 to TORAX 1.4, rebuilds the simulation core on the new TORAX orchestration API, and adds three new actions, restart-from-file support, and a physics regression test suite. Several aspects of the wrapper internal logic are also improved.
@@ -37,5 +49,6 @@ Initial public release: Gymnasium environments on top of TORAX 1.0 with the
 ITER hybrid ramp-up scenario (`gymtorax/IterHybrid-v0`), configurable action
 and observation handlers, rendering, and baseline agents.
 
+[1.1.1]: https://github.com/antoine-mouchamps/gymtorax/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/antoine-mouchamps/gymtorax/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/antoine-mouchamps/gymtorax/releases/tag/v1.0.0
