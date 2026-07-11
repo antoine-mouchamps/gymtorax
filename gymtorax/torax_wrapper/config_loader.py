@@ -249,7 +249,9 @@ class ConfigLoader:
         # the external current silently follows
         # fraction_of_total_current * Ip instead.
         i_generic_controlled = (
-            "sources", "generic_current", "I_generic"
+            "sources",
+            "generic_current",
+            "I_generic",
         ) in self.action_handler.get_all_config_paths()
         if i_generic_controlled and not self.config_dict.get("sources", {}).get(
             "generic_current", {}
