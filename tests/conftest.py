@@ -48,6 +48,13 @@ def _is_scenario_generator(item) -> bool:
 
 
 def _is_scenario_comparison(item) -> bool:
+    """Tests run (exclusively) by ``--test-scenarios``.
+
+    The comparison half of the scenario module, plus the restart tests
+    (which depend on the same scenario reference file).
+    """
+    if item.fspath.basename == "test_restart.py":
+        return True
     return (
         item.fspath.basename == "test_scenarios.py"
         and "test_generate_references" not in item.nodeid
