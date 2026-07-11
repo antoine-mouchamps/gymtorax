@@ -21,13 +21,14 @@ the environments, including key methods and a simple example.
    :noindex:
 
 
-Here is a simple example of how to use the Gym-TORAX package for reinforcement 
-learning applications:
+Here is a simple example of how to use the Gym-TORAX package for reinforcement learning applications:
 
 .. code-block:: python
 
-    import gymtorax
-    env = gymtorax.make("basic_env")
+    import gymnasium as gym
+    import gymtorax  # registers the Gym-TORAX environments
+
+    env = gym.make("gymtorax/IterHybrid-v0")
     agent = YourRLAgent(env.action_space, env.observation_space)
     obs, info = env.reset()
     terminated = False

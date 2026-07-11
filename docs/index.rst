@@ -16,7 +16,7 @@ GymTorax Documentation
 **A Gymnasium environment for reinforcement learning in tokamak plasma control**
 
 Gym-TORAX is a Python package that provides reinforcement learning (RL) 
-environments for plasma control, built on top of the `TORAX plasma simulator <https://torax.readthedocs.io/en/v1.0.3/index.html>`_.
+environments for plasma control, built on top of the `TORAX plasma simulator <https://torax.readthedocs.io/en/stable/index.html>`_.
 
 Its purpose is to bridge the gap between plasma physics simulation and RL research:
    - For RL users, it exposes ready-to-use environments following the `Gymnasium API <https://gymnasium.farama.org/index.html>`_, abstracting away the plasma physics.
