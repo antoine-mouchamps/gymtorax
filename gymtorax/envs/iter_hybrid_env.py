@@ -1,7 +1,5 @@
 import os
 
-import numpy as np
-
 from .. import rewards as reward
 from ..action_handler import EcrhAction, IpAction, NbiAction
 from ..observation_handler import AllObservation
@@ -13,21 +11,12 @@ ITER hybrid scenario based (roughly) on van Mulders Nucl. Fusion 2021.
 With Newton-Raphson solver and adaptive timestep (backtracking)
 """
 
-_NBI_W_TO_MA = 1 / 16e6  # rough estimate of NBI heating power to current drive
 W_to_Ne_ratio = 0
-
-# No NBI during rampup. Rampup all NBI power between 99-100 seconds
-nbi_times = np.array([0, 99, 100])
-nbi_powers = np.array([0, 0, 33e6])
-nbi_cd = nbi_powers * _NBI_W_TO_MA
 
 # Gaussian prescription of "NBI" deposition profiles and fractional deposition
 r_nbi = 0.25
 w_nbi = 0.25
 el_heat_fraction = 0.66
-
-# No ECCD power for this config (but kept here for future flexibility)
-eccd_power = {0: 0, 99: 0, 100: 20.0e6}
 
 
 CONFIG = {
@@ -37,7 +26,7 @@ CONFIG = {
         "Z_eff": {0.0: {0.0: 2.0, 1.0: 2.0}},  # sets impurity densities
     },
     "profile_conditions": {
-        "Ip": {0: 3e6, 100: 12.5e6},  # total plasma current in MA
+        "Ip": 3e6,
         "T_i": {0.0: {0.0: 6.0, 1.0: 0.2}},  # T_i initial condition
         "T_i_right_bc": 0.2,  # T_i boundary condition
         "T_e": {0.0: {0.0: 6.0, 1.0: 0.2}},  # T_e initial condition
@@ -74,12 +63,12 @@ CONFIG = {
         "ecrh": {  # ECRH/ECCD (with Lin-Liu)
             "gaussian_width": 0.05,
             "gaussian_location": 0.35,
-            "P_total": eccd_power,
+            "P_total": 0.0,  # no ECRH power at t=0
         },
         "generic_heat": {  # Proxy for NBI heat source
             "gaussian_location": r_nbi,  # Gaussian location in normalized coordinates
             "gaussian_width": w_nbi,  # Gaussian width in normalized coordinates
-            "P_total": (nbi_times, nbi_powers),  # Total heating power
+            "P_total": 0.0,  # no NBI power at t=0
             # electron heating fraction r
             "electron_heat_fraction": el_heat_fraction,
         },
@@ -87,7 +76,7 @@ CONFIG = {
             "use_absolute_current": True,  # I_generic is total external current
             "gaussian_width": w_nbi,
             "gaussian_location": r_nbi,
-            "I_generic": (nbi_times, nbi_cd),
+            "I_generic": 0.0,  # no NBI current drive at t=0
         },
         "fusion": {},  # fusion power
         "ei_exchange": {},  # equipartition

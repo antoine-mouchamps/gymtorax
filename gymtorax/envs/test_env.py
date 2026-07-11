@@ -35,7 +35,7 @@ CONFIG = {
         'Z_eff': {0.0: {0.0: 2.0, 1.0: 2.0}},  # sets impurity densities
     },
     'profile_conditions': {
-        'Ip': {0: 3e6, 100: 12.5e6},  # total plasma current in MA
+        'Ip': 3e6,
         'T_i': {0.0: {0.0: 6.0, 1.0: 0.2}}, # T_i initial condition
         'T_i_right_bc': 0.2, # T_i boundary condition
         'T_e': {0.0: {0.0: 6.0, 1.0: 0.2}},  # T_e initial condition
