@@ -74,10 +74,13 @@ class Action(ABC):
         config_mapping (dict[tuple[str, ...], tuple[int, float]]): Mapping from configuration
             paths to parameter indices and scaling factors. Keys are tuples representing the nested
             path in the config dictionary, values are tuples of ``(parameter_index, scaling_factor)``.
-        state_var (tuple[tuple[str, ...], ...]): Tuple of tuples specifying the
-            state variables directly modified by this action. Each inner tuple
-            contains the path to a state variable (e.g., ``('scalars', 'Ip')`` or
-            ``('profiles', 'p_ecrh_e')``).
+        state_var (dict[str, list[str]]): TORAX output variables that duplicate
+            this action, by category (e.g. ``{'scalars': ['Ip']}``). They are
+            hidden from the observation space (the agent already knows them
+            from its own action) and, on a restart, checked for consistency
+            against the restart file. Listed scalars are assumed identical to
+            the action's primary parameter (index 0, the magnitude by
+            convention).
 
     Attributes:
         values (list[float]): Current parameter values
@@ -277,11 +280,14 @@ class Action(ABC):
     def init_dict(self, config_dict: dict[str, Any]) -> None:
         """Initialize a TORAX configuration dictionary with this action parameters.
 
-        This method sets up the configuration dictionary with the action current
-        values at ``time=0``, creating the proper time-dependent parameter structure
-        expected by TORAX. If the configuration already provides a value for a
-        mapped parameter, that value is adopted as the action's initial value;
-        otherwise the action's lower bound is used.
+        Each mapped parameter is written as a single time point at the episode
+        start time: ``restart.time`` when restarting from a previous run,
+        otherwise ``numerics.t_initial`` (``0.0`` by default). The initial
+        value is taken from the configuration if provided there, and from the
+        action's lower bound otherwise. Since the action alone determines how
+        the parameter evolves afterwards, anything else in the configuration
+        is rejected: a time-varying series (e.g. ``{0: 3e6, 100: 12.5e6}``)
+        or a single value at another time than the start time.
 
         The series is written with ``"PIECEWISE_LINEAR"`` interpolation. This
         matters beyond initialization: the runtime-parameter provider built
@@ -298,9 +304,16 @@ class Action(ABC):
 
         Raises:
             RuntimeError: If the configuration dictionary does not have the
-                expected structure for this action parameters, or any other
-                error occurs during initialization.
+                expected structure for this action parameters, if it provides
+                a time-varying series or a value at another time than the
+                episode start time, or any other error occurs during
+                initialization.
         """
+        if config_dict.get("restart", {}).get("do_restart", False):
+            t_initial = config_dict["restart"]["time"]
+        else:
+            t_initial = config_dict.get("numerics", {}).get("t_initial", 0.0)
+
         try:
             for dict_path, (idx, factor) in self.config_mapping.items():
                 # drill down into config_dict
@@ -309,18 +322,35 @@ class Action(ABC):
                     d = d[key]
 
                 key = dict_path[-1]
+                # Action-controlled parameters can only carry their value at
+                # t=t_initial in the configuration: the action determines all
+                # later values.
+                if (isinstance(d[key], dict) and len(d[key]) > 1) or (
+                    isinstance(d[key], tuple) and len(d[key][0]) > 1
+                ):
+                    raise ValueError(
+                        f"'{'.'.join(dict_path)}' is controlled by action "
+                        f"'{self.name}', but the configuration file provides "
+                        "a time-varying series. Provide only the initial "
+                        f"value at t=t_initial ({t_initial})."
+                    )
                 # Check if there is no value associated to the existing key
                 if d[key] != {}:
                     if isinstance(d[key], (float, int)):  # noqa: UP038
                         self.values[idx] = d[key]
-                    elif isinstance(d[key], dict):
-                        self.values[idx] = d[key][0]
-                    elif isinstance(d[key], tuple) and 0 in d[key][0]:
-                        if isinstance(d[key][0], (list, tuple)):  # noqa: UP038
-                            pos = d[key][0].index(0)
-                        elif isinstance(d[key][0], np.ndarray):
-                            pos = np.where(d[key][0] == 0)[0][0]
-                        self.values[idx] = d[key][1][pos]
+                    elif isinstance(d[key], (dict, tuple)):  # noqa: UP038
+                        if isinstance(d[key], dict):
+                            time, value = next(iter(d[key].items()))
+                        else:
+                            time, value = d[key][0][0], d[key][1][0]
+                        if time != t_initial:
+                            raise ValueError(
+                                f"'{'.'.join(dict_path)}' is controlled by "
+                                f"action '{self.name}', but its value is "
+                                f"given at t={time} instead of t=t_initial "
+                                f"({t_initial})."
+                            )
+                        self.values[idx] = value
                     # TODO: This log is only valid if we do not do a restart from a .nc file, since in such a case,
                     # no initial condition are needed. Currently it logs it but (somehow, to be investigated) it is
                     # not taken into account.
@@ -332,7 +362,7 @@ class Action(ABC):
                         f" using the lower bound {self.values[idx]} of {key} as initial condition. Consider providing one in the configuration file."
                     )
                 # Apply the factor during initialization as well for consistency.
-                d[key] = ({0: self.values[idx] * factor}, "PIECEWISE_LINEAR")
+                d[key] = ({t_initial: self.values[idx] * factor}, "PIECEWISE_LINEAR")
 
             # The initial values are the starting point of the first window.
             self.prev_values = np.array(self.values, dtype=self.dtype).copy()
@@ -507,6 +537,47 @@ class ActionHandler:
 
         self.number_of_updates += 1
 
+    def validate_restart_scalars(self, scalars, rtol: float = 1e-2) -> None:
+        """Check action initial values against restart-file scalars.
+
+        When an episode restarts from a previous TORAX run, the initial
+        action values seeded from the configuration must match the values
+        recorded in the restart file at the restart time; otherwise the
+        episode starts physically inconsistent (e.g. the plasma state carries
+        the previous run's current while the provider ramps from a different
+        one). Each scalar listed in an action's ``state_var`` is compared to
+        the action's primary parameter (index 0), which it duplicates by
+        convention. Scalars missing from the file are skipped with a warning.
+
+        Args:
+            scalars: Mapping of TORAX output scalar names to their values in
+                the restart file at the restart time (e.g. the ``scalars``
+                dataset of a TORAX output file).
+            rtol: Relative tolerance for the comparison.
+
+        Raises:
+            ValueError: If an action's initial value does not match the
+                corresponding scalar in the restart file.
+        """
+        for action in self.get_actions().values():
+            for scalar_name in action.state_var.get("scalars", []):
+                if scalar_name not in scalars:
+                    logger.warning(
+                        f" restart consistency check skipped for '{scalar_name}'"
+                        f" (action '{action.name}'): not found in the restart file."
+                    )
+                    continue
+                file_value = float(scalars[scalar_name])
+                if not np.isclose(action.values[0], file_value, rtol=rtol):
+                    raise ValueError(
+                        f"Restart consistency check failed for action "
+                        f"'{action.name}': the configuration provides "
+                        f"{action.values[0]} as initial value, but the "
+                        f"restart file has {scalar_name} = {file_value}. "
+                        "Set the initial value in the configuration to match "
+                        "the previous run."
+                    )
+
     def build_action_space(self) -> spaces.Dict:
         """Build a Gymnasium Dict action space from all managed actions.
 
@@ -575,11 +646,12 @@ class ActionHandler:
 # in TORAX plasma simulations. Users can use these directly.
 #
 # TODO: Reduce the action dimensionalities to physically controllable
-# actuators only, for all actions. Deposition shape parameters are env/model
-# dependant rather than actual time-varying actuators (NBI location/width,
-# ECRH width, gas puff decay length) and should therefore move to constructor
-# parameters (like ``nbi_w_to_ma``), keeping only real actuators
-# in the action vectors: NBI power, ECRH power + location, gas puff rate.
+# parameters only, for all actions. Deposition shape parameters are env/model
+# dependant rather than actually controllable in real time (NBI
+# location/width, ECRH width, gas puff decay length) and should therefore
+# move to constructor parameters (like ``nbi_w_to_ma``), keeping only the
+# controllable ones in the action vectors: NBI power, ECRH power + location,
+# gas puff rate.
 
 
 class IpAction(Action):

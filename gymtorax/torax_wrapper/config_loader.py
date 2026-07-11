@@ -8,6 +8,7 @@ Gymnasium environments.
 from typing import Any
 
 import torax
+import xarray as xr
 from torax import ToraxConfig
 
 from ..action_handler import ActionHandler
@@ -246,6 +247,42 @@ class ConfigLoader:
         action_list = self.action_handler.get_actions().values()
         for a in action_list:
             a.init_dict(self.config_dict)
+
+        # When restarting from a previous run, the action initial values
+        # in the configuration file must match the action values
+        # recorded in the last state of the restart file.
+        if self.config_dict.get("restart", {}).get("do_restart", False):
+            restart = self.config_dict["restart"]
+
+            # TORAX restores psi from the restart file through
+            # profile_conditions, which is only honored when initial_psi_mode
+            # is 'profile_conditions' (the TORAX default). Any other mode
+            # silently recomputes the initial psi instead of restoring it,
+            # making the restarted plasma state inconsistent with the file.
+            psi_mode = self.config_dict.get("profile_conditions", {}).get(
+                "initial_psi_mode", "profile_conditions"
+            )
+            if psi_mode != "profile_conditions":
+                raise ValueError(
+                    f"Restarting with initial_psi_mode='{psi_mode}' would "
+                    "silently recompute the initial psi instead of restoring "
+                    "it from the restart file. Remove initial_psi_mode from "
+                    "the configuration (or set it to 'profile_conditions') "
+                    "when restarting."
+                )
+            try:
+                with open(restart["filename"], "rb") as f:
+                    dt_open = xr.open_datatree(f)
+                    data_tree = dt_open.compute()
+            except Exception as e:
+                raise ValueError(
+                    f"Could not load restart file '{restart.get('filename', 'no filename')}' for "
+                    f"the restart consistency check: {e}"
+                )
+
+            data_tree = data_tree.sel(time=restart["time"], method="nearest")
+            scalars = data_tree.children["scalars"].dataset.squeeze()
+            self.action_handler.validate_restart_scalars(scalars)
 
     def validate_discretization(self, discretization_torax: str) -> None:
         """Validate the discretization settings.
